@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import type { Direction, MoveState } from "../input/InputManager";
 
-const SPEED = 90;
+// 32pxタイル(16pxの倍)に合わせて、当たり判定・移動速度も倍にしてある。
+const SPEED = 180;
 
 // スプライトシートのフレーム番号(2列x3行、行: down/side/up)
 const FRAMES = {
@@ -18,8 +19,8 @@ export class Player {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.sprite = scene.physics.add.sprite(x, y, "player", 0);
     this.sprite.setCollideWorldBounds(true);
-    this.sprite.setSize(12, 10);
-    this.sprite.setOffset(2, 20);
+    this.sprite.setSize(24, 20);
+    this.sprite.setOffset(4, 40);
     this.sprite.setDepth(10);
 
     this.createAnimations(scene);

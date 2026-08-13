@@ -30,7 +30,8 @@ export type ClientMessage =
       chunkId: string;
     }
   | { type: "craft-building"; buildingType: string; x: number; y: number; chunkId: string }
-  | { type: "craft-unlock"; chunkId: string };
+  | { type: "craft-unlock"; chunkId: string }
+  | { type: "reset" };
 
 export type ServerMessage =
   | {
@@ -53,7 +54,8 @@ export type ServerMessage =
   | { type: "player-left"; id: string }
   | { type: "room-full" }
   | { type: "building-placed"; building: PlacedBuilding }
-  | { type: "chunk-unlocked"; chunkId: string };
+  | { type: "chunk-unlocked"; chunkId: string }
+  | { type: "base-reset" };
 
 export const MAX_PLAYERS = 4;
 export const DEFAULT_CHUNK_ID = "chunk-home";

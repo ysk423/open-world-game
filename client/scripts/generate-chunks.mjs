@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const TILE_SIZE = 16;
+const TILE_SIZE = 32;
 const WIDTH = 40;
 const HEIGHT = 30;
 

@@ -3,8 +3,10 @@ import Phaser from "phaser";
 import { GameScene } from "./scenes/GameScene";
 import { setJoinInfo } from "./net/joinInfo";
 
-const INTERNAL_WIDTH = 384;
-const INTERNAL_HEIGHT = 216;
+// タイル/スプライトを32px(16pxの倍)に上げたのに合わせて、内部解像度も倍にして
+// 画面に映るタイル数(ズーム感)を変えないようにしている。
+const INTERNAL_WIDTH = 768;
+const INTERNAL_HEIGHT = 432;
 
 function startGame(): void {
   const config: Phaser.Types.Core.GameConfig = {
@@ -35,15 +37,13 @@ function setupJoinForm(): void {
   const joinScreen = document.querySelector<HTMLDivElement>("#join-screen")!;
   const form = document.querySelector<HTMLFormElement>("#join-form")!;
   const nameInput = document.querySelector<HTMLInputElement>("#name-input")!;
-  const roomInput = document.querySelector<HTMLInputElement>("#room-input")!;
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const name = nameInput.value.trim();
-    const roomId = roomInput.value.trim();
-    if (!name || !roomId) return;
+    if (!name) return;
 
-    setJoinInfo({ name, roomId });
+    setJoinInfo({ name });
     joinScreen.remove();
     startGame();
   });

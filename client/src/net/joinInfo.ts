@@ -1,7 +1,9 @@
 export type JoinInfo = {
   name: string;
-  roomId: string;
 };
+
+/** 全員が同じ拠点を共有するため、ルームIDは固定 */
+export const SHARED_ROOM_ID = "main";
 
 let current: JoinInfo | null = null;
 

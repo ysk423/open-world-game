@@ -9,7 +9,7 @@ import { Monster } from "../entities/Monster";
 import { Npc } from "../entities/Npc";
 import { RoomClient } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
-import { getJoinInfo } from "../net/joinInfo";
+import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
@@ -17,13 +17,15 @@ import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
+import { ResetButton } from "../ui/ResetButton";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
 
 const MAP_WIDTH_TILES = 40;
 const MAP_HEIGHT_TILES = 30;
-const TILE_SIZE = 16;
+// タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
+const TILE_SIZE = 32;
 
 // スポーン地点(縦の道の上、タイル座標。chunk-homeの座標系)
 const SPAWN_TILE = { x: 19, y: 10 };
@@ -32,25 +34,25 @@ const SPAWN_TILE = { x: 19, y: 10 };
 const NETWORK_TICK_MS = 80;
 
 // プレイヤーがこの距離まで端に近づいたら隣接チャンクへ遷移する
-const EDGE_MARGIN = 6;
+const EDGE_MARGIN = 12;
 // 遷移後、反対側の端からどれだけ内側に出現するか。
 // プレイヤーの物理ボディは見た目のスプライトから上下非対称にオフセットされている
-// (Player.tsのsetOffset参照。上+4px/下+14pxとズレが大きい)。この値が小さすぎると、
+// (Player.tsのsetOffset参照。上+8px/下+28pxとズレが大きい)。この値が小さすぎると、
 // 反対側の端に出現した直後、その端のEDGE_MARGIN判定にちょうど一致してしまい、
 // 出現した瞬間に元のチャンクへ押し戻される(バウンスする)ことがある。
-const ENTRY_OFFSET = 30;
+const ENTRY_OFFSET = 60;
 
 // 採集の判定距離
-const GATHER_CLICK_RADIUS = 20;
-const GATHER_REACH_RADIUS = 40;
+const GATHER_CLICK_RADIUS = 40;
+const GATHER_REACH_RADIUS = 80;
 
 // 攻撃の判定距離
-const ATTACK_CLICK_RADIUS = 20;
-const ATTACK_REACH_RADIUS = 40;
+const ATTACK_CLICK_RADIUS = 40;
+const ATTACK_REACH_RADIUS = 80;
 
 // 会話の判定距離
-const TALK_CLICK_RADIUS = 20;
-const TALK_REACH_RADIUS = 40;
+const TALK_CLICK_RADIUS = 40;
+const TALK_REACH_RADIUS = 80;
 
 const PLAYER_MAX_HP = 3;
 const CONTACT_DAMAGE = 1;
@@ -114,21 +116,21 @@ export class GameScene extends Phaser.Scene {
     this.load.tilemapTiledJSON("chunk-east", "maps/chunk-east.json");
     this.load.image("tiles", "assets/tileset.png");
     this.load.spritesheet("player", "assets/player.png", {
-      frameWidth: 16,
-      frameHeight: 32,
+      frameWidth: 32,
+      frameHeight: 64,
     });
     this.load.spritesheet("gathering", "assets/gathering.png", {
-      frameWidth: 16,
-      frameHeight: 16,
+      frameWidth: 32,
+      frameHeight: 32,
     });
     this.load.spritesheet("buildings", "assets/buildings.png", {
-      frameWidth: 16,
-      frameHeight: 16,
+      frameWidth: 32,
+      frameHeight: 32,
     });
     this.load.image("monster", "assets/monster.png");
     this.load.spritesheet("npc", "assets/npc.png", {
-      frameWidth: 16,
-      frameHeight: 32,
+      frameWidth: 32,
+      frameHeight: 64,
     });
 
     this.load.audio("bgm", "assets/audio/bgm.wav");
@@ -148,6 +150,7 @@ export class GameScene extends Phaser.Scene {
     this.health = new Health(PLAYER_MAX_HP);
     new HealthHud(this.health);
     new HelpPanel();
+    new ResetButton(() => this.roomClient.sendReset());
 
     if (!this.sound.get("bgm")) {
       this.sound.play("bgm", { loop: true, volume: 0.25 });
@@ -170,8 +173,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupNetworking(): void {
-    const { name, roomId } = getJoinInfo();
-    this.roomClient = new RoomClient(roomId, name, {
+    const { name } = getJoinInfo();
+    this.roomClient = new RoomClient(SHARED_ROOM_ID, name, {
       onInit: (selfId, players, buildings, unlockedChunks) => {
         this.selfId = selfId;
         for (const player of players) {
@@ -200,7 +203,7 @@ export class GameScene extends Phaser.Scene {
         this.remotePlayers.delete(id);
       },
       onRoomFull: () => {
-        window.alert("このルームは満員です(最大4人まで)。別のルームIDを試してください。");
+        window.alert("拠点は満員です(最大4人まで)。しばらくしてから再度お試しください。");
         window.location.reload();
       },
       onBuildingPlaced: (building) => {
@@ -210,6 +213,12 @@ export class GameScene extends Phaser.Scene {
       onChunkUnlocked: (chunkId) => {
         this.baseState.unlockedChunks.add(chunkId);
         this.craftMenu.refresh();
+      },
+      onBaseReset: () => {
+        this.baseState.buildings = [];
+        for (const building of this.buildingSprites) building.destroy();
+        this.buildingSprites = [];
+        this.syncUnlockedChunks(["chunk-home"]);
       },
     });
   }

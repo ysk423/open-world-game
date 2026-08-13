@@ -29,6 +29,7 @@ export type RoomClientEvents = {
   onRoomFull: () => void;
   onBuildingPlaced: (building: PlacedBuilding) => void;
   onChunkUnlocked: (chunkId: string) => void;
+  onBaseReset: () => void;
 };
 
 /** 拠点ルームとのWebSocket通信をゲームロジックから隠蔽する層(partysocket/partyserverのラッパー) */
@@ -77,6 +78,9 @@ export class RoomClient {
         case "chunk-unlocked":
           events.onChunkUnlocked(message.chunkId);
           break;
+        case "base-reset":
+          events.onBaseReset();
+          break;
       }
     });
   }
@@ -91,6 +95,10 @@ export class RoomClient {
 
   sendCraftUnlock(chunkId: string): void {
     this.sendRaw({ type: "craft-unlock", chunkId });
+  }
+
+  sendReset(): void {
+    this.sendRaw({ type: "reset" });
   }
 
   private sendRaw(message: ClientMessage): void {

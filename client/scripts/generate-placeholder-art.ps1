@@ -5,18 +5,16 @@
 # without a BOM using the system ANSI codepage (Shift-JIS on ja-JP Windows), and some
 # UTF-8 byte sequences for kanji get misparsed as Shift-JIS, silently swallowing the
 # newline right after the comment and eating the next line of code.
+#
+# Tile/sprite size is 32px (doubled from the original 16px placeholders) for higher
+# visual detail. Rounded shapes use FillEllipse instead of stacked rectangles.
 Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path -Parent $PSScriptRoot
 $assetsDir = Join-Path $root "public\assets"
 New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
 
-# ---------- tileset (16x16 x 4 tiles: grass, path, water, rock) ----------
-$tileSize = 16
-$tileset = New-Object System.Drawing.Bitmap ($tileSize * 4), $tileSize
-$g = [System.Drawing.Graphics]::FromImage($tileset)
-$g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
-$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
+$tileSize = 32
 
 function Fill($gfx, $x, $y, $w, $h, $r, $gg, $b) {
     $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, $r, $gg, $b))
@@ -24,80 +22,90 @@ function Fill($gfx, $x, $y, $w, $h, $r, $gg, $b) {
     $brush.Dispose()
 }
 
+function FillOval($gfx, $x, $y, $w, $h, $r, $gg, $b) {
+    $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, $r, $gg, $b))
+    $gfx.FillEllipse($brush, $x, $y, $w, $h)
+    $brush.Dispose()
+}
+
+# ---------- tileset (32x32 x 4 tiles: grass, path, water, rock) ----------
+$tileset = New-Object System.Drawing.Bitmap ($tileSize * 4), $tileSize
+$g = [System.Drawing.Graphics]::FromImage($tileset)
+$g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
+
 # tile0: grass
-Fill $g 0 0 16 16 122 199 92
-Fill $g 3 3 2 2 100 178 74
-Fill $g 10 8 2 2 100 178 74
-Fill $g 6 12 2 2 100 178 74
+Fill $g 0 0 32 32 122 199 92
+FillOval $g 4 4 5 4 100 178 74
+FillOval $g 20 16 5 4 100 178 74
+FillOval $g 10 24 5 4 100 178 74
+FillOval $g 24 6 4 3 145 215 110
+FillOval $g 6 20 4 3 145 215 110
 
 # tile1: path
-Fill $g 16 0 16 16 210 180 140
-Fill $g 18 4 3 2 190 160 120
-Fill $g 24 9 3 2 190 160 120
+Fill $g 32 0 32 32 210 180 140
+FillOval $g 36 8 6 4 190 160 120
+FillOval $g 50 18 6 4 190 160 120
+FillOval $g 42 24 5 3 190 160 120
+FillOval $g 44 6 4 3 228 202 168
 
 # tile2: water
-Fill $g 32 0 16 16 74 144 217
-Fill $g 34 3 6 1 130 190 240
-Fill $g 40 9 6 1 130 190 240
+Fill $g 64 0 32 32 74 144 217
+Fill $g 68 6 12 2 130 190 240
+Fill $g 80 18 12 2 130 190 240
+Fill $g 70 24 10 2 130 190 240
+FillOval $g 88 8 4 3 170 215 250
 
 # tile3: rock (on grass background)
-Fill $g 48 0 16 16 122 199 92
-Fill $g 51 5 10 8 138 138 138
-Fill $g 52 4 8 2 158 158 158
+Fill $g 96 0 32 32 122 199 92
+FillOval $g 102 12 20 16 100 100 100
+FillOval $g 100 8 20 16 140 140 140
+FillOval $g 104 10 10 6 170 170 170
 
 $g.Dispose()
 $tileset.Save((Join-Path $assetsDir "tileset.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $tileset.Dispose()
 
-# ---------- player spritesheet (16x32 x 3 facings x 2 frames) ----------
+# ---------- player spritesheet (32x64 x 3 facings x 2 frames) ----------
 # row0: down (front), row1: side (right-facing; left uses flipX), row2: up (back)
-$fw = 16; $fh = 32
+$fw = 32; $fh = 64
 $sheet = New-Object System.Drawing.Bitmap ($fw * 2), ($fh * 3)
 $g2 = [System.Drawing.Graphics]::FromImage($sheet)
 $g2.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
-$skin = [System.Drawing.Color]::FromArgb(255, 245, 194, 138)
-$shirt = [System.Drawing.Color]::FromArgb(255, 91, 140, 222)
-$hat = [System.Drawing.Color]::FromArgb(255, 214, 80, 80)
-$hair = [System.Drawing.Color]::FromArgb(255, 120, 72, 48)
-$pants = [System.Drawing.Color]::FromArgb(255, 60, 60, 90)
-$eye = [System.Drawing.Color]::FromArgb(255, 40, 30, 30)
+$skin = @(245, 194, 138)
+$shirt = @(91, 140, 222)
+$hat = @(214, 80, 80)
+$hair = @(120, 72, 48)
+$pants = @(60, 60, 90)
+$eye = @(40, 30, 30)
 
 function DrawFrame($gfx, $ox, $oy, $facing, $step) {
-    $skinB = New-Object System.Drawing.SolidBrush $skin
-    $shirtB = New-Object System.Drawing.SolidBrush $shirt
-    $hatB = New-Object System.Drawing.SolidBrush $hat
-    $hairB = New-Object System.Drawing.SolidBrush $hair
-    $pantsB = New-Object System.Drawing.SolidBrush $pants
-    $eyeB = New-Object System.Drawing.SolidBrush $eye
-
     # head
-    $gfx.FillRectangle($skinB, $ox+4, $oy+2, 8, 7)
+    FillOval $gfx ($ox+8) ($oy+4) 16 14 $skin[0] $skin[1] $skin[2]
     # hat
-    $gfx.FillRectangle($hatB, $ox+3, $oy+0, 10, 3)
+    FillOval $gfx ($ox+7) ($oy+0) 18 8 $hat[0] $hat[1] $hat[2]
     # body (shirt)
-    $gfx.FillRectangle($shirtB, $ox+3, $oy+9, 10, 9)
+    Fill $gfx ($ox+6) ($oy+18) 20 20 $shirt[0] $shirt[1] $shirt[2]
 
     if ($facing -eq "down") {
-        $gfx.FillRectangle($eyeB, $ox+6, $oy+5, 1, 1)
-        $gfx.FillRectangle($eyeB, $ox+9, $oy+5, 1, 1)
+        FillOval $gfx ($ox+11) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
+        FillOval $gfx ($ox+18) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
     } elseif ($facing -eq "up") {
-        $gfx.FillRectangle($hairB, $ox+4, $oy+3, 8, 3)
+        FillOval $gfx ($ox+7) ($oy+5) 18 8 $hair[0] $hair[1] $hair[2]
     } else {
         # side: draw a single eye (right-facing base; left uses flipX)
-        $gfx.FillRectangle($eyeB, $ox+10, $oy+5, 1, 1)
+        FillOval $gfx ($ox+20) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
     }
 
     # legs: alternate which leg is longer to fake a walk cycle
     if ($step -eq 0) {
-        $gfx.FillRectangle($pantsB, $ox+3, $oy+18, 4, 6)
-        $gfx.FillRectangle($pantsB, $ox+9, $oy+18, 4, 5)
+        Fill $gfx ($ox+6) ($oy+36) 8 12 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+18) ($oy+36) 8 10 $pants[0] $pants[1] $pants[2]
     } else {
-        $gfx.FillRectangle($pantsB, $ox+3, $oy+18, 4, 5)
-        $gfx.FillRectangle($pantsB, $ox+9, $oy+18, 4, 6)
+        Fill $gfx ($ox+6) ($oy+36) 8 10 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+18) ($oy+36) 8 12 $pants[0] $pants[1] $pants[2]
     }
-
-    $skinB.Dispose(); $shirtB.Dispose(); $hatB.Dispose(); $hairB.Dispose(); $pantsB.Dispose(); $eyeB.Dispose()
 }
 
 DrawFrame $g2 0        0        "down" 0
@@ -111,112 +119,106 @@ $g2.Dispose()
 $sheet.Save((Join-Path $assetsDir "player.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $sheet.Dispose()
 
-# ---------- gathering point icons (16x16 x 3: wood, stone, herb) ----------
+# ---------- gathering point icons (32x32 x 3: wood, stone, herb) ----------
 $gsheet = New-Object System.Drawing.Bitmap ($tileSize * 3), $tileSize
 $g3 = [System.Drawing.Graphics]::FromImage($gsheet)
 $g3.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
 # frame0: wood (tree)
-Fill $g3 5 9 6 6 120 72 48
-Fill $g3 2 1 12 9 60 140 70
-Fill $g3 4 3 3 2 80 160 90
+Fill $g3 12 20 8 10 120 72 48
+FillOval $g3 4 2 24 20 60 140 70
+FillOval $g3 8 6 10 8 85 165 95
 
 # frame1: stone (ore rock, distinct from the plain obstacle rock: has yellow ore flecks)
-Fill $g3 18 4 12 10 150 150 150
-Fill $g3 19 3 8 2 168 168 168
-Fill $g3 21 8 2 2 224 196 64
-Fill $g3 27 10 2 2 224 196 64
+FillOval $g3 34 8 24 20 150 150 150
+FillOval $g3 38 10 12 6 175 175 175
+FillOval $g3 40 18 4 4 224 196 64
+FillOval $g3 52 14 4 4 224 196 64
 
 # frame2: herb (bush)
-Fill $g3 34 6 12 9 84 178 96
-Fill $g3 37 4 6 4 104 198 112
-Fill $g3 38 9 2 2 60 150 70
+FillOval $g3 66 10 24 18 84 178 96
+FillOval $g3 70 12 12 8 110 200 120
+FillOval $g3 74 18 4 4 230 120 150
+FillOval $g3 84 22 4 4 230 200 90
 
 $g3.Dispose()
 $gsheet.Save((Join-Path $assetsDir "gathering.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $gsheet.Dispose()
 
-# ---------- building icons (16x16 x 5: fence, well, flower_bed, signpost, storage_shed) ----------
+# ---------- building icons (32x32 x 5: fence, well, flower_bed, signpost, storage_shed) ----------
 $bsheet = New-Object System.Drawing.Bitmap ($tileSize * 5), $tileSize
 $g4 = [System.Drawing.Graphics]::FromImage($bsheet)
 $g4.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
 # frame0: fence (horizontal planks on posts)
-Fill $g4 1 10 2 5 100 72 48
-Fill $g4 13 10 2 5 100 72 48
-Fill $g4 0 6 16 3 140 100 66
-Fill $g4 0 11 16 3 140 100 66
+Fill $g4 2 20 4 10 100 72 48
+Fill $g4 26 20 4 10 100 72 48
+Fill $g4 0 12 32 5 140 100 66
+Fill $g4 0 20 32 5 140 100 66
 
 # frame1: well (stone ring with dark water center)
-Fill $g4 17 4 12 10 150 150 150
-Fill $g4 19 6 8 6 60 90 130
-Fill $g4 19 2 8 3 120 84 54
+FillOval $g4 34 8 24 20 150 150 150
+FillOval $g4 39 12 14 12 60 90 130
+FillOval $g4 36 6 20 6 180 180 180
 
 # frame2: flower_bed (dark soil with colorful flowers)
-Fill $g4 33 8 12 7 90 62 42
-Fill $g4 35 9 2 2 220 90 90
-Fill $g4 40 10 2 2 230 210 80
-Fill $g4 37 11 2 2 230 130 190
+FillOval $g4 66 16 24 14 90 62 42
+FillOval $g4 70 18 4 4 220 90 90
+FillOval $g4 80 20 4 4 230 210 80
+FillOval $g4 75 24 4 4 230 130 190
+FillOval $g4 85 16 4 4 220 90 90
 
 # frame3: signpost (post + plank sign)
-Fill $g4 55 7 2 9 120 84 54
-Fill $g4 50 3 12 5 196 164 120
-Fill $g4 52 5 3 1 120 84 54
-Fill $g4 57 5 3 1 120 84 54
+Fill $g4 110 14 4 18 120 84 54
+Fill $g4 100 6 24 10 196 164 120
+Fill $g4 104 10 3 2 120 84 54
+Fill $g4 114 10 3 2 120 84 54
 
 # frame4: storage shed (small hut: roof + wall)
-Fill $g4 65 8 14 8 170 130 90
-Fill $g4 64 3 16 6 150 60 50
-Fill $g4 70 11 4 5 90 62 42
+Fill $g4 130 16 24 12 170 130 90
+Fill $g4 128 6 28 12 150 60 50
+Fill $g4 138 20 8 8 90 62 42
 
 $g4.Dispose()
 $bsheet.Save((Join-Path $assetsDir "buildings.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $bsheet.Dispose()
 
-# ---------- monster (16x16 x 1: small slime) ----------
+# ---------- monster (32x32 x 1: small slime) ----------
 $msheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
 $g5 = [System.Drawing.Graphics]::FromImage($msheet)
 $g5.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
-Fill $g5 3 6 10 8 150 60 160
-Fill $g5 5 4 6 3 150 60 160
-Fill $g5 4 13 8 2 108 40 118
-Fill $g5 5 8 2 2 250 250 250
-Fill $g5 9 8 2 2 250 250 250
-Fill $g5 5 9 1 1 20 20 20
-Fill $g5 9 9 1 1 20 20 20
+FillOval $g5 8 22 16 6 90 30 100
+FillOval $g5 6 8 20 18 150 60 160
+FillOval $g5 10 10 10 6 180 90 190
+FillOval $g5 11 16 4 4 250 250 250
+FillOval $g5 19 16 4 4 250 250 250
+FillOval $g5 12 17 2 2 20 20 20
+FillOval $g5 20 17 2 2 20 20 20
 
 $g5.Dispose()
 $msheet.Save((Join-Path $assetsDir "monster.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $msheet.Dispose()
 
-# ---------- npc (16x32 x 2: villager A, villager B) ----------
-$nfw = 16; $nfh = 32
+# ---------- npc (32x64 x 2: villager A, villager B) ----------
+$nfw = 32; $nfh = 64
 $nsheet = New-Object System.Drawing.Bitmap ($nfw * 2), $nfh
 $g6 = [System.Drawing.Graphics]::FromImage($nsheet)
 $g6.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
 function DrawNpc($gfx, $ox, $skinColor, $hairColor, $shirtColor) {
-    $skinB = New-Object System.Drawing.SolidBrush $skinColor
-    $hairB = New-Object System.Drawing.SolidBrush $hairColor
-    $shirtB = New-Object System.Drawing.SolidBrush $shirtColor
-    $pantsB = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 90, 74, 58))
-    $eyeB = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 40, 30, 30))
-
-    $gfx.FillRectangle($skinB, $ox+4, 2, 8, 7)
-    $gfx.FillRectangle($hairB, $ox+3, 0, 10, 3)
-    $gfx.FillRectangle($shirtB, $ox+3, 9, 10, 9)
-    $gfx.FillRectangle($eyeB, $ox+6, 5, 1, 1)
-    $gfx.FillRectangle($eyeB, $ox+9, 5, 1, 1)
-    $gfx.FillRectangle($pantsB, $ox+3, 18, 4, 6)
-    $gfx.FillRectangle($pantsB, $ox+9, 18, 4, 6)
-
-    $skinB.Dispose(); $hairB.Dispose(); $shirtB.Dispose(); $pantsB.Dispose(); $eyeB.Dispose()
+    FillOval $gfx ($ox+8) 4 16 14 $skinColor[0] $skinColor[1] $skinColor[2]
+    FillOval $gfx ($ox+7) 0 18 8 $hairColor[0] $hairColor[1] $hairColor[2]
+    Fill $gfx ($ox+6) 18 20 20 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    FillOval $gfx ($ox+11) 9 3 3 40 30 30
+    FillOval $gfx ($ox+18) 9 3 3 40 30 30
+    Fill $gfx ($ox+6) 36 8 12 90 74 58
+    Fill $gfx ($ox+18) 36 8 12 90 74 58
 }
 
-$npcSkin = [System.Drawing.Color]::FromArgb(255, 245, 194, 138)
-DrawNpc $g6 0 $npcSkin ([System.Drawing.Color]::FromArgb(255, 110, 74, 46)) ([System.Drawing.Color]::FromArgb(255, 90, 160, 90))
-DrawNpc $g6 $nfw $npcSkin ([System.Drawing.Color]::FromArgb(255, 70, 48, 32)) ([System.Drawing.Color]::FromArgb(255, 210, 150, 80))
+$npcSkin = @(245, 194, 138)
+DrawNpc $g6 0 $npcSkin @(110, 74, 46) @(90, 160, 90)
+DrawNpc $g6 $nfw $npcSkin @(70, 48, 32) @(210, 150, 80)
 
 $g6.Dispose()
 $nsheet.Save((Join-Path $assetsDir "npc.png"), [System.Drawing.Imaging.ImageFormat]::Png)
