@@ -12,12 +12,10 @@ export class CraftMenu {
   private panel: HTMLDivElement;
   private isOpen = false;
   private inventory: Inventory;
-  private unlockedChunks: Set<string>;
   private onCraft: (recipe: Recipe) => void;
 
-  constructor(inventory: Inventory, unlockedChunks: Set<string>, onCraft: (recipe: Recipe) => void) {
+  constructor(inventory: Inventory, onCraft: (recipe: Recipe) => void) {
     this.inventory = inventory;
-    this.unlockedChunks = unlockedChunks;
     this.onCraft = onCraft;
 
     this.toggleButton = document.createElement("button");
@@ -32,11 +30,6 @@ export class CraftMenu {
     document.body.appendChild(this.panel);
 
     inventory.onChange(() => this.render());
-  }
-
-  /** チャンクが新しく解放された時などに再描画したい場合に呼ぶ */
-  refresh(): void {
-    this.render();
   }
 
   private setOpen(open: boolean): void {
@@ -56,9 +49,7 @@ export class CraftMenu {
     this.panel.appendChild(title);
 
     for (const recipe of RECIPES) {
-      const alreadyUnlocked =
-        recipe.effect.type === "unlock_chunk" && this.unlockedChunks.has(recipe.effect.chunkId);
-      const canAfford = !alreadyUnlocked && this.inventory.canAfford(recipe.inputs);
+      const canAfford = this.inventory.canAfford(recipe.inputs);
 
       const card = document.createElement("div");
       card.className = "recipe-card";
@@ -76,8 +67,8 @@ export class CraftMenu {
       card.appendChild(cost);
 
       const button = document.createElement("button");
-      button.textContent = alreadyUnlocked ? "開放済み" : "作る";
-      button.disabled = alreadyUnlocked || !canAfford;
+      button.textContent = "作る";
+      button.disabled = !canAfford;
       button.addEventListener("click", () => this.onCraft(recipe));
       card.appendChild(button);
 

@@ -13,34 +13,26 @@ import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
+import { saveSlot, loadSlot } from "../systems/SaveSlots";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
-import { ResetButton } from "../ui/ResetButton";
+import { SaveLoadPanel } from "../ui/SaveLoadPanel";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
 
-const MAP_WIDTH_TILES = 40;
-const MAP_HEIGHT_TILES = 30;
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
 
-// スポーン地点(縦の道の上、タイル座標。chunk-homeの座標系)
-const SPAWN_TILE = { x: 19, y: 10 };
+// スポーン地点(縦の道の上、タイル座標。ワールド全体の座標系)
+const SPAWN_TILE = { x: 19, y: 40 };
+const SPAWN_X = SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2;
+const SPAWN_Y = SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
 
 // 位置同期を送る間隔(ms)。低頻度・高頻度どちらにも寄せすぎない程度の値
 const NETWORK_TICK_MS = 80;
-
-// プレイヤーがこの距離まで端に近づいたら隣接チャンクへ遷移する
-const EDGE_MARGIN = 12;
-// 遷移後、反対側の端からどれだけ内側に出現するか。
-// プレイヤーの物理ボディは見た目のスプライトから上下非対称にオフセットされている
-// (Player.tsのsetOffset参照。上+8px/下+28pxとズレが大きい)。この値が小さすぎると、
-// 反対側の端に出現した直後、その端のEDGE_MARGIN判定にちょうど一致してしまい、
-// 出現した瞬間に元のチャンクへ押し戻される(バウンスする)ことがある。
-const ENTRY_OFFSET = 60;
 
 // 採集の判定距離
 const GATHER_CLICK_RADIUS = 40;
@@ -58,51 +50,31 @@ const PLAYER_MAX_HP = 3;
 const CONTACT_DAMAGE = 1;
 const CONTACT_INVULN_MS = 1000;
 
-type ChunkDirection = "north" | "south" | "east" | "west";
-
-const CHUNK_NEIGHBORS: Record<string, Partial<Record<ChunkDirection, string>>> = {
-  "chunk-home": { north: "chunk-north", east: "chunk-east" },
-  "chunk-north": { south: "chunk-home" },
-  "chunk-east": { west: "chunk-home" },
-};
-
 export class GameScene extends Phaser.Scene {
   private inputManager!: InputManager;
   private player!: Player;
   private roomClient!: RoomClient;
   private inventory!: Inventory;
-  private craftMenu!: CraftMenu;
   private health!: Health;
   private invulnerableUntil = 0;
+  private pendingLoadSlot: number | null = null;
 
   private remotePlayers = new Map<string, RemotePlayer>();
   private selfId: string | null = null;
 
-  private currentChunk = "chunk-home";
-  private isTransitioning = false;
-  private lockedMessageShown = false;
-
-  private groundLayer?: Phaser.Tilemaps.TilemapLayer;
-  private obstacleLayer?: Phaser.Tilemaps.TilemapLayer;
-  private groundCollider?: Phaser.Physics.Arcade.Collider;
-  private obstacleCollider?: Phaser.Physics.Arcade.Collider;
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
   private monsters: Monster[] = [];
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private npcs: Npc[] = [];
 
-  private baseState = {
-    buildings: [] as PlacedBuilding[],
-    unlockedChunks: new Set<string>(["chunk-home"]),
-  };
+  private buildings: PlacedBuilding[] = [];
 
   private lastSent = {
     x: 0,
     y: 0,
     direction: "down",
     animState: "idle" as AnimState,
-    chunkId: "",
   };
   private sinceLastSend = 0;
 
@@ -111,9 +83,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.tilemapTiledJSON("chunk-home", "maps/chunk-home.json");
-    this.load.tilemapTiledJSON("chunk-north", "maps/chunk-north.json");
-    this.load.tilemapTiledJSON("chunk-east", "maps/chunk-east.json");
+    this.load.tilemapTiledJSON("world", "maps/world.json");
     this.load.image("tiles", "assets/tileset.png");
     this.load.spritesheet("player", "assets/player.png", {
       frameWidth: 32,
@@ -144,25 +114,24 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.inventory = new Inventory();
     new InventoryHud(this.inventory);
-    this.craftMenu = new CraftMenu(this.inventory, this.baseState.unlockedChunks, (recipe) => {
+    new CraftMenu(this.inventory, (recipe) => {
       this.handleCraft(recipe);
     });
     this.health = new Health(PLAYER_MAX_HP);
     new HealthHud(this.health);
     new HelpPanel();
-    new ResetButton(() => this.roomClient.sendReset());
+    new SaveLoadPanel({
+      onSave: (slot) => this.handleSave(slot),
+      onLoad: (slot) => this.handleLoad(slot),
+    });
 
     if (!this.sound.get("bgm")) {
       this.sound.play("bgm", { loop: true, volume: 0.25 });
     }
 
-    this.player = new Player(
-      this,
-      SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2,
-      SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2,
-    );
+    this.player = new Player(this, SPAWN_X, SPAWN_Y);
 
-    this.buildChunk("chunk-home");
+    this.buildWorld();
 
     this.inputManager = new InputManager(this);
     this.inputManager.onAction((point) => {
@@ -175,15 +144,14 @@ export class GameScene extends Phaser.Scene {
   private setupNetworking(): void {
     const { name } = getJoinInfo();
     this.roomClient = new RoomClient(SHARED_ROOM_ID, name, {
-      onInit: (selfId, players, buildings, unlockedChunks) => {
+      onInit: (selfId, players, buildings) => {
         this.selfId = selfId;
         for (const player of players) {
           if (player.id === selfId) continue;
           this.addRemotePlayer(player);
         }
 
-        this.baseState.buildings = buildings;
-        this.syncUnlockedChunks(unlockedChunks);
+        this.buildings = buildings;
         for (const building of buildings) {
           this.addBuildingSprite(building);
         }
@@ -192,11 +160,10 @@ export class GameScene extends Phaser.Scene {
         if (player.id === this.selfId) return;
         this.addRemotePlayer(player);
       },
-      onPlayerMoved: (id, x, y, direction, animState, chunkId) => {
+      onPlayerMoved: (id, x, y, direction, animState) => {
         const remote = this.remotePlayers.get(id);
         if (!remote) return;
-        remote.updateTarget(x, y, direction, animState, chunkId);
-        remote.setVisibleForChunk(this.currentChunk);
+        remote.updateTarget(x, y, direction, animState);
       },
       onPlayerLeft: (id) => {
         this.remotePlayers.get(id)?.destroy();
@@ -207,33 +174,58 @@ export class GameScene extends Phaser.Scene {
         window.location.reload();
       },
       onBuildingPlaced: (building) => {
-        this.baseState.buildings.push(building);
+        this.buildings.push(building);
         this.addBuildingSprite(building);
       },
-      onChunkUnlocked: (chunkId) => {
-        this.baseState.unlockedChunks.add(chunkId);
-        this.craftMenu.refresh();
-      },
-      onBaseReset: () => {
-        this.baseState.buildings = [];
+      onGameReset: () => {
+        this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
-        this.syncUnlockedChunks(["chunk-home"]);
+        this.inventory.reset();
+        this.health.reset();
+        const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+        body.reset(SPAWN_X, SPAWN_Y);
+      },
+      onGameLoaded: (slot, buildings) => {
+        this.buildings = buildings;
+        for (const building of this.buildingSprites) building.destroy();
+        this.buildingSprites = [];
+        for (const building of buildings) this.addBuildingSprite(building);
+
+        // 自分が要求したロードの場合のみ、個人の持ち物・HPも復元する(他プレイヤーの分は変えない)
+        if (this.pendingLoadSlot === slot) {
+          this.pendingLoadSlot = null;
+          const data = loadSlot(slot);
+          if (data) {
+            this.inventory.setCounts(data.counts);
+            this.health.setHp(data.hp);
+          }
+        }
+        this.showFloatingMessage(`スロット${slot}をロードしました`);
+      },
+      onLoadFailed: (slot) => {
+        this.pendingLoadSlot = null;
+        this.showFloatingMessage(`スロット${slot}は空です`);
       },
     });
   }
 
-  private addRemotePlayer(player: PlayerState): void {
-    if (this.remotePlayers.has(player.id)) return;
-    const remote = new RemotePlayer(this, player);
-    remote.setVisibleForChunk(this.currentChunk);
-    this.remotePlayers.set(player.id, remote);
+  // ---------- セーブ/ロード ----------
+
+  private handleSave(slot: number): void {
+    saveSlot(slot, this.inventory.getCounts(), this.health.getHp());
+    this.roomClient.sendSaveGame(slot);
+    this.showFloatingMessage(`スロット${slot}にセーブしました`);
   }
 
-  private syncUnlockedChunks(chunkIds: string[]): void {
-    this.baseState.unlockedChunks.clear();
-    for (const id of chunkIds) this.baseState.unlockedChunks.add(id);
-    this.craftMenu.refresh();
+  private handleLoad(slot: number): void {
+    this.pendingLoadSlot = slot;
+    this.roomClient.sendLoadGame(slot);
+  }
+
+  private addRemotePlayer(player: PlayerState): void {
+    if (this.remotePlayers.has(player.id)) return;
+    this.remotePlayers.set(player.id, new RemotePlayer(this, player));
   }
 
   update(_time: number, delta: number): void {
@@ -244,10 +236,6 @@ export class GameScene extends Phaser.Scene {
       remote.tick();
     }
 
-    if (!this.isTransitioning) {
-      this.checkChunkTransition();
-    }
-
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
       this.sinceLastSend = 0;
@@ -255,39 +243,22 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // ---------- チャンク管理 ----------
+  // ---------- ワールド構築 ----------
 
-  private buildChunk(chunkId: string, entryDirection?: ChunkDirection): void {
-    this.groundCollider?.destroy();
-    this.obstacleCollider?.destroy();
-    this.groundLayer?.destroy();
-    this.obstacleLayer?.destroy();
-    for (const point of this.gatheringPoints) point.destroy();
-    this.gatheringPoints = [];
-    for (const building of this.buildingSprites) building.destroy();
-    this.buildingSprites = [];
-    for (const overlap of this.monsterOverlaps) overlap.destroy();
-    this.monsterOverlaps = [];
-    for (const monster of this.monsters) monster.destroy();
-    this.monsters = [];
-    for (const npc of this.npcs) npc.destroy();
-    this.npcs = [];
-
-    const map = this.make.tilemap({ key: chunkId });
+  private buildWorld(): void {
+    const map = this.make.tilemap({ key: "world" });
     const tileset = map.addTilesetImage("tileset", "tiles");
     if (!tileset) {
-      throw new Error(`タイルセットの読み込みに失敗しました: ${chunkId}`);
+      throw new Error("タイルセットの読み込みに失敗しました");
     }
 
     const groundLayer = map.createLayer("ground", tileset, 0, 0);
     const obstacleLayer = map.createLayer("obstacles", tileset, 0, 0);
     if (!groundLayer || !obstacleLayer) {
-      throw new Error(`マップレイヤーの作成に失敗しました: ${chunkId}`);
+      throw new Error("マップレイヤーの作成に失敗しました");
     }
     groundLayer.setCollision(WATER_GID);
     obstacleLayer.setCollision(ROCK_GID);
-    this.groundLayer = groundLayer;
-    this.obstacleLayer = obstacleLayer;
 
     const mapWidthPx = map.widthInPixels;
     const mapHeightPx = map.heightInPixels;
@@ -295,8 +266,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
-    this.groundCollider = this.physics.add.collider(this.player.sprite, groundLayer);
-    this.obstacleCollider = this.physics.add.collider(this.player.sprite, obstacleLayer);
+    this.physics.add.collider(this.player.sprite, groundLayer);
+    this.physics.add.collider(this.player.sprite, obstacleLayer);
 
     const gatheringLayer = map.getObjectLayer("gathering");
     if (gatheringLayer) {
@@ -340,122 +311,33 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
-    this.currentChunk = chunkId;
-    for (const building of this.baseState.buildings) {
+    for (const building of this.buildings) {
       this.addBuildingSprite(building);
-    }
-
-    if (entryDirection) {
-      const { x, y } = this.getEntryPosition(entryDirection);
-      const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-      body.reset(x, y);
-    }
-
-    for (const remote of this.remotePlayers.values()) {
-      remote.setVisibleForChunk(this.currentChunk);
     }
   }
 
   private addBuildingSprite(building: PlacedBuilding): void {
-    if (building.chunkId !== this.currentChunk) return;
     this.buildingSprites.push(
       new Building(this, building.x, building.y, building.buildingType as BuildingType),
     );
   }
 
-  private getEntryPosition(enteredFrom: ChunkDirection): { x: number; y: number } {
-    const currentX = this.player.sprite.x;
-    const currentY = this.player.sprite.y;
-    const maxX = MAP_WIDTH_TILES * TILE_SIZE;
-    const maxY = MAP_HEIGHT_TILES * TILE_SIZE;
-
-    switch (enteredFrom) {
-      case "north":
-        return { x: currentX, y: maxY - ENTRY_OFFSET };
-      case "south":
-        return { x: currentX, y: ENTRY_OFFSET };
-      case "east":
-        return { x: ENTRY_OFFSET, y: currentY };
-      case "west":
-        return { x: maxX - ENTRY_OFFSET, y: currentY };
-    }
-  }
-
-  private checkChunkTransition(): void {
-    const neighbors = CHUNK_NEIGHBORS[this.currentChunk] ?? {};
-    // スプライトの座標ではなく実際の物理ボディの境界を見る。ボディは見た目の
-    // スプライトからオフセットされているため、collideWorldBoundsによる
-    // クランプ位置とsprite.x/yの単純な閾値比較がズレることがある。
-    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-    const maxX = MAP_WIDTH_TILES * TILE_SIZE;
-    const maxY = MAP_HEIGHT_TILES * TILE_SIZE;
-
-    let atLockedEdge = false;
-
-    if (neighbors.north && body.top <= EDGE_MARGIN) {
-      atLockedEdge = this.attemptTransition(neighbors.north, "north");
-    } else if (neighbors.south && body.bottom >= maxY - EDGE_MARGIN) {
-      atLockedEdge = this.attemptTransition(neighbors.south, "south");
-    } else if (neighbors.east && body.right >= maxX - EDGE_MARGIN) {
-      atLockedEdge = this.attemptTransition(neighbors.east, "east");
-    } else if (neighbors.west && body.left <= EDGE_MARGIN) {
-      atLockedEdge = this.attemptTransition(neighbors.west, "west");
-    }
-
-    if (!atLockedEdge) {
-      this.lockedMessageShown = false;
-    }
-  }
-
-  /** 遷移を試みる。ロック中のチャンクだった場合はtrue(=ロックされた端にいる)を返す */
-  private attemptTransition(chunkId: string, direction: ChunkDirection): boolean {
-    if (!this.baseState.unlockedChunks.has(chunkId)) {
-      if (!this.lockedMessageShown) {
-        this.lockedMessageShown = true;
-        this.showLockedMessage();
-      }
-      return true;
-    }
-    this.transitionTo(chunkId, direction);
-    return false;
-  }
-
-  private transitionTo(chunkId: string, direction: ChunkDirection): void {
-    this.isTransitioning = true;
-    this.cameras.main.fadeOut(150, 0, 0, 0);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.buildChunk(chunkId, direction);
-      this.cameras.main.fadeIn(150, 0, 0, 0);
-      this.isTransitioning = false;
-    });
-  }
-
   // ---------- クラフト ----------
 
   private handleCraft(recipe: Recipe): void {
-    if (recipe.effect.type === "unlock_chunk" && this.baseState.unlockedChunks.has(recipe.effect.chunkId)) {
-      return;
-    }
     if (!this.inventory.spend(recipe.inputs)) return;
 
-    if (recipe.effect.type === "building") {
-      const x = Math.round(this.player.sprite.x);
-      const y = Math.round(this.player.sprite.y);
-      const building: PlacedBuilding = {
-        id: crypto.randomUUID(),
-        buildingType: recipe.effect.buildingType,
-        x,
-        y,
-        chunkId: this.currentChunk,
-      };
-      this.baseState.buildings.push(building);
-      this.addBuildingSprite(building);
-      this.roomClient.sendCraftBuilding(recipe.effect.buildingType, x, y, this.currentChunk);
-    } else {
-      this.baseState.unlockedChunks.add(recipe.effect.chunkId);
-      this.craftMenu.refresh();
-      this.roomClient.sendCraftUnlock(recipe.effect.chunkId);
-    }
+    const x = Math.round(this.player.sprite.x);
+    const y = Math.round(this.player.sprite.y);
+    const building: PlacedBuilding = {
+      id: crypto.randomUUID(),
+      buildingType: recipe.effect.buildingType,
+      x,
+      y,
+    };
+    this.buildings.push(building);
+    this.addBuildingSprite(building);
+    this.roomClient.sendCraftBuilding(recipe.effect.buildingType, x, y);
 
     this.sound.play("sfx-craft", { volume: 0.5 });
     this.showFloatingMessage(`${recipe.name}を作った!`);
@@ -481,25 +363,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private showLockedMessage(): void {
-    const text = this.add
-      .text(this.player.sprite.x, this.player.sprite.y - 20, "🔒 素材を集めて道を作ろう", {
-        fontSize: "10px",
-        color: "#ffffff",
-        backgroundColor: "#00000099",
-        padding: { x: 4, y: 2 },
-      })
-      .setOrigin(0.5, 1)
-      .setDepth(20);
-    this.tweens.add({
-      targets: text,
-      alpha: 0,
-      duration: 1000,
-      delay: 800,
-      onComplete: () => text.destroy(),
-    });
-  }
-
   // ---------- 戦闘 ----------
 
   private handleMonsterContact(): void {
@@ -520,20 +383,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private respawnAtBase(): void {
-    this.isTransitioning = true;
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      if (this.currentChunk !== "chunk-home") {
-        this.buildChunk("chunk-home");
-      }
       const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-      body.reset(
-        SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2,
-        SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2,
-      );
+      body.reset(SPAWN_X, SPAWN_Y);
       this.health.reset();
       this.cameras.main.fadeIn(200, 0, 0, 0);
-      this.isTransitioning = false;
       this.showFloatingMessage("気を失った…拠点で目が覚めた");
     });
   }
@@ -684,21 +539,14 @@ export class GameScene extends Phaser.Scene {
     const y = Math.round(this.player.sprite.y);
     const direction = this.player.currentDirection;
     const animState: AnimState = this.player.isMoving ? "walk" : "idle";
-    const chunkId = this.currentChunk;
 
     const last = this.lastSent;
-    if (
-      last.x === x &&
-      last.y === y &&
-      last.direction === direction &&
-      last.animState === animState &&
-      last.chunkId === chunkId
-    ) {
+    if (last.x === x && last.y === y && last.direction === direction && last.animState === animState) {
       return;
     }
 
-    this.lastSent = { x, y, direction, animState, chunkId };
-    this.roomClient.sendMove(x, y, direction, animState, chunkId);
+    this.lastSent = { x, y, direction, animState };
+    this.roomClient.sendMove(x, y, direction, animState);
   }
 
   private showActionFeedback(x: number, y: number): void {

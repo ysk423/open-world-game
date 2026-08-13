@@ -8,7 +8,6 @@ export type PlayerState = {
   y: number;
   direction: Direction;
   animState: AnimState;
-  chunkId: string;
 };
 
 export type PlacedBuilding = {
@@ -16,7 +15,6 @@ export type PlacedBuilding = {
   buildingType: string;
   x: number;
   y: number;
-  chunkId: string;
 };
 
 export type ClientMessage =
@@ -27,11 +25,10 @@ export type ClientMessage =
       y: number;
       direction: Direction;
       animState: AnimState;
-      chunkId: string;
     }
-  | { type: "craft-building"; buildingType: string; x: number; y: number; chunkId: string }
-  | { type: "craft-unlock"; chunkId: string }
-  | { type: "reset" };
+  | { type: "craft-building"; buildingType: string; x: number; y: number }
+  | { type: "save-game"; slot: number }
+  | { type: "load-game"; slot: number };
 
 export type ServerMessage =
   | {
@@ -39,7 +36,6 @@ export type ServerMessage =
       selfId: string;
       players: PlayerState[];
       buildings: PlacedBuilding[];
-      unlockedChunks: string[];
     }
   | { type: "player-joined"; player: PlayerState }
   | {
@@ -49,13 +45,13 @@ export type ServerMessage =
       y: number;
       direction: Direction;
       animState: AnimState;
-      chunkId: string;
     }
   | { type: "player-left"; id: string }
   | { type: "room-full" }
   | { type: "building-placed"; building: PlacedBuilding }
-  | { type: "chunk-unlocked"; chunkId: string }
-  | { type: "base-reset" };
+  | { type: "game-reset" }
+  | { type: "game-loaded"; slot: number; buildings: PlacedBuilding[] }
+  | { type: "load-failed"; slot: number };
 
 export const MAX_PLAYERS = 4;
-export const DEFAULT_CHUNK_ID = "chunk-home";
+export const SAVE_SLOT_COUNT = 3;

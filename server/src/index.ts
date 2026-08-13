@@ -10,7 +10,9 @@ export type Env = {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     return (
-      (await routePartykitRequest(request, env)) ??
+      // cors:true はタイトル画面の「ゲームをリセット」ボタンがWebSocketを使わず
+      // 直接POSTするための、プレーンなHTTPリクエスト用のCORS許可
+      (await routePartykitRequest(request, env, { cors: true })) ??
       new Response("Not Found", { status: 404 })
     );
   },

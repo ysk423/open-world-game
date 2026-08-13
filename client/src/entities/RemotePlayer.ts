@@ -3,18 +3,19 @@ import type { Direction } from "../input/InputManager";
 import type { AnimState, PlayerState } from "../net/types";
 
 const LERP_FACTOR = 0.25;
+// これ以上離れた位置への更新は、歩行ではなく瞬間移動(リスポーン・ゲームリセット等)とみなし、
+// 滑らかに補間せず即座に飛ばす
+const TELEPORT_DISTANCE = 300;
 
 export class RemotePlayer {
   readonly id: string;
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly nameLabel: Phaser.GameObjects.Text;
-  chunkId: string;
   private targetX: number;
   private targetY: number;
 
   constructor(scene: Phaser.Scene, player: PlayerState) {
     this.id = player.id;
-    this.chunkId = player.chunkId;
     this.targetX = player.x;
     this.targetY = player.y;
 
@@ -31,24 +32,15 @@ export class RemotePlayer {
     this.applyState(player.direction, player.animState);
   }
 
-  updateTarget(x: number, y: number, direction: Direction, animState: AnimState, chunkId: string): void {
-    const changedChunk = chunkId !== this.chunkId;
-    this.chunkId = chunkId;
+  updateTarget(x: number, y: number, direction: Direction, animState: AnimState): void {
+    const jumped = Phaser.Math.Distance.Between(this.targetX, this.targetY, x, y) > TELEPORT_DISTANCE;
     this.targetX = x;
     this.targetY = y;
     this.applyState(direction, animState);
 
-    // 別チャンクから来た場合はいきなり離れた位置から滑ってくると不自然なので瞬間移動させる
-    if (changedChunk) {
+    if (jumped) {
       this.sprite.setPosition(x, y);
     }
-  }
-
-  /** 現在いるチャンクがローカルプレイヤーと同じ時だけ表示する */
-  setVisibleForChunk(currentChunkId: string): void {
-    const visible = this.chunkId === currentChunkId;
-    this.sprite.setVisible(visible);
-    this.nameLabel.setVisible(visible);
   }
 
   /** 毎フレーム呼び出し、目標位置へ滑らかに補間する */

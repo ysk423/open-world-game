@@ -1,7 +1,9 @@
 import "./style.css";
 import Phaser from "phaser";
 import { GameScene } from "./scenes/GameScene";
-import { setJoinInfo } from "./net/joinInfo";
+import { setJoinInfo, SHARED_ROOM_ID } from "./net/joinInfo";
+import { requestGameReset } from "./net/RoomClient";
+import { INVENTORY_STORAGE_KEY } from "./systems/Inventory";
 
 // タイル/スプライトを32px(16pxの倍)に上げたのに合わせて、内部解像度も倍にして
 // 画面に映るタイル数(ズーム感)を変えないようにしている。
@@ -49,4 +51,31 @@ function setupJoinForm(): void {
   });
 }
 
+function setupResetButton(): void {
+  const button = document.querySelector<HTMLButtonElement>("#game-reset-button")!;
+
+  button.addEventListener("click", () => {
+    void handleResetClick(button);
+  });
+}
+
+async function handleResetClick(button: HTMLButtonElement): Promise<void> {
+  const confirmed = window.confirm(
+    "持ち物や拠点の建物など、すべてのデータをリセットします。よろしいですか?",
+  );
+  if (!confirmed) return;
+
+  button.disabled = true;
+  try {
+    await requestGameReset(SHARED_ROOM_ID);
+    localStorage.removeItem(INVENTORY_STORAGE_KEY);
+    window.alert("リセットしました");
+  } catch {
+    window.alert("リセットに失敗しました。通信状況を確認してもう一度お試しください");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 setupJoinForm();
+setupResetButton();

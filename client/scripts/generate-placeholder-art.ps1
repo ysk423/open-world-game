@@ -88,6 +88,12 @@ function DrawFrame($gfx, $ox, $oy, $facing, $step) {
     # body (shirt)
     Fill $gfx ($ox+6) ($oy+18) 20 20 $shirt[0] $shirt[1] $shirt[2]
 
+    # arms + hands
+    Fill $gfx ($ox+2) ($oy+20) 5 14 $shirt[0] $shirt[1] $shirt[2]
+    Fill $gfx ($ox+25) ($oy+20) 5 14 $shirt[0] $shirt[1] $shirt[2]
+    FillOval $gfx ($ox+1) ($oy+32) 6 6 $skin[0] $skin[1] $skin[2]
+    FillOval $gfx ($ox+25) ($oy+32) 6 6 $skin[0] $skin[1] $skin[2]
+
     if ($facing -eq "down") {
         FillOval $gfx ($ox+11) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
         FillOval $gfx ($ox+18) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
@@ -210,6 +216,10 @@ function DrawNpc($gfx, $ox, $skinColor, $hairColor, $shirtColor) {
     FillOval $gfx ($ox+8) 4 16 14 $skinColor[0] $skinColor[1] $skinColor[2]
     FillOval $gfx ($ox+7) 0 18 8 $hairColor[0] $hairColor[1] $hairColor[2]
     Fill $gfx ($ox+6) 18 20 20 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    Fill $gfx ($ox+2) 20 5 14 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    Fill $gfx ($ox+25) 20 5 14 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    FillOval $gfx ($ox+1) 32 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
+    FillOval $gfx ($ox+25) 32 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
     FillOval $gfx ($ox+11) 9 3 3 40 30 30
     FillOval $gfx ($ox+18) 9 3 3 40 30 30
     Fill $gfx ($ox+6) 36 8 12 90 74 58

@@ -24,6 +24,12 @@ export class Health {
     this.notify();
   }
 
+  /** セーブデータからの復元用。範囲外の値は0〜maxHpに丸める */
+  setHp(hp: number): void {
+    this.hp = Math.min(this.maxHp, Math.max(0, hp));
+    this.notify();
+  }
+
   getHp(): number {
     return this.hp;
   }

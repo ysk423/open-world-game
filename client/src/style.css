@@ -26,8 +26,10 @@ body {
   position: fixed;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   background: #1a1a1a;
   font-family: system-ui, sans-serif;
 }
@@ -92,6 +94,28 @@ body {
 
 #join-form button:hover {
   background: #6f9be8;
+}
+
+#game-reset-button {
+  width: 260px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: transparent;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#game-reset-button:hover {
+  background: rgba(160, 40, 40, 0.35);
+  color: #fff;
+}
+
+#game-reset-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 #inventory-hud {
@@ -263,10 +287,10 @@ body {
   color: #ddd;
 }
 
-#reset-toggle {
+#save-toggle {
   position: fixed;
-  left: 12px;
-  top: 50px;
+  right: 12px;
+  top: 88px;
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -277,6 +301,55 @@ body {
   cursor: pointer;
 }
 
-#reset-toggle:hover {
-  background: rgba(160, 40, 40, 0.85);
+#save-toggle:hover {
+  background: rgba(50, 50, 50, 0.85);
+}
+
+#save-panel {
+  position: fixed;
+  right: 12px;
+  top: 126px;
+  width: 260px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+#save-panel h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.save-slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.save-slot-label {
+  flex: 1;
+  color: #ddd;
+}
+
+.save-slot-row button {
+  padding: 5px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #5b8cde;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.save-slot-row button:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
 }

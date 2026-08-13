@@ -1,6 +1,6 @@
 export type ItemId = "wood" | "stone" | "herb";
 
-const STORAGE_KEY = "open-world-game:inventory";
+export const INVENTORY_STORAGE_KEY = "open-world-game:inventory";
 const ITEM_IDS: ItemId[] = ["wood", "stone", "herb"];
 
 type Counts = Record<ItemId, number>;
@@ -21,7 +21,7 @@ export class Inventory {
 
   private load(): void {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(INVENTORY_STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<Counts>;
       for (const id of ITEM_IDS) {
@@ -36,11 +36,31 @@ export class Inventory {
   }
 
   private save(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.counts));
+    localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(this.counts));
   }
 
   add(itemId: ItemId, amount = 1): void {
     this.counts[itemId] += amount;
+    this.save();
+    this.notify();
+  }
+
+  reset(): void {
+    this.counts = emptyCounts();
+    this.save();
+    this.notify();
+  }
+
+  /** セーブデータからの復元用。不正な値は0として扱う */
+  setCounts(counts: Partial<Counts>): void {
+    const next = emptyCounts();
+    for (const id of ITEM_IDS) {
+      const value = counts[id];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        next[id] = value;
+      }
+    }
+    this.counts = next;
     this.save();
     this.notify();
   }

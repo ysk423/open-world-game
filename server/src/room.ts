@@ -1,34 +1,46 @@
 import { Server, type Connection, type ConnectionContext } from "partyserver";
 import type { ClientMessage, PlacedBuilding, PlayerState, ServerMessage } from "./types";
-import { DEFAULT_CHUNK_ID, MAX_PLAYERS } from "./types";
+import { MAX_PLAYERS, SAVE_SLOT_COUNT } from "./types";
 
-const SPAWN_X = 312;
-const SPAWN_Y = 168;
+// クライアント側GameSceneのSPAWN_TILE(19,40)・TILE_SIZE(32)と対応するワールド座標
+const SPAWN_X = 624;
+const SPAWN_Y = 1296;
 
 function send(connection: Connection, message: ServerMessage): void {
   connection.send(JSON.stringify(message));
 }
 
 const BUILDINGS_KEY = "buildings";
-const UNLOCKED_CHUNKS_KEY = "unlockedChunks";
+
+function saveSlotKey(slot: number): string {
+  return `save-slot-${slot}-buildings`;
+}
+
+function isValidSlot(slot: number): boolean {
+  return Number.isInteger(slot) && slot >= 1 && slot <= SAVE_SLOT_COUNT;
+}
 
 export class Room extends Server {
   players = new Map<string, PlayerState>();
   buildings: PlacedBuilding[] = [];
-  unlockedChunks = new Set<string>([DEFAULT_CHUNK_ID]);
 
   async onStart(): Promise<void> {
-    const [storedBuildings, storedChunks] = await Promise.all([
-      this.ctx.storage.get<PlacedBuilding[]>(BUILDINGS_KEY),
-      this.ctx.storage.get<string[]>(UNLOCKED_CHUNKS_KEY),
-    ]);
+    const storedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(BUILDINGS_KEY);
     if (storedBuildings) this.buildings = storedBuildings;
-    if (storedChunks) this.unlockedChunks = new Set([DEFAULT_CHUNK_ID, ...storedChunks]);
   }
 
   onConnect(connection: Connection, _context: ConnectionContext): void {
     // 参加はクライアントからの "join" メッセージを待って確定する(名前が必要なため)
     void connection;
+  }
+
+  /** タイトル画面の「ゲームをリセット」ボタンからのプレーンなHTTP POSTを受け取る(WebSocket接続を持たないため) */
+  onRequest(request: Request): Response {
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
+    this.handleReset();
+    return new Response(null, { status: 204 });
   }
 
   onMessage(connection: Connection, raw: string): void {
@@ -50,10 +62,10 @@ export class Room extends Server {
       this.handleMove(connection, message);
     } else if (message.type === "craft-building") {
       this.handleCraftBuilding(connection, message);
-    } else if (message.type === "craft-unlock") {
-      this.handleCraftUnlock(connection, message.chunkId);
-    } else if (message.type === "reset") {
-      this.handleReset();
+    } else if (message.type === "save-game") {
+      this.handleSaveGame(message.slot);
+    } else if (message.type === "load-game") {
+      this.handleLoadGame(connection, message.slot);
     }
   }
 
@@ -81,7 +93,6 @@ export class Room extends Server {
       y: SPAWN_Y,
       direction: "down",
       animState: "idle",
-      chunkId: DEFAULT_CHUNK_ID,
     };
     this.players.set(connection.id, player);
 
@@ -90,7 +101,6 @@ export class Room extends Server {
       selfId: connection.id,
       players: Array.from(this.players.values()),
       buildings: this.buildings,
-      unlockedChunks: Array.from(this.unlockedChunks),
     });
 
     this.broadcast(
@@ -109,7 +119,6 @@ export class Room extends Server {
     player.y = message.y;
     player.direction = message.direction;
     player.animState = message.animState;
-    player.chunkId = message.chunkId;
 
     const payload: ServerMessage = {
       type: "player-moved",
@@ -118,7 +127,6 @@ export class Room extends Server {
       y: player.y,
       direction: player.direction,
       animState: player.animState,
-      chunkId: player.chunkId,
     };
     this.broadcast(JSON.stringify(payload), [connection.id]);
   }
@@ -132,7 +140,6 @@ export class Room extends Server {
       buildingType: message.buildingType,
       x: message.x,
       y: message.y,
-      chunkId: message.chunkId,
     };
     this.buildings.push(building);
     void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
@@ -143,21 +150,29 @@ export class Room extends Server {
     );
   }
 
-  private handleCraftUnlock(connection: Connection, chunkId: string): void {
-    if (this.unlockedChunks.has(chunkId)) return;
-    this.unlockedChunks.add(chunkId);
-    void this.ctx.storage.put(UNLOCKED_CHUNKS_KEY, Array.from(this.unlockedChunks));
+  private handleSaveGame(slot: number): void {
+    if (!isValidSlot(slot)) return;
+    void this.ctx.storage.put(saveSlotKey(slot), this.buildings);
+  }
+
+  private async handleLoadGame(connection: Connection, slot: number): Promise<void> {
+    if (!isValidSlot(slot)) return;
+    const savedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(saveSlotKey(slot));
+    if (!savedBuildings) {
+      send(connection, { type: "load-failed", slot });
+      return;
+    }
+    this.buildings = savedBuildings;
+    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
     this.broadcast(
-      JSON.stringify({ type: "chunk-unlocked", chunkId } satisfies ServerMessage),
-      [connection.id],
+      JSON.stringify({ type: "game-loaded", slot, buildings: this.buildings } satisfies ServerMessage),
     );
   }
 
   private handleReset(): void {
     this.buildings = [];
-    this.unlockedChunks = new Set([DEFAULT_CHUNK_ID]);
-    void this.ctx.storage.delete([BUILDINGS_KEY, UNLOCKED_CHUNKS_KEY]);
-    // 送信者も含め全員へ通知(建物配置と違い、送信者側でも楽観更新していないため)
-    this.broadcast(JSON.stringify({ type: "base-reset" } satisfies ServerMessage));
+    void this.ctx.storage.delete(BUILDINGS_KEY);
+    // 持ち物やHPなどのローカル状態はクライアント側でリセットするため、接続中の全員に通知する
+    this.broadcast(JSON.stringify({ type: "game-reset" } satisfies ServerMessage));
   }
 }
