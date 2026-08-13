@@ -3,6 +3,7 @@ import { SAVE_SLOT_COUNT, loadSlot } from "../systems/SaveSlots";
 export type SaveLoadPanelEvents = {
   onSave: (slot: number) => void;
   onLoad: (slot: number) => void;
+  onDelete: (slot: number) => void;
 };
 
 function formatSavedAt(savedAt: number): string {
@@ -16,7 +17,7 @@ export class SaveLoadPanel {
   private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
   private isOpen = false;
-  private rows: { label: HTMLSpanElement; loadButton: HTMLButtonElement }[] = [];
+  private rows: { label: HTMLSpanElement; loadButton: HTMLButtonElement; deleteButton: HTMLButtonElement }[] = [];
 
   constructor(events: SaveLoadPanelEvents) {
     this.toggleButton = document.createElement("button");
@@ -60,8 +61,20 @@ export class SaveLoadPanel {
       });
       row.appendChild(loadButton);
 
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "save-delete-button";
+      deleteButton.textContent = "🗑 削除";
+      deleteButton.addEventListener("click", () => {
+        if (deleteButton.disabled) return;
+        const confirmed = window.confirm(`スロット${slot}のセーブデータを削除します。よろしいですか?`);
+        if (!confirmed) return;
+        events.onDelete(slot);
+        this.refreshSlot(slot);
+      });
+      row.appendChild(deleteButton);
+
       this.panel.appendChild(row);
-      this.rows.push({ label, loadButton });
+      this.rows.push({ label, loadButton, deleteButton });
       this.refreshSlot(slot);
     }
 
@@ -70,9 +83,10 @@ export class SaveLoadPanel {
 
   private refreshSlot(slot: number): void {
     const data = loadSlot(slot);
-    const { label, loadButton } = this.rows[slot - 1];
+    const { label, loadButton, deleteButton } = this.rows[slot - 1];
     label.textContent = data ? `スロット${slot}: ${formatSavedAt(data.savedAt)}保存` : `スロット${slot}: 空き`;
     loadButton.disabled = !data;
+    deleteButton.disabled = !data;
   }
 
   private setOpen(open: boolean): void {

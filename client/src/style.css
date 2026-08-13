@@ -426,6 +426,14 @@ body {
   cursor: not-allowed;
 }
 
+.save-slot-row button.save-delete-button {
+  background: #8a3a3a;
+}
+
+.save-slot-row button.save-delete-button:hover:not(:disabled) {
+  background: #a84848;
+}
+
 #equipment-toggle {
   position: fixed;
   right: 12px;

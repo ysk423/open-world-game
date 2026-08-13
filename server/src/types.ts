@@ -28,7 +28,8 @@ export type ClientMessage =
     }
   | { type: "craft-building"; buildingType: string; x: number; y: number }
   | { type: "save-game"; slot: number }
-  | { type: "load-game"; slot: number };
+  | { type: "load-game"; slot: number }
+  | { type: "delete-game"; slot: number };
 
 export type ServerMessage =
   | {

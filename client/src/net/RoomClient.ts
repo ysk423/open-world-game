@@ -101,6 +101,10 @@ export class RoomClient {
     this.sendRaw({ type: "load-game", slot });
   }
 
+  sendDeleteGame(slot: number): void {
+    this.sendRaw({ type: "delete-game", slot });
+  }
+
   private sendRaw(message: ClientMessage): void {
     this.socket.send(JSON.stringify(message));
   }

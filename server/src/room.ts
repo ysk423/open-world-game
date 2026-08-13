@@ -66,6 +66,8 @@ export class Room extends Server {
       this.handleSaveGame(message.slot);
     } else if (message.type === "load-game") {
       this.handleLoadGame(connection, message.slot);
+    } else if (message.type === "delete-game") {
+      this.handleDeleteGame(message.slot);
     }
   }
 
@@ -169,10 +171,22 @@ export class Room extends Server {
     );
   }
 
+  private handleDeleteGame(slot: number): void {
+    if (!isValidSlot(slot)) return;
+    void this.ctx.storage.delete(saveSlotKey(slot));
+  }
+
   private handleReset(): void {
     this.buildings = [];
     void this.ctx.storage.delete(BUILDINGS_KEY);
     // 持ち物やHPなどのローカル状態はクライアント側でリセットするため、接続中の全員に通知する
     this.broadcast(JSON.stringify({ type: "game-reset" } satisfies ServerMessage));
+
+    // ゲームリセットは拠点をまっさらに戻す操作なので、その場にいた人の一覧も含めてリセットする。
+    // partysocketは自動再接続するため、接続中だった人は少し待てば自動的に入り直す(join)。
+    for (const connection of this.getConnections()) {
+      connection.close();
+    }
+    this.players.clear();
   }
 }

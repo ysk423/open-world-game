@@ -21,6 +21,10 @@ export function saveSlot(slot: number, counts: Readonly<Record<ItemId, number>>,
   localStorage.setItem(slotKey(slot), JSON.stringify(data));
 }
 
+export function deleteSlot(slot: number): void {
+  localStorage.removeItem(slotKey(slot));
+}
+
 export function loadSlot(slot: number): SlotData | null {
   try {
     const raw = localStorage.getItem(slotKey(slot));

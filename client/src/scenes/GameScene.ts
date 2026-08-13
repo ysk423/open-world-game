@@ -17,7 +17,7 @@ import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
-import { saveSlot, loadSlot } from "../systems/SaveSlots";
+import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
@@ -185,6 +185,7 @@ export class GameScene extends Phaser.Scene {
     new SaveLoadPanel({
       onSave: (slot) => this.handleSave(slot),
       onLoad: (slot) => this.handleLoad(slot),
+      onDelete: (slot) => this.handleDelete(slot),
     });
     this.shopPanel = new ShopPanel(this.inventory, {
       onSell: (itemId) => this.handleSell(itemId),
@@ -293,6 +294,12 @@ export class GameScene extends Phaser.Scene {
     saveSlot(slot, this.inventory.getCounts(), this.health.getHp());
     this.roomClient.sendSaveGame(slot);
     this.showFloatingMessage(`スロット${slot}にセーブしました`);
+  }
+
+  private handleDelete(slot: number): void {
+    deleteSlot(slot);
+    this.roomClient.sendDeleteGame(slot);
+    this.showFloatingMessage(`スロット${slot}を削除しました`);
   }
 
   private handleLoad(slot: number): void {
