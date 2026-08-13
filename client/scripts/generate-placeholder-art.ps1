@@ -136,4 +136,41 @@ $g3.Dispose()
 $gsheet.Save((Join-Path $assetsDir "gathering.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $gsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png"
+# ---------- building icons (16x16 x 5: fence, well, flower_bed, signpost, storage_shed) ----------
+$bsheet = New-Object System.Drawing.Bitmap ($tileSize * 5), $tileSize
+$g4 = [System.Drawing.Graphics]::FromImage($bsheet)
+$g4.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+# frame0: fence (horizontal planks on posts)
+Fill $g4 1 10 2 5 100 72 48
+Fill $g4 13 10 2 5 100 72 48
+Fill $g4 0 6 16 3 140 100 66
+Fill $g4 0 11 16 3 140 100 66
+
+# frame1: well (stone ring with dark water center)
+Fill $g4 17 4 12 10 150 150 150
+Fill $g4 19 6 8 6 60 90 130
+Fill $g4 19 2 8 3 120 84 54
+
+# frame2: flower_bed (dark soil with colorful flowers)
+Fill $g4 33 8 12 7 90 62 42
+Fill $g4 35 9 2 2 220 90 90
+Fill $g4 40 10 2 2 230 210 80
+Fill $g4 37 11 2 2 230 130 190
+
+# frame3: signpost (post + plank sign)
+Fill $g4 55 7 2 9 120 84 54
+Fill $g4 50 3 12 5 196 164 120
+Fill $g4 52 5 3 1 120 84 54
+Fill $g4 57 5 3 1 120 84 54
+
+# frame4: storage shed (small hut: roof + wall)
+Fill $g4 65 8 14 8 170 130 90
+Fill $g4 64 3 16 6 150 60 50
+Fill $g4 70 11 4 5 90 62 42
+
+$g4.Dispose()
+$bsheet.Save((Join-Path $assetsDir "buildings.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$bsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png"

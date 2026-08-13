@@ -1,5 +1,5 @@
 import { Server, type Connection, type ConnectionContext } from "partyserver";
-import type { ClientMessage, PlayerState, ServerMessage } from "./types";
+import type { ClientMessage, PlacedBuilding, PlayerState, ServerMessage } from "./types";
 import { DEFAULT_CHUNK_ID, MAX_PLAYERS } from "./types";
 
 const SPAWN_X = 312;
@@ -11,6 +11,8 @@ function send(connection: Connection, message: ServerMessage): void {
 
 export class Room extends Server {
   players = new Map<string, PlayerState>();
+  buildings: PlacedBuilding[] = [];
+  unlockedChunks = new Set<string>([DEFAULT_CHUNK_ID]);
 
   onConnect(connection: Connection, _context: ConnectionContext): void {
     // 参加はクライアントからの "join" メッセージを待って確定する(名前が必要なため)
@@ -30,25 +32,14 @@ export class Room extends Server {
       return;
     }
 
-    if (message.type === "move") {
-      const player = this.players.get(connection.id);
-      if (!player) return;
-      player.x = message.x;
-      player.y = message.y;
-      player.direction = message.direction;
-      player.animState = message.animState;
-      player.chunkId = message.chunkId;
+    if (!this.players.has(connection.id)) return;
 
-      const payload: ServerMessage = {
-        type: "player-moved",
-        id: connection.id,
-        x: player.x,
-        y: player.y,
-        direction: player.direction,
-        animState: player.animState,
-        chunkId: player.chunkId,
-      };
-      this.broadcast(JSON.stringify(payload), [connection.id]);
+    if (message.type === "move") {
+      this.handleMove(connection, message);
+    } else if (message.type === "craft-building") {
+      this.handleCraftBuilding(connection, message);
+    } else if (message.type === "craft-unlock") {
+      this.handleCraftUnlock(connection, message.chunkId);
     }
   }
 
@@ -84,10 +75,64 @@ export class Room extends Server {
       type: "init",
       selfId: connection.id,
       players: Array.from(this.players.values()),
+      buildings: this.buildings,
+      unlockedChunks: Array.from(this.unlockedChunks),
     });
 
     this.broadcast(
       JSON.stringify({ type: "player-joined", player } satisfies ServerMessage),
+      [connection.id],
+    );
+  }
+
+  private handleMove(
+    connection: Connection,
+    message: Extract<ClientMessage, { type: "move" }>,
+  ): void {
+    const player = this.players.get(connection.id);
+    if (!player) return;
+    player.x = message.x;
+    player.y = message.y;
+    player.direction = message.direction;
+    player.animState = message.animState;
+    player.chunkId = message.chunkId;
+
+    const payload: ServerMessage = {
+      type: "player-moved",
+      id: connection.id,
+      x: player.x,
+      y: player.y,
+      direction: player.direction,
+      animState: player.animState,
+      chunkId: player.chunkId,
+    };
+    this.broadcast(JSON.stringify(payload), [connection.id]);
+  }
+
+  private handleCraftBuilding(
+    connection: Connection,
+    message: Extract<ClientMessage, { type: "craft-building" }>,
+  ): void {
+    const building: PlacedBuilding = {
+      id: crypto.randomUUID(),
+      buildingType: message.buildingType,
+      x: message.x,
+      y: message.y,
+      chunkId: message.chunkId,
+    };
+    this.buildings.push(building);
+    // 送信者はクラフト時に自分のクライアントで既に建物を配置済みなので、他プレイヤーにのみ知らせる
+    this.broadcast(
+      JSON.stringify({ type: "building-placed", building } satisfies ServerMessage),
+      [connection.id],
+    );
+  }
+
+  private handleCraftUnlock(connection: Connection, chunkId: string): void {
+    if (this.unlockedChunks.has(chunkId)) return;
+    this.unlockedChunks.add(chunkId);
+    this.broadcast(
+      JSON.stringify({ type: "chunk-unlocked", chunkId } satisfies ServerMessage),
       [connection.id],
     );
   }

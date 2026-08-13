@@ -45,6 +45,23 @@ export class Inventory {
     this.notify();
   }
 
+  canAfford(costs: Partial<Counts>): boolean {
+    return (Object.entries(costs) as [ItemId, number][]).every(
+      ([id, amount]) => this.counts[id] >= amount,
+    );
+  }
+
+  /** 支払い可能な場合のみ差し引いてtrueを返す。不足していればfalseで何も変えない */
+  spend(costs: Partial<Counts>): boolean {
+    if (!this.canAfford(costs)) return false;
+    for (const [id, amount] of Object.entries(costs) as [ItemId, number][]) {
+      this.counts[id] -= amount;
+    }
+    this.save();
+    this.notify();
+    return true;
+  }
+
   getCounts(): Readonly<Counts> {
     return this.counts;
   }
