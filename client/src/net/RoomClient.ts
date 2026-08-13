@@ -12,7 +12,14 @@ function resolveServerHost(): string {
 export type RoomClientEvents = {
   onInit: (selfId: string, players: PlayerState[]) => void;
   onPlayerJoined: (player: PlayerState) => void;
-  onPlayerMoved: (id: string, x: number, y: number, direction: Direction, animState: AnimState) => void;
+  onPlayerMoved: (
+    id: string,
+    x: number,
+    y: number,
+    direction: Direction,
+    animState: AnimState,
+    chunkId: string,
+  ) => void;
   onPlayerLeft: (id: string) => void;
   onRoomFull: () => void;
 };
@@ -48,6 +55,7 @@ export class RoomClient {
             message.y,
             message.direction,
             message.animState,
+            message.chunkId,
           );
           break;
         case "player-left":
@@ -60,8 +68,8 @@ export class RoomClient {
     });
   }
 
-  sendMove(x: number, y: number, direction: Direction, animState: AnimState): void {
-    this.sendRaw({ type: "move", x, y, direction, animState });
+  sendMove(x: number, y: number, direction: Direction, animState: AnimState, chunkId: string): void {
+    this.sendRaw({ type: "move", x, y, direction, animState, chunkId });
   }
 
   private sendRaw(message: ClientMessage): void {

@@ -2,7 +2,7 @@
 
 ブラウザで動く2Dドット絵の見下ろし型オープンワールドゲーム。詳細な仕様は [claude_code_spec.md](./claude_code_spec.md) を参照。
 
-現在の実装状況: **フェーズ1(マルチプレイ基盤)完了・本番デプロイ済み**。
+現在の実装状況: **フェーズ2(探索・収集)完了・本番デプロイ済み**。
 
 **🎮 今すぐ遊べます: https://open-world-game-dxu.pages.dev**
 (同じルームIDで別のタブ/ウィンドウ・別の端末から入ると、最大4人でマルチプレイできる)
@@ -15,13 +15,15 @@
     /scenes               # Phaserのシーン(GameSceneなど)
     /input                # InputManager: キーボード/マウス入力の抽象化層
     /net                  # RoomClient(partysocket): WebSocket通信・状態同期
-    /entities             # プレイヤー(操作キャラ)・RemotePlayer(他プレイヤー)
+    /entities             # プレイヤー・RemotePlayer・GatheringPoint(採集ポイント)
+    /systems              # Inventory(個人インベントリ、localStorage永続化)
+    /ui                   # InventoryHud(DOM製のインベントリ表示)
     main.ts                # エントリポイント。参加フォーム → Phaser.Game起動
     style.css
   /public
-    /maps                  # Tiledで書き出したマップJSON(現在は仮データ)
+    /maps                  # Tiledで書き出したチャンクごとのマップJSON(現在は仮データ)
     /assets                # タイルセット・スプライトシート(現在は仮素材)
-  /scripts                # 仮素材・仮マップを生成するワンショットスクリプト
+  /scripts                # 仮素材・仮マップ(3チャンク)を生成するワンショットスクリプト
   vite.config.ts
 
 /server                  # Cloudflare Workers + Durable Objects(partyserver)
@@ -100,19 +102,29 @@ npx wrangler pages deploy dist --project-name=open-world-game
 ## 操作方法
 
 - 移動: `W`/`A`/`S`/`D` または矢印キー
-- アクション(採集・攻撃・メニュー選択など。現時点では見た目のフィードバックのみ): マウス/トラックパッドのクリック
+- アクション(採集・攻撃・メニュー選択など): マウス/トラックパッドのクリック。プレイヤーの近くにある
+  採集ポイント(木・岩・草)をクリックするとアイテムが手に入る
+- マップの端まで歩くと隣接チャンクへ移動する(拠点=chunk-homeの北にchunk-north、東にchunk-east)
+
+## 探索・収集の仕組み(現状)
+
+- 採集ポイントは木(🪵 wood)・岩(🪨 stone)・草(🌿 herb)の3種類。クリックすると1個獲得し、
+  1秒間クールダウンする(枯渇はしない)
+- インベントリは個人ごと(ブラウザのlocalStorageに保存)。画面左下のHUDに表示され、リロードしても保持される
+- チャンク間の移動は現時点では全て解放済み(フェーズ3で拠点拡張アイテムによる解放制に変更予定)
 
 ## マルチプレイの仕組み(現状)
 
 - 1ルーム(Durable Object)につき最大4人まで参加可能。5人目は「満員」メッセージで弾かれる。
-- 同期対象: 各プレイヤーの位置・向き・アニメーション状態(walk/idle)のみ。約80msごとに、値が変化した時だけ送信する。
+- 同期対象: 各プレイヤーの位置・向き・アニメーション状態(walk/idle)・現在いるチャンクID。約80msごとに、値が変化した時だけ送信する。
 - 他プレイヤーの表示はクライアント側で線形補間(lerp)し、カクつかず滑らかに動くようにしている。
-- 拠点(建物・畑・共有倉庫)の同期はフェーズ3で実装予定。現時点ではプレイヤーの位置同期のみ。
+- 自分と別のチャンクにいるプレイヤーは非表示になる(チャンクをまたいで見えてしまわないようにするため)。
+- インベントリ・採集ポイントの状態は同期しない(個人インベントリのみで、拠点の共有状態はフェーズ3で実装予定)。
 - サーバー側の不正対策は行っていない(友達内輪プレイ前提。仕様書9章)。
 
 ## 現在の仮素材について
 
-`client/public/assets/tileset.png`・`player.png` と `client/public/maps/sample-map.json` は、
+`client/public/assets/*.png` と `client/public/maps/chunk-*.json` は、
 `client/scripts/` 内のスクリプトで自動生成した仮のプレースホルダー素材・マップです。
 本物のTiledマップ/ドット絵素材に差し替える際は、このJSON・PNGファイルを置き換えるだけでよい構成になっています。
 
@@ -120,7 +132,7 @@ npx wrangler pages deploy dist --project-name=open-world-game
 
 ```bash
 cd client
-node scripts/generate-sample-map.mjs
+node scripts/generate-chunks.mjs
 # PowerShellで実行(System.Drawingを使用)
 powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Drawing; & './scripts/generate-placeholder-art.ps1'"
 ```

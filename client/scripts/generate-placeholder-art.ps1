@@ -111,4 +111,29 @@ $g2.Dispose()
 $sheet.Save((Join-Path $assetsDir "player.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $sheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png"
+# ---------- gathering point icons (16x16 x 3: wood, stone, herb) ----------
+$gsheet = New-Object System.Drawing.Bitmap ($tileSize * 3), $tileSize
+$g3 = [System.Drawing.Graphics]::FromImage($gsheet)
+$g3.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+# frame0: wood (tree)
+Fill $g3 5 9 6 6 120 72 48
+Fill $g3 2 1 12 9 60 140 70
+Fill $g3 4 3 3 2 80 160 90
+
+# frame1: stone (ore rock, distinct from the plain obstacle rock: has yellow ore flecks)
+Fill $g3 18 4 12 10 150 150 150
+Fill $g3 19 3 8 2 168 168 168
+Fill $g3 21 8 2 2 224 196 64
+Fill $g3 27 10 2 2 224 196 64
+
+# frame2: herb (bush)
+Fill $g3 34 6 12 9 84 178 96
+Fill $g3 37 4 6 4 104 198 112
+Fill $g3 38 9 2 2 60 150 70
+
+$g3.Dispose()
+$gsheet.Save((Join-Path $assetsDir "gathering.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$gsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png"

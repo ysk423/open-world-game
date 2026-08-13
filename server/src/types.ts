@@ -8,6 +8,7 @@ export type PlayerState = {
   y: number;
   direction: Direction;
   animState: AnimState;
+  chunkId: string;
 };
 
 export type ClientMessage =
@@ -18,6 +19,7 @@ export type ClientMessage =
       y: number;
       direction: Direction;
       animState: AnimState;
+      chunkId: string;
     };
 
 export type ServerMessage =
@@ -30,8 +32,10 @@ export type ServerMessage =
       y: number;
       direction: Direction;
       animState: AnimState;
+      chunkId: string;
     }
   | { type: "player-left"; id: string }
   | { type: "room-full" };
 
 export const MAX_PLAYERS = 4;
+export const DEFAULT_CHUNK_ID = "chunk-home";

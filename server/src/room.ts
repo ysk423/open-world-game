@@ -1,6 +1,6 @@
 import { Server, type Connection, type ConnectionContext } from "partyserver";
 import type { ClientMessage, PlayerState, ServerMessage } from "./types";
-import { MAX_PLAYERS } from "./types";
+import { DEFAULT_CHUNK_ID, MAX_PLAYERS } from "./types";
 
 const SPAWN_X = 312;
 const SPAWN_Y = 168;
@@ -37,6 +37,7 @@ export class Room extends Server {
       player.y = message.y;
       player.direction = message.direction;
       player.animState = message.animState;
+      player.chunkId = message.chunkId;
 
       const payload: ServerMessage = {
         type: "player-moved",
@@ -45,6 +46,7 @@ export class Room extends Server {
         y: player.y,
         direction: player.direction,
         animState: player.animState,
+        chunkId: player.chunkId,
       };
       this.broadcast(JSON.stringify(payload), [connection.id]);
     }
@@ -74,6 +76,7 @@ export class Room extends Server {
       y: SPAWN_Y,
       direction: "down",
       animState: "idle",
+      chunkId: DEFAULT_CHUNK_ID,
     };
     this.players.set(connection.id, player);
 

@@ -20,6 +20,7 @@ export class Player {
     this.sprite.setCollideWorldBounds(true);
     this.sprite.setSize(12, 10);
     this.sprite.setOffset(2, 20);
+    this.sprite.setDepth(10);
 
     this.createAnimations(scene);
     this.sprite.play("idle-down");

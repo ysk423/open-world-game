@@ -79,3 +79,29 @@ body {
 #join-form button:hover {
   background: #6f9be8;
 }
+
+#inventory-hud {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.inventory-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inventory-icon {
+  font-size: 16px;
+}
