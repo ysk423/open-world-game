@@ -31,7 +31,7 @@ export class Npc {
     this.sprite = scene.add.sprite(x, y, "npc", frame);
     this.sprite.setDepth(6);
     this.nameLabel = scene.add
-      .text(x, y - 20, npcName, { fontSize: "8px", color: "#ffffff" })
+      .text(x, y - 36, npcName, { fontSize: "8px", color: "#ffffff" })
       .setOrigin(0.5, 1)
       .setDepth(6);
 
@@ -67,7 +67,7 @@ export class Npc {
       y: targetY,
       duration: WANDER_MOVE_MS,
       ease: "Sine.easeInOut",
-      onUpdate: () => this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 20),
+      onUpdate: () => this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 36),
       onComplete: () => this.scheduleWander(scene),
     });
   }

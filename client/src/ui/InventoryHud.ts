@@ -8,8 +8,9 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   coin: "💰",
   seed: "🌱",
   crop: "🥕",
+  meat: "🍖",
 };
-const ITEM_ORDER: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop"];
+const ITEM_ORDER: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop", "meat"];
 
 export class InventoryHud {
   private el: HTMLDivElement;

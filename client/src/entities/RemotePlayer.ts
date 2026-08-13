@@ -22,7 +22,7 @@ export class RemotePlayer {
     this.sprite = scene.add.sprite(player.x, player.y, "player", 0);
     this.sprite.setDepth(10);
     this.nameLabel = scene.add
-      .text(player.x, player.y - 20, player.name, {
+      .text(player.x, player.y - 36, player.name, {
         fontSize: "8px",
         color: "#ffffff",
       })
@@ -47,7 +47,7 @@ export class RemotePlayer {
   tick(): void {
     this.sprite.x = Phaser.Math.Linear(this.sprite.x, this.targetX, LERP_FACTOR);
     this.sprite.y = Phaser.Math.Linear(this.sprite.y, this.targetY, LERP_FACTOR);
-    this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 20);
+    this.nameLabel.setPosition(this.sprite.x, this.sprite.y - 36);
   }
 
   private applyState(direction: Direction, animState: AnimState): void {

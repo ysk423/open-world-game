@@ -94,6 +94,34 @@ function npcObject(tileX, tileY, npcName, dialogue) {
   };
 }
 
+function animalObject(tileX, tileY) {
+  return {
+    id: nextObjectId++,
+    name: `animal_${nextObjectId}`,
+    type: "animal",
+    x: tileX * TILE_SIZE,
+    y: tileY * TILE_SIZE,
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    visible: true,
+    properties: [],
+  };
+}
+
+function shopObject(tileX, tileY) {
+  return {
+    id: nextObjectId++,
+    name: "shop",
+    type: "shop",
+    x: tileX * TILE_SIZE,
+    y: tileY * TILE_SIZE,
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    visible: true,
+    properties: [],
+  };
+}
+
 // 各領域(旧チャンク)を、自分だけのローカル座標系(0-39, 0-29)で組み立てる。
 // ---------------- home領域(ワールド原点(0,30)) ----------------
 function buildHome() {
@@ -139,7 +167,10 @@ function buildHome() {
     npcObject(16, 18, "ケン", "この湾はどこまでも歩いて回れるよ。北や東にも足を延ばしてみて。"),
   ];
 
-  return { ground, obstacles, gatheringPoints, monsters: [], npcs };
+  const animals = [animalObject(24, 17)];
+  const shops = [shopObject(14, 14)];
+
+  return { ground, obstacles, gatheringPoints, monsters: [], npcs, animals, shops };
 }
 
 // ---------------- north領域(ワールド原点(0,0)、homeの北) ----------------
@@ -177,8 +208,9 @@ function buildNorth() {
 
   // 縦の道(x=18-19)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
   const monsters = [monsterObject(28, 15)];
+  const animals = [animalObject(26, 20)];
 
-  return { ground, obstacles, gatheringPoints, monsters, npcs: [] };
+  return { ground, obstacles, gatheringPoints, monsters, npcs: [], animals, shops: [] };
 }
 
 // ---------------- east領域(ワールド原点(40,30)、homeの東) ----------------
@@ -216,8 +248,9 @@ function buildEast() {
 
   // 横の道(y=15-16)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
   const monsters = [monsterObject(12, 24)];
+  const animals = [animalObject(25, 10)];
 
-  return { ground, obstacles, gatheringPoints, monsters, npcs: [] };
+  return { ground, obstacles, gatheringPoints, monsters, npcs: [], animals, shops: [] };
 }
 
 function blitGrid(dst, dstW, src, srcW, srcH, originX, originY) {
@@ -247,6 +280,8 @@ const worldObstacles = makeGrid(WORLD_W, WORLD_H, 0);
 const worldGathering = [];
 const worldMonsters = [];
 const worldNpcs = [];
+const worldAnimals = [];
+const worldShops = [];
 
 for (const region of regions) {
   blitGrid(worldGround, WORLD_W, region.ground, CHUNK_W, CHUNK_H, region.originX, region.originY);
@@ -254,6 +289,8 @@ for (const region of regions) {
   worldGathering.push(...offsetObjects(region.gatheringPoints, region.originX, region.originY));
   worldMonsters.push(...offsetObjects(region.monsters, region.originX, region.originY));
   worldNpcs.push(...offsetObjects(region.npcs, region.originX, region.originY));
+  worldAnimals.push(...offsetObjects(region.animals, region.originX, region.originY));
+  worldShops.push(...offsetObjects(region.shops, region.originX, region.originY));
 }
 
 // north領域とeast領域の間(北東の隅、x:[40,80) y:[0,30))はどの領域にも属さない死角。
@@ -276,7 +313,7 @@ const world = {
   type: "map",
   tiledversion: "1.10.2",
   version: "1.10",
-  nextlayerid: 6,
+  nextlayerid: 8,
   nextobjectid: nextObjectId,
   layers: [
     {
@@ -332,6 +369,26 @@ const world = {
       opacity: 1,
       visible: true,
       objects: worldNpcs,
+    },
+    {
+      id: 6,
+      name: "animals",
+      type: "objectgroup",
+      x: 0,
+      y: 0,
+      opacity: 1,
+      visible: true,
+      objects: worldAnimals,
+    },
+    {
+      id: 7,
+      name: "shops",
+      type: "objectgroup",
+      x: 0,
+      y: 0,
+      opacity: 1,
+      visible: true,
+      objects: worldShops,
     },
   ],
   tilesets: [

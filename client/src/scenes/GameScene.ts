@@ -7,7 +7,9 @@ import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
 import { FarmPlot } from "../entities/FarmPlot";
 import { Monster } from "../entities/Monster";
+import { Animal } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
+import { Shop } from "../entities/Shop";
 import { RoomClient } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
@@ -56,6 +58,10 @@ const TALK_REACH_RADIUS = 80;
 const FARM_CLICK_RADIUS = 40;
 const FARM_REACH_RADIUS = 80;
 
+// ショップの判定距離
+const SHOP_CLICK_RADIUS = 40;
+const SHOP_REACH_RADIUS = 80;
+
 // シフトキーでアクションする時、向いている方向のこの距離先を対象点にする
 const SHIFT_ACTION_REACH = 40;
 const SHIFT_ACTION_OFFSET: Record<Direction, { x: number; y: number }> = {
@@ -71,6 +77,8 @@ const CONTACT_INVULN_MS = 1000;
 
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
+// 動物を倒してから再出現するまでの時間
+const ANIMAL_RESPAWN_DELAY_MS = 15000;
 // 再出現位置は極力プレイヤーから離す(近すぎる候補は避ける)
 const MONSTER_RESPAWN_MIN_DIST = 150;
 
@@ -81,6 +89,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   coin: "💰",
   seed: "🌱",
   crop: "🥕",
+  meat: "🍖",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -106,7 +115,10 @@ export class GameScene extends Phaser.Scene {
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
+  private animals: Animal[] = [];
   private npcs: Npc[] = [];
+  private shops: Shop[] = [];
+  private shopPanel!: ShopPanel;
 
   private buildings: PlacedBuilding[] = [];
 
@@ -142,6 +154,8 @@ export class GameScene extends Phaser.Scene {
       frameHeight: 32,
     });
     this.load.image("monster", "assets/monster.png");
+    this.load.image("animal", "assets/animal.png");
+    this.load.image("shop", "assets/shop.png");
     this.load.spritesheet("npc", "assets/npc.png", {
       frameWidth: 32,
       frameHeight: 64,
@@ -172,7 +186,7 @@ export class GameScene extends Phaser.Scene {
       onSave: (slot) => this.handleSave(slot),
       onLoad: (slot) => this.handleLoad(slot),
     });
-    new ShopPanel(this.inventory, {
+    this.shopPanel = new ShopPanel(this.inventory, {
       onSell: (itemId) => this.handleSell(itemId),
       onBuy: (itemId) => this.handleBuy(itemId),
     });
@@ -380,6 +394,24 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
+    const animalLayer = map.getObjectLayer("animals");
+    if (animalLayer) {
+      for (const obj of animalLayer.objects) {
+        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
+        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
+        this.spawnAnimal(x, y);
+      }
+    }
+
+    const shopLayer = map.getObjectLayer("shops");
+    if (shopLayer) {
+      for (const obj of shopLayer.objects) {
+        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
+        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
+        this.shops.push(new Shop(this, x, y));
+      }
+    }
+
     for (const building of this.buildings) {
       this.addBuildingSprite(building);
     }
@@ -435,6 +467,23 @@ export class GameScene extends Phaser.Scene {
       const pos = this.pickRandomWalkableWorldPos();
       if (!pos) return;
       this.spawnMonster(pos.x, pos.y);
+    });
+  }
+
+  // ---------- 動物 ----------
+
+  private spawnAnimal(x: number, y: number): void {
+    const animal = new Animal(this, x, y);
+    this.animals.push(animal);
+    if (this.groundLayer) this.physics.add.collider(animal.sprite, this.groundLayer);
+    if (this.obstacleLayer) this.physics.add.collider(animal.sprite, this.obstacleLayer);
+  }
+
+  private scheduleAnimalRespawn(): void {
+    this.time.delayedCall(ANIMAL_RESPAWN_DELAY_MS, () => {
+      const pos = this.pickRandomWalkableWorldPos();
+      if (!pos) return;
+      this.spawnAnimal(pos.x, pos.y);
     });
   }
 
@@ -558,7 +607,8 @@ export class GameScene extends Phaser.Scene {
     const playerX = this.player.sprite.x;
     const playerY = this.player.sprite.y;
 
-    let closest: Monster | null = null;
+    type Target = { kind: "monster"; obj: Monster } | { kind: "animal"; obj: Animal };
+    let closest: Target | null = null;
     let closestDist = Number.POSITIVE_INFINITY;
 
     for (const monster of this.monsters) {
@@ -574,7 +624,20 @@ export class GameScene extends Phaser.Scene {
       if (reachDist > ATTACK_REACH_RADIUS) continue;
 
       if (clickDist < closestDist) {
-        closest = monster;
+        closest = { kind: "monster", obj: monster };
+        closestDist = clickDist;
+      }
+    }
+
+    for (const animal of this.animals) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, animal.sprite.x, animal.sprite.y);
+      if (clickDist > ATTACK_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, animal.sprite.x, animal.sprite.y);
+      if (reachDist > ATTACK_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = { kind: "animal", obj: animal };
         closestDist = clickDist;
       }
     }
@@ -582,13 +645,27 @@ export class GameScene extends Phaser.Scene {
     if (!closest) return false;
 
     this.sound.play("sfx-attack", { volume: 0.5 });
-    const died = closest.takeDamage(this, this.equipment.getDamage());
-    if (died) {
-      this.monsters = this.monsters.filter((m) => m !== closest);
-      this.inventory.add("coin", 2);
-      this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "coin", 2);
-      closest.destroy();
-      this.scheduleMonsterRespawn();
+
+    if (closest.kind === "monster") {
+      const monster = closest.obj;
+      const died = monster.takeDamage(this, this.equipment.getDamage());
+      if (died) {
+        this.monsters = this.monsters.filter((m) => m !== monster);
+        this.inventory.add("coin", 2);
+        this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", 2);
+        monster.destroy();
+        this.scheduleMonsterRespawn();
+      }
+    } else {
+      const animal = closest.obj;
+      const died = animal.takeDamage(this, this.equipment.getDamage());
+      if (died) {
+        this.animals = this.animals.filter((a) => a !== animal);
+        this.inventory.add("meat", 1);
+        this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "meat", 1);
+        animal.destroy();
+        this.scheduleAnimalRespawn();
+      }
     }
     return true;
   }
@@ -688,11 +765,40 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- ショップ ----------
+
+  private tryShop(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Shop | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const shop of this.shops) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, shop.worldX, shop.worldY);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, shop.worldX, shop.worldY);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = shop;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.shopPanel.toggle();
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
     if (this.tryAttack(point)) return;
     if (this.tryTalk(point)) return;
+    if (this.tryShop(point)) return;
     if (this.tryFarm(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
@@ -716,6 +822,7 @@ export class GameScene extends Phaser.Scene {
     let closestDist = Number.POSITIVE_INFINITY;
 
     for (const gp of this.gatheringPoints) {
+      if (gp.isDepleted) continue;
       const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, gp.worldX, gp.worldY);
       if (clickDist > GATHER_CLICK_RADIUS) continue;
 

@@ -266,4 +266,40 @@ $g7.Dispose()
 $fsheet.Save((Join-Path $assetsDir "farm.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $fsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png"
+# ---------- animal (32x32 x 1: small rabbit) ----------
+$asheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
+$g8 = [System.Drawing.Graphics]::FromImage($asheet)
+$g8.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+FillOval $g8 6 14 20 14 245 245 245
+FillOval $g8 9 6 14 12 245 245 245
+FillOval $g8 10 0 5 10 245 245 245
+FillOval $g8 17 0 5 10 245 245 245
+FillOval $g8 11 2 2 6 240 190 200
+FillOval $g8 18 2 2 6 240 190 200
+FillOval $g8 19 10 2 2 40 30 30
+FillOval $g8 4 20 5 5 245 245 245
+
+$g8.Dispose()
+$asheet.Save((Join-Path $assetsDir "animal.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$asheet.Dispose()
+
+# ---------- shop (32x32 x 1: small market stall) ----------
+$shsheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
+$g9 = [System.Drawing.Graphics]::FromImage($shsheet)
+$g9.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+Fill $g9 4 20 24 8 170 130 90
+Fill $g9 4 20 24 3 190 150 105
+Fill $g9 4 10 3 12 120 84 54
+Fill $g9 25 10 3 12 120 84 54
+Fill $g9 2 4 28 8 210 70 70
+Fill $g9 2 4 7 8 235 235 235
+Fill $g9 16 4 7 8 235 235 235
+FillOval $g9 2 10 28 4 160 50 50
+
+$g9.Dispose()
+$shsheet.Save((Join-Path $assetsDir "shop.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$shsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png, $assetsDir\animal.png, $assetsDir\shop.png"

@@ -5,6 +5,7 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   stone: 1,
   herb: 2,
   crop: 3,
+  meat: 4,
 };
 
 export const SHOP_BUY_PRICES: Partial<Record<ItemId, number>> = {
@@ -18,6 +19,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   coin: "💰",
   seed: "🌱",
   crop: "🥕",
+  meat: "🍖",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {
@@ -29,9 +31,8 @@ export type ShopPanelEvents = {
   onBuy: (itemId: ItemId) => void;
 };
 
-/** 画面右下の「🏪 ショップ」ボタンで開閉するパネル。素材・作物の売却と種の購入ができる */
+/** マップ上のショップに近づいて話しかけると開くパネル。素材・作物・肉の売却と種の購入ができる */
 export class ShopPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
   private isOpen = false;
   private inventory: Inventory;
@@ -41,12 +42,6 @@ export class ShopPanel {
     this.inventory = inventory;
     this.events = events;
 
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "shop-toggle";
-    this.toggleButton.textContent = "🏪 ショップ";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "shop-panel";
     this.panel.style.display = "none";
@@ -55,10 +50,20 @@ export class ShopPanel {
     inventory.onChange(() => this.render());
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    this.isOpen = true;
+    this.panel.style.display = "flex";
     this.render();
+  }
+
+  close(): void {
+    this.isOpen = false;
+    this.panel.style.display = "none";
+  }
+
+  toggle(): void {
+    if (this.isOpen) this.close();
+    else this.open();
   }
 
   private render(): void {
@@ -67,9 +72,20 @@ export class ShopPanel {
     const counts = this.inventory.getCounts();
     this.panel.innerHTML = "";
 
+    const header = document.createElement("div");
+    header.className = "shop-header";
+
     const title = document.createElement("h2");
     title.textContent = "ショップ";
-    this.panel.appendChild(title);
+    header.appendChild(title);
+
+    const closeButton = document.createElement("button");
+    closeButton.id = "shop-close";
+    closeButton.textContent = "✕";
+    closeButton.addEventListener("click", () => this.close());
+    header.appendChild(closeButton);
+
+    this.panel.appendChild(header);
 
     const sellHeading = document.createElement("div");
     sellHeading.className = "shop-section-heading";
