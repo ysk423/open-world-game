@@ -10,7 +10,7 @@
   "type": "map",
   "tiledversion": "1.10.2",
   "version": "1.10",
-  "nextlayerid": 5,
+  "nextlayerid": 6,
   "nextobjectid": 8,
   "layers": [
     {
@@ -2573,6 +2573,16 @@
           "properties": []
         }
       ]
+    },
+    {
+      "id": 5,
+      "name": "npcs",
+      "type": "objectgroup",
+      "x": 0,
+      "y": 0,
+      "opacity": 1,
+      "visible": true,
+      "objects": []
     }
   ],
   "tilesets": [

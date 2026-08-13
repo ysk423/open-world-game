@@ -10,8 +10,8 @@
   "type": "map",
   "tiledversion": "1.10.2",
   "version": "1.10",
-  "nextlayerid": 5,
-  "nextobjectid": 9,
+  "nextlayerid": 6,
+  "nextobjectid": 11,
   "layers": [
     {
       "id": 1,
@@ -2595,6 +2595,61 @@
       "opacity": 1,
       "visible": true,
       "objects": []
+    },
+    {
+      "id": 5,
+      "name": "npcs",
+      "type": "objectgroup",
+      "x": 0,
+      "y": 0,
+      "opacity": 1,
+      "visible": true,
+      "objects": [
+        {
+          "id": 9,
+          "name": "ミナ",
+          "type": "npc",
+          "x": 336,
+          "y": 176,
+          "width": 16,
+          "height": 16,
+          "visible": true,
+          "properties": [
+            {
+              "name": "npcName",
+              "type": "string",
+              "value": "ミナ"
+            },
+            {
+              "name": "dialogue",
+              "type": "string",
+              "value": "ようこそ、はじまりの湾へ!採集ポイントをクリックして素材を集めてね。"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "name": "ケン",
+          "type": "npc",
+          "x": 256,
+          "y": 288,
+          "width": 16,
+          "height": 16,
+          "visible": true,
+          "properties": [
+            {
+              "name": "npcName",
+              "type": "string",
+              "value": "ケン"
+            },
+            {
+              "name": "dialogue",
+              "type": "string",
+              "value": "北と東には素材を集めて道を作れば行けるようになるよ。クラフトメニューを見てみて。"
+            }
+          ]
+        }
+      ]
     }
   ],
   "tilesets": [

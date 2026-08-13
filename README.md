@@ -2,7 +2,7 @@
 
 ブラウザで動く2Dドット絵の見下ろし型オープンワールドゲーム。詳細な仕様は [claude_code_spec.md](./claude_code_spec.md) を参照。
 
-現在の実装状況: **フェーズ4(戦闘)完了・本番デプロイ済み**。
+現在の実装状況: **フェーズ0〜5(MVP全機能)完了・本番デプロイ済み**。
 
 **🎮 今すぐ遊べます: https://open-world-game-dxu.pages.dev**
 (同じルームIDで別のタブ/ウィンドウ・別の端末から入ると、最大4人でマルチプレイできる)
@@ -15,15 +15,16 @@
     /scenes               # Phaserのシーン(GameSceneなど)
     /input                # InputManager: キーボード/マウス入力の抽象化層
     /net                  # RoomClient(partysocket): WebSocket通信・状態同期
-    /entities             # プレイヤー・RemotePlayer・GatheringPoint・Building・Monster
+    /entities             # プレイヤー・RemotePlayer・GatheringPoint・Building・Monster・Npc
     /systems              # Inventory・recipes(クラフトレシピ定義)・Health(プレイヤー体力)
-    /ui                   # InventoryHud・CraftMenu・HealthHud(DOM製のUI)
+    /ui                   # InventoryHud・CraftMenu・HealthHud・HelpPanel(DOM製のUI)
     main.ts                # エントリポイント。参加フォーム → Phaser.Game起動
     style.css
   /public
     /maps                  # Tiledで書き出したチャンクごとのマップJSON(現在は仮データ)
     /assets                # タイルセット・スプライトシート(現在は仮素材)
-  /scripts                # 仮素材・仮マップ(3チャンク)を生成するワンショットスクリプト
+      /audio                # BGM・効果音(現在は合成音、仮のプレースホルダー)
+  /scripts                # 仮素材・仮マップ(3チャンク)・仮音声を生成するワンショットスクリプト
   vite.config.ts
 
 /server                  # Cloudflare Workers + Durable Objects(partyserver)
@@ -103,8 +104,9 @@ npx wrangler pages deploy dist --project-name=open-world-game
 
 - 移動: `W`/`A`/`S`/`D` または矢印キー
 - アクション: マウス/トラックパッドのクリック。近くの採集ポイント(木・岩・草)をクリックすると
-  アイテムが手に入り、近くのモンスターをクリックすると攻撃する
+  アイテムが手に入り、近くのモンスターをクリックすると攻撃、近くのNPCをクリックすると会話する
 - クラフト: 画面右下の「🔨 クラフト」ボタンでメニューを開閉
+- 操作方法: 画面右上の「❓ 操作方法」ボタンでいつでも操作一覧を表示できる
 - マップの端まで歩くと隣接チャンクへ移動する(拠点=chunk-homeの北にchunk-north、東にchunk-east。
   未解放の場合は進めず、ロックメッセージが出る)
 
@@ -117,6 +119,13 @@ npx wrangler pages deploy dist --project-name=open-world-game
 - プレイヤーの体力は❤️3つ。0になってもゲームオーバーにはならず、拠点(chunk-home)へ運ばれて
   体力全回復した状態で再開できる(仕様書9章、フェーズ4の受け入れ基準どおりの軽いペナルティ)
 - モンスターの体力・撃破状態はプレイヤーごとの表示で、マルチプレイでは同期しない(個人ローカルの戦闘)
+
+## NPC・音について(現状)
+
+- NPCは2人(ミナ・ケン)、chunk-homeに配置。近づいてクリックすると短いセリフが表示される
+  (選択肢や好感度はなし。仕様書フェーズ5どおりの簡易会話)
+- BGM(ループ)と効果音(採集・攻撃・クラフト・会話・被ダメージ)が鳴る。すべて
+  `client/scripts/generate-audio.mjs` で合成した仮の音源(WAV)で、本物の音源に差し替え可能
 
 ## 探索・収集の仕組み(現状)
 
@@ -146,8 +155,8 @@ npx wrangler pages deploy dist --project-name=open-world-game
 
 ## 現在の仮素材について
 
-`client/public/assets/*.png` と `client/public/maps/chunk-*.json` は、
-`client/scripts/` 内のスクリプトで自動生成した仮のプレースホルダー素材・マップです。
+`client/public/assets/*.png`・`client/public/assets/audio/*.wav`・`client/public/maps/chunk-*.json` は、
+`client/scripts/` 内のスクリプトで自動生成した仮のプレースホルダー素材・マップ・音源です。
 本物のTiledマップ/ドット絵素材に差し替える際は、このJSON・PNGファイルを置き換えるだけでよい構成になっています。
 
 再生成する場合:
@@ -155,6 +164,7 @@ npx wrangler pages deploy dist --project-name=open-world-game
 ```bash
 cd client
 node scripts/generate-chunks.mjs
+node scripts/generate-audio.mjs
 # PowerShellで実行(System.Drawingを使用)
 powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Drawing; & './scripts/generate-placeholder-art.ps1'"
 ```
@@ -167,3 +177,15 @@ powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Drawi
 
 - クライアント: Phaser 3 + TypeScript + Vite + partysocket
 - マルチプレイサーバー: Cloudflare Workers + Durable Objects + partyserver
+
+## 今後の拡張候補(MVP対象外)
+
+仕様書2章で明示的にMVP対象外とされている項目。必要になったら着手する:
+
+- 昼夜サイクル・天候
+- フル会話ツリー・NPC好感度システム
+- ボス戦・複数モンスター種
+- サーバー側の厳密なチート対策
+- スマホのタッチ操作UI本体(入力層はInputManagerで抽象化済みなので差し替えは可能)
+- アカウント認証・ログイン機能
+- 実績・図鑑などのメタ進行

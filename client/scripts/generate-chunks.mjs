@@ -70,7 +70,24 @@ function monsterObject(tileX, tileY) {
   };
 }
 
-function buildMap(ground, obstacles, gatheringPoints, monsters = []) {
+function npcObject(tileX, tileY, npcName, dialogue) {
+  return {
+    id: nextObjectId++,
+    name: npcName,
+    type: "npc",
+    x: tileX * TILE_SIZE,
+    y: tileY * TILE_SIZE,
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    visible: true,
+    properties: [
+      { name: "npcName", type: "string", value: npcName },
+      { name: "dialogue", type: "string", value: dialogue },
+    ],
+  };
+}
+
+function buildMap(ground, obstacles, gatheringPoints, monsters = [], npcs = []) {
   return {
     compressionlevel: -1,
     width: WIDTH,
@@ -83,7 +100,7 @@ function buildMap(ground, obstacles, gatheringPoints, monsters = []) {
     type: "map",
     tiledversion: "1.10.2",
     version: "1.10",
-    nextlayerid: 5,
+    nextlayerid: 6,
     nextobjectid: nextObjectId,
     layers: [
       {
@@ -129,6 +146,16 @@ function buildMap(ground, obstacles, gatheringPoints, monsters = []) {
         opacity: 1,
         visible: true,
         objects: monsters,
+      },
+      {
+        id: 5,
+        name: "npcs",
+        type: "objectgroup",
+        x: 0,
+        y: 0,
+        opacity: 1,
+        visible: true,
+        objects: npcs,
       },
     ],
     tilesets: [
@@ -189,7 +216,12 @@ function buildHome() {
     gatheringObject("herb", 5, 25),
   ];
 
-  return buildMap(ground, obstacles, gatheringPoints);
+  const npcs = [
+    npcObject(21, 11, "ミナ", "ようこそ、はじまりの湾へ!採集ポイントをクリックして素材を集めてね。"),
+    npcObject(16, 18, "ケン", "北と東には素材を集めて道を作れば行けるようになるよ。クラフトメニューを見てみて。"),
+  ];
+
+  return buildMap(ground, obstacles, gatheringPoints, [], npcs);
 }
 
 // ---------------- chunk-north (homeの北) ----------------

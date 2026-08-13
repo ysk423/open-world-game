@@ -190,4 +190,36 @@ $g5.Dispose()
 $msheet.Save((Join-Path $assetsDir "monster.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $msheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png"
+# ---------- npc (16x32 x 2: villager A, villager B) ----------
+$nfw = 16; $nfh = 32
+$nsheet = New-Object System.Drawing.Bitmap ($nfw * 2), $nfh
+$g6 = [System.Drawing.Graphics]::FromImage($nsheet)
+$g6.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+function DrawNpc($gfx, $ox, $skinColor, $hairColor, $shirtColor) {
+    $skinB = New-Object System.Drawing.SolidBrush $skinColor
+    $hairB = New-Object System.Drawing.SolidBrush $hairColor
+    $shirtB = New-Object System.Drawing.SolidBrush $shirtColor
+    $pantsB = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 90, 74, 58))
+    $eyeB = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 40, 30, 30))
+
+    $gfx.FillRectangle($skinB, $ox+4, 2, 8, 7)
+    $gfx.FillRectangle($hairB, $ox+3, 0, 10, 3)
+    $gfx.FillRectangle($shirtB, $ox+3, 9, 10, 9)
+    $gfx.FillRectangle($eyeB, $ox+6, 5, 1, 1)
+    $gfx.FillRectangle($eyeB, $ox+9, 5, 1, 1)
+    $gfx.FillRectangle($pantsB, $ox+3, 18, 4, 6)
+    $gfx.FillRectangle($pantsB, $ox+9, 18, 4, 6)
+
+    $skinB.Dispose(); $hairB.Dispose(); $shirtB.Dispose(); $pantsB.Dispose(); $eyeB.Dispose()
+}
+
+$npcSkin = [System.Drawing.Color]::FromArgb(255, 245, 194, 138)
+DrawNpc $g6 0 $npcSkin ([System.Drawing.Color]::FromArgb(255, 110, 74, 46)) ([System.Drawing.Color]::FromArgb(255, 90, 160, 90))
+DrawNpc $g6 $nfw $npcSkin ([System.Drawing.Color]::FromArgb(255, 70, 48, 32)) ([System.Drawing.Color]::FromArgb(255, 210, 150, 80))
+
+$g6.Dispose()
+$nsheet.Save((Join-Path $assetsDir "npc.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$nsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png"

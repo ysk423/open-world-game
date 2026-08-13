@@ -6,6 +6,7 @@ import { RemotePlayer } from "../entities/RemotePlayer";
 import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
 import { Monster } from "../entities/Monster";
+import { Npc } from "../entities/Npc";
 import { RoomClient } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo } from "../net/joinInfo";
@@ -15,6 +16,7 @@ import { Health } from "../systems/Health";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
+import { HelpPanel } from "../ui/HelpPanel";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
@@ -45,6 +47,10 @@ const GATHER_REACH_RADIUS = 40;
 // 攻撃の判定距離
 const ATTACK_CLICK_RADIUS = 20;
 const ATTACK_REACH_RADIUS = 40;
+
+// 会話の判定距離
+const TALK_CLICK_RADIUS = 20;
+const TALK_REACH_RADIUS = 40;
 
 const PLAYER_MAX_HP = 3;
 const CONTACT_DAMAGE = 1;
@@ -82,6 +88,7 @@ export class GameScene extends Phaser.Scene {
   private buildingSprites: Building[] = [];
   private monsters: Monster[] = [];
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
+  private npcs: Npc[] = [];
 
   private baseState = {
     buildings: [] as PlacedBuilding[],
@@ -119,6 +126,17 @@ export class GameScene extends Phaser.Scene {
       frameHeight: 16,
     });
     this.load.image("monster", "assets/monster.png");
+    this.load.spritesheet("npc", "assets/npc.png", {
+      frameWidth: 16,
+      frameHeight: 32,
+    });
+
+    this.load.audio("bgm", "assets/audio/bgm.wav");
+    this.load.audio("sfx-gather", "assets/audio/sfx-gather.wav");
+    this.load.audio("sfx-attack", "assets/audio/sfx-attack.wav");
+    this.load.audio("sfx-craft", "assets/audio/sfx-craft.wav");
+    this.load.audio("sfx-talk", "assets/audio/sfx-talk.wav");
+    this.load.audio("sfx-hurt", "assets/audio/sfx-hurt.wav");
   }
 
   create(): void {
@@ -129,6 +147,11 @@ export class GameScene extends Phaser.Scene {
     });
     this.health = new Health(PLAYER_MAX_HP);
     new HealthHud(this.health);
+    new HelpPanel();
+
+    if (!this.sound.get("bgm")) {
+      this.sound.play("bgm", { loop: true, volume: 0.25 });
+    }
 
     this.player = new Player(
       this,
@@ -238,6 +261,8 @@ export class GameScene extends Phaser.Scene {
     this.monsterOverlaps = [];
     for (const monster of this.monsters) monster.destroy();
     this.monsters = [];
+    for (const npc of this.npcs) npc.destroy();
+    this.npcs = [];
 
     const map = this.make.tilemap({ key: chunkId });
     const tileset = map.addTilesetImage("tileset", "tiles");
@@ -290,6 +315,20 @@ export class GameScene extends Phaser.Scene {
           }),
         );
       }
+    }
+
+    const npcLayer = map.getObjectLayer("npcs");
+    if (npcLayer) {
+      npcLayer.objects.forEach((obj, index) => {
+        const npcName = obj.properties?.find((p: { name: string }) => p.name === "npcName")
+          ?.value as string | undefined;
+        const dialogue = obj.properties?.find((p: { name: string }) => p.name === "dialogue")
+          ?.value as string | undefined;
+        if (!npcName || !dialogue) return;
+        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
+        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
+        this.npcs.push(new Npc(this, x, y, index % 2, npcName, dialogue));
+      });
     }
 
     this.currentChunk = chunkId;
@@ -409,6 +448,7 @@ export class GameScene extends Phaser.Scene {
       this.roomClient.sendCraftUnlock(recipe.effect.chunkId);
     }
 
+    this.sound.play("sfx-craft", { volume: 0.5 });
     this.showFloatingMessage(`${recipe.name}を作った!`);
   }
 
@@ -458,6 +498,7 @@ export class GameScene extends Phaser.Scene {
     if (now < this.invulnerableUntil) return;
     this.invulnerableUntil = now + CONTACT_INVULN_MS;
 
+    this.sound.play("sfx-hurt", { volume: 0.5 });
     const defeated = this.health.damage(CONTACT_DAMAGE);
     this.player.sprite.setTint(0xff5555);
     this.time.delayedCall(200, () => {
@@ -515,6 +556,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!closest) return false;
 
+    this.sound.play("sfx-attack", { volume: 0.5 });
     const died = closest.takeDamage(this, 1);
     if (died) {
       this.monsters = this.monsters.filter((m) => m !== closest);
@@ -523,10 +565,60 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  // ---------- アクション(採集・攻撃など) ----------
+  // ---------- 会話 ----------
+
+  private tryTalk(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Npc | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const npc of this.npcs) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, npc.worldX, npc.worldY);
+      if (clickDist > TALK_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, npc.worldX, npc.worldY);
+      if (reachDist > TALK_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = npc;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.sound.play("sfx-talk", { volume: 0.5 });
+    this.showDialogue(closest.worldX, closest.worldY, closest.npcName, closest.dialogue);
+    return true;
+  }
+
+  private showDialogue(x: number, y: number, npcName: string, dialogue: string): void {
+    const text = this.add
+      .text(x, y - 22, `${npcName}: ${dialogue}`, {
+        fontSize: "9px",
+        color: "#ffffff",
+        backgroundColor: "#000000cc",
+        padding: { x: 5, y: 4 },
+        wordWrap: { width: 160 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(20);
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      duration: 800,
+      delay: 2600,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
     if (this.tryAttack(point)) return;
+    if (this.tryTalk(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
@@ -557,6 +649,7 @@ export class GameScene extends Phaser.Scene {
       return false;
     }
 
+    this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add(closest.itemId, 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId);
     return true;
