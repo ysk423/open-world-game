@@ -2,7 +2,10 @@
 
 ブラウザで動く2Dドット絵の見下ろし型オープンワールドゲーム。詳細な仕様は [claude_code_spec.md](./claude_code_spec.md) を参照。
 
-現在の実装状況: **フェーズ1(マルチプレイ基盤)完了**。
+現在の実装状況: **フェーズ1(マルチプレイ基盤)完了・本番デプロイ済み**。
+
+**🎮 今すぐ遊べます: https://open-world-game-dxu.pages.dev**
+(同じルームIDで別のタブ/ウィンドウ・別の端末から入ると、最大4人でマルチプレイできる)
 
 ## ディレクトリ構成
 
@@ -70,6 +73,10 @@ npm run typecheck   # tsc --noEmit による型チェックのみ
 
 ## Cloudflareへのデプロイ
 
+現在の本番環境:
+- サーバー(Workers): https://open-world-game-server.ysk-ino-123.workers.dev
+- クライアント(Pages): https://open-world-game-dxu.pages.dev
+
 初回は `npx wrangler login` でCloudflareアカウントにログインしておく。
 
 ```bash
@@ -83,12 +90,12 @@ npm run deploy   # = wrangler deploy
 
 ```bash
 cd client
-VITE_ROOM_SERVER_HOST=open-world-game-server.<subdomain>.workers.dev npm run build
+VITE_ROOM_SERVER_HOST=open-world-game-server.ysk-ino-123.workers.dev npm run build
+npx wrangler pages deploy dist --project-name=open-world-game
 ```
 
-生成された `client/dist` を Cloudflare Pages にデプロイする(Pagesダッシュボードからのアップロード、
-または `npx wrangler pages deploy dist` など)。指定しない場合、`VITE_ROOM_SERVER_HOST` は
-`localhost:8787` にフォールバックする(ローカル開発用)。
+指定しない場合、`VITE_ROOM_SERVER_HOST` は `localhost:8787` にフォールバックする(ローカル開発用)。
+サーバー側を再デプロイしてもWorkerのURLは変わらないため、通常クライアントの環境変数を毎回変える必要はない。
 
 ## 操作方法
 
