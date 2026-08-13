@@ -234,4 +234,36 @@ $g6.Dispose()
 $nsheet.Save((Join-Path $assetsDir "npc.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $nsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png"
+# ---------- farm plot (32x32 x 3: empty soil, growing sprout, ready crop) ----------
+$fsheet = New-Object System.Drawing.Bitmap ($tileSize * 3), $tileSize
+$g7 = [System.Drawing.Graphics]::FromImage($fsheet)
+$g7.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+# frame0: empty tilled soil (furrows)
+Fill $g7 0 0 32 32 122 199 92
+Fill $g7 2 4 28 24 111 78 55
+FillOval $g7 4 8 24 3 95 66 46
+FillOval $g7 4 15 24 3 95 66 46
+FillOval $g7 4 22 24 3 95 66 46
+
+# frame1: growing (soil + small green sprouts)
+Fill $g7 32 0 32 32 122 199 92
+Fill $g7 34 4 28 24 111 78 55
+FillOval $g7 38 12 4 10 70 150 80
+FillOval $g7 48 10 4 12 70 150 80
+FillOval $g7 56 12 4 10 70 150 80
+
+# frame2: ready (soil + ripe orange crops)
+Fill $g7 64 0 32 32 122 199 92
+Fill $g7 66 4 28 24 111 78 55
+FillOval $g7 69 12 8 10 235 140 40
+FillOval $g7 80 10 8 12 235 140 40
+FillOval $g7 90 12 6 10 235 140 40
+FillOval $g7 71 13 3 3 90 160 70
+FillOval $g7 82 11 3 3 90 160 70
+
+$g7.Dispose()
+$fsheet.Save((Join-Path $assetsDir "farm.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$fsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png"

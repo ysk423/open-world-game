@@ -1,10 +1,11 @@
 import Phaser from "phaser";
 import { InputManager } from "../input/InputManager";
-import type { ActionPoint } from "../input/InputManager";
+import type { ActionPoint, Direction } from "../input/InputManager";
 import { Player } from "../entities/Player";
 import { RemotePlayer } from "../entities/RemotePlayer";
 import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
+import { FarmPlot } from "../entities/FarmPlot";
 import { Monster } from "../entities/Monster";
 import { Npc } from "../entities/Npc";
 import { RoomClient } from "../net/RoomClient";
@@ -13,12 +14,15 @@ import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
+import { Equipment } from "../systems/Equipment";
 import { saveSlot, loadSlot } from "../systems/SaveSlots";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
+import { EquipmentPanel } from "../ui/EquipmentPanel";
+import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
@@ -46,15 +50,44 @@ const ATTACK_REACH_RADIUS = 80;
 const TALK_CLICK_RADIUS = 40;
 const TALK_REACH_RADIUS = 80;
 
-const PLAYER_MAX_HP = 3;
+// 畑の判定距離
+const FARM_CLICK_RADIUS = 40;
+const FARM_REACH_RADIUS = 80;
+
+// シフトキーでアクションする時、向いている方向のこの距離先を対象点にする
+const SHIFT_ACTION_REACH = 40;
+const SHIFT_ACTION_OFFSET: Record<Direction, { x: number; y: number }> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+};
+
+const PLAYER_MAX_HP = 5;
 const CONTACT_DAMAGE = 1;
 const CONTACT_INVULN_MS = 1000;
+
+// モンスターを倒してから再出現するまでの時間
+const MONSTER_RESPAWN_DELAY_MS = 20000;
+// 再出現位置は極力プレイヤーから離す(近すぎる候補は避ける)
+const MONSTER_RESPAWN_MIN_DIST = 150;
+
+const ITEM_ICON: Record<ItemId, string> = {
+  wood: "🪵",
+  stone: "🪨",
+  herb: "🌿",
+  coin: "💰",
+  seed: "🌱",
+  crop: "🥕",
+};
 
 export class GameScene extends Phaser.Scene {
   private inputManager!: InputManager;
   private player!: Player;
   private roomClient!: RoomClient;
   private inventory!: Inventory;
+  private equipment!: Equipment;
+  private craftMenu!: CraftMenu;
   private health!: Health;
   private invulnerableUntil = 0;
   private pendingLoadSlot: number | null = null;
@@ -62,8 +95,13 @@ export class GameScene extends Phaser.Scene {
   private remotePlayers = new Map<string, RemotePlayer>();
   private selfId: string | null = null;
 
+  private groundLayer?: Phaser.Tilemaps.TilemapLayer;
+  private obstacleLayer?: Phaser.Tilemaps.TilemapLayer;
+  private walkableTiles: { x: number; y: number }[] = [];
+
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
+  private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private npcs: Npc[] = [];
@@ -97,6 +135,10 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 32,
       frameHeight: 32,
     });
+    this.load.spritesheet("farm", "assets/farm.png", {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
     this.load.image("monster", "assets/monster.png");
     this.load.spritesheet("npc", "assets/npc.png", {
       frameWidth: 32,
@@ -113,16 +155,24 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.inventory = new Inventory();
+    this.equipment = new Equipment();
     new InventoryHud(this.inventory);
-    new CraftMenu(this.inventory, (recipe) => {
-      this.handleCraft(recipe);
-    });
+    this.craftMenu = new CraftMenu(
+      this.inventory,
+      () => new Set(this.equipment.getOwned()),
+      (recipe) => this.handleCraft(recipe),
+    );
+    new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId));
     this.health = new Health(PLAYER_MAX_HP);
-    new HealthHud(this.health);
+    new HealthHud(this.health, () => this.handleHeal());
     new HelpPanel();
     new SaveLoadPanel({
       onSave: (slot) => this.handleSave(slot),
       onLoad: (slot) => this.handleLoad(slot),
+    });
+    new ShopPanel(this.inventory, {
+      onSell: (itemId) => this.handleSell(itemId),
+      onBuy: (itemId) => this.handleBuy(itemId),
     });
 
     if (!this.sound.get("bgm")) {
@@ -136,6 +186,9 @@ export class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this);
     this.inputManager.onAction((point) => {
       this.handleAction(point);
+    });
+    this.inputManager.onShiftAction(() => {
+      this.handleShiftAction();
     });
 
     this.setupNetworking();
@@ -181,8 +234,11 @@ export class GameScene extends Phaser.Scene {
         this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
+        for (const plot of this.farmPlots) plot.destroy();
+        this.farmPlots = [];
         this.inventory.reset();
         this.health.reset();
+        this.equipment.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
       },
@@ -190,6 +246,8 @@ export class GameScene extends Phaser.Scene {
         this.buildings = buildings;
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
+        for (const plot of this.farmPlots) plot.destroy();
+        this.farmPlots = [];
         for (const building of buildings) this.addBuildingSprite(building);
 
         // 自分が要求したロードの場合のみ、個人の持ち物・HPも復元する(他プレイヤーの分は変えない)
@@ -259,6 +317,8 @@ export class GameScene extends Phaser.Scene {
     }
     groundLayer.setCollision(WATER_GID);
     obstacleLayer.setCollision(ROCK_GID);
+    this.groundLayer = groundLayer;
+    this.obstacleLayer = obstacleLayer;
 
     const mapWidthPx = map.widthInPixels;
     const mapHeightPx = map.heightInPixels;
@@ -268,6 +328,16 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player.sprite, groundLayer);
     this.physics.add.collider(this.player.sprite, obstacleLayer);
+
+    // モンスターの再出現先を選ぶための、歩行可能なタイル座標一覧(水・岩以外)
+    this.walkableTiles = [];
+    for (let ty = 0; ty < map.height; ty++) {
+      for (let tx = 0; tx < map.width; tx++) {
+        const isWater = groundLayer.getTileAt(tx, ty)?.index === WATER_GID;
+        const isRock = obstacleLayer.getTileAt(tx, ty)?.index === ROCK_GID;
+        if (!isWater && !isRock) this.walkableTiles.push({ x: tx, y: ty });
+      }
+    }
 
     const gatheringLayer = map.getObjectLayer("gathering");
     if (gatheringLayer) {
@@ -287,13 +357,7 @@ export class GameScene extends Phaser.Scene {
       for (const obj of monsterLayer.objects) {
         const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
         const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
-        const monster = new Monster(this, x, y);
-        this.monsters.push(monster);
-        this.monsterOverlaps.push(
-          this.physics.add.overlap(this.player.sprite, monster.sprite, () => {
-            this.handleMonsterContact();
-          }),
-        );
+        this.spawnMonster(x, y);
       }
     }
 
@@ -317,15 +381,73 @@ export class GameScene extends Phaser.Scene {
   }
 
   private addBuildingSprite(building: PlacedBuilding): void {
-    this.buildingSprites.push(
-      new Building(this, building.x, building.y, building.buildingType as BuildingType),
+    if (building.buildingType === "farm_plot") {
+      this.farmPlots.push(new FarmPlot(this, building.x, building.y));
+      return;
+    }
+    const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);
+    this.buildingSprites.push(sprite);
+    if (sprite.solid) {
+      this.physics.add.collider(this.player.sprite, sprite.sprite);
+    }
+  }
+
+  // ---------- モンスター ----------
+
+  private spawnMonster(x: number, y: number): void {
+    const monster = new Monster(this, x, y);
+    this.monsters.push(monster);
+    if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
+    if (this.obstacleLayer) this.physics.add.collider(monster.sprite, this.obstacleLayer);
+    this.monsterOverlaps.push(
+      this.physics.add.overlap(this.player.sprite, monster.sprite, () => {
+        this.handleMonsterContact();
+      }),
     );
+  }
+
+  private pickRandomWalkableWorldPos(): { x: number; y: number } | null {
+    if (this.walkableTiles.length === 0) return null;
+
+    let best: { x: number; y: number } | null = null;
+    let bestDist = -1;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const tile = Phaser.Utils.Array.GetRandom(this.walkableTiles);
+      const worldX = tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const worldY = tile.y * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Phaser.Math.Distance.Between(worldX, worldY, this.player.sprite.x, this.player.sprite.y);
+      if (dist >= MONSTER_RESPAWN_MIN_DIST) return { x: worldX, y: worldY };
+      if (dist > bestDist) {
+        bestDist = dist;
+        best = { x: worldX, y: worldY };
+      }
+    }
+    return best;
+  }
+
+  private scheduleMonsterRespawn(): void {
+    this.time.delayedCall(MONSTER_RESPAWN_DELAY_MS, () => {
+      const pos = this.pickRandomWalkableWorldPos();
+      if (!pos) return;
+      this.spawnMonster(pos.x, pos.y);
+    });
   }
 
   // ---------- クラフト ----------
 
   private handleCraft(recipe: Recipe): void {
+    if (recipe.effect.type === "weapon" && this.equipment.getOwned().includes(recipe.effect.weaponId)) {
+      return;
+    }
     if (!this.inventory.spend(recipe.inputs)) return;
+
+    if (recipe.effect.type === "weapon") {
+      this.equipment.acquire(recipe.effect.weaponId);
+      this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage(`${recipe.name}を作った!`);
+      return;
+    }
 
     const x = Math.round(this.player.sprite.x);
     const y = Math.round(this.player.sprite.y);
@@ -361,6 +483,40 @@ export class GameScene extends Phaser.Scene {
       delay: 400,
       onComplete: () => text.destroy(),
     });
+  }
+
+  // ---------- 回復 ----------
+
+  private handleHeal(): void {
+    if (this.health.getHp() >= this.health.getMaxHp()) return;
+    if (!this.inventory.spend({ herb: 1 })) {
+      this.showFloatingMessage("🌿が足りません");
+      return;
+    }
+    this.health.heal(1);
+    this.sound.play("sfx-gather", { volume: 0.4 });
+    this.showFloatingMessage("回復した(-1 🌿)");
+  }
+
+  // ---------- ショップ ----------
+
+  private handleSell(itemId: ItemId): void {
+    const price = SHOP_SELL_PRICES[itemId];
+    if (!price) return;
+    if (!this.inventory.spend({ [itemId]: 1 } as Partial<Record<ItemId, number>>)) return;
+    this.inventory.add("coin", price);
+    this.showFloatingMessage(`売った(+${price} 💰)`);
+  }
+
+  private handleBuy(itemId: ItemId): void {
+    const price = SHOP_BUY_PRICES[itemId];
+    if (!price) return;
+    if (!this.inventory.spend({ coin: price })) {
+      this.showFloatingMessage("💰が足りません");
+      return;
+    }
+    this.inventory.add(itemId, 1);
+    this.showFloatingMessage(`買った(-${price} 💰)`);
   }
 
   // ---------- 戦闘 ----------
@@ -421,10 +577,13 @@ export class GameScene extends Phaser.Scene {
     if (!closest) return false;
 
     this.sound.play("sfx-attack", { volume: 0.5 });
-    const died = closest.takeDamage(this, 1);
+    const died = closest.takeDamage(this, this.equipment.getDamage());
     if (died) {
       this.monsters = this.monsters.filter((m) => m !== closest);
+      this.inventory.add("coin", 2);
+      this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "coin", 2);
       closest.destroy();
+      this.scheduleMonsterRespawn();
     }
     return true;
   }
@@ -478,15 +637,70 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // ---------- 畑 ----------
+
+  private tryFarm(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: FarmPlot | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const plot of this.farmPlots) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, plot.worldX, plot.worldY);
+      if (clickDist > FARM_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, plot.worldX, plot.worldY);
+      if (reachDist > FARM_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = plot;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (closest.isReady) {
+      closest.harvest();
+      this.inventory.add("crop", 2);
+      this.sound.play("sfx-gather", { volume: 0.5 });
+      this.showGatherFeedback(closest.worldX, closest.worldY, "crop", 2);
+      return true;
+    }
+
+    if (closest.isEmpty) {
+      if (!this.inventory.spend({ seed: 1 })) {
+        this.showFloatingMessage("🌱の種が足りません");
+        return true;
+      }
+      closest.plant(this);
+      this.showFloatingMessage("種をまいた");
+      return true;
+    }
+
+    this.showFloatingMessage("育成中…");
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
     if (this.tryAttack(point)) return;
     if (this.tryTalk(point)) return;
+    if (this.tryFarm(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
     }
+  }
+
+  /** シフトキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */
+  private handleShiftAction(): void {
+    const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
+    const worldX = this.player.sprite.x + offset.x * SHIFT_ACTION_REACH;
+    const worldY = this.player.sprite.y + offset.y * SHIFT_ACTION_REACH;
+    this.handleAction({ screenX: 0, screenY: 0, worldX, worldY });
   }
 
   private tryGather(point: ActionPoint): boolean {
@@ -515,14 +729,13 @@ export class GameScene extends Phaser.Scene {
 
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add(closest.itemId, 1);
-    this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId);
+    this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId, 1);
     return true;
   }
 
-  private showGatherFeedback(x: number, y: number, itemId: ItemId): void {
-    const label = { wood: "+1 🪵", stone: "+1 🪨", herb: "+1 🌿" }[itemId];
+  private showGatherFeedback(x: number, y: number, itemId: ItemId, amount = 1): void {
     const text = this.add
-      .text(x, y - 12, label, { fontSize: "10px", color: "#ffffff" })
+      .text(x, y - 12, `+${amount} ${ITEM_ICON[itemId]}`, { fontSize: "10px", color: "#ffffff" })
       .setOrigin(0.5, 1)
       .setDepth(20);
     this.tweens.add({

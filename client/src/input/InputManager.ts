@@ -17,6 +17,7 @@ export type ActionPoint = {
 };
 
 type ActionHandler = (point: ActionPoint) => void;
+type ShiftActionHandler = () => void;
 
 /**
  * キーボード/マウス/(将来の)タッチ入力をゲームロジックから隠蔽する層。
@@ -26,8 +27,10 @@ export class InputManager {
   private scene: Phaser.Scene;
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
+  private shiftKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
+  private shiftActionHandlers: ShiftActionHandler[] = [];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -42,8 +45,10 @@ export class InputManager {
       "W" | "A" | "S" | "D",
       Phaser.Input.Keyboard.Key
     >;
+    this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.shiftKey.on("down", this.handleShiftDown, this);
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -59,9 +64,20 @@ export class InputManager {
     }
   }
 
+  private handleShiftDown(): void {
+    for (const handler of this.shiftActionHandlers) {
+      handler();
+    }
+  }
+
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
+  }
+
+  /** シフトキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
+  onShiftAction(handler: ShiftActionHandler): void {
+    this.shiftActionHandlers.push(handler);
   }
 
   /** 毎フレーム呼び出し、現在の移動状態を返す */
@@ -96,6 +112,8 @@ export class InputManager {
 
   destroy(): void {
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.shiftKey.off("down", this.handleShiftDown, this);
     this.actionHandlers = [];
+    this.shiftActionHandlers = [];
   }
 }

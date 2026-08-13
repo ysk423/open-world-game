@@ -3,10 +3,14 @@ import type { ItemId } from "../systems/Inventory";
 
 const COOLDOWN_MS = 1000;
 
+// coin/seed/cropは採集ポイントとしては出現しない(マップ上には配置されない)ため未使用
 const FRAME_BY_ITEM: Record<ItemId, number> = {
   wood: 0,
   stone: 1,
   herb: 2,
+  coin: 0,
+  seed: 0,
+  crop: 0,
 };
 
 export class GatheringPoint {

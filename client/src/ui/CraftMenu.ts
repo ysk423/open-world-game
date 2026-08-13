@@ -1,10 +1,14 @@
 import type { Inventory, ItemId } from "../systems/Inventory";
+import type { WeaponId } from "../systems/Equipment";
 import { RECIPES, type Recipe } from "../systems/recipes";
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
   wood: "🪵",
   stone: "🪨",
   herb: "🌿",
+  coin: "💰",
+  seed: "🌱",
+  crop: "🥕",
 };
 
 export class CraftMenu {
@@ -12,10 +16,16 @@ export class CraftMenu {
   private panel: HTMLDivElement;
   private isOpen = false;
   private inventory: Inventory;
+  private getOwnedWeapons: () => ReadonlySet<WeaponId>;
   private onCraft: (recipe: Recipe) => void;
 
-  constructor(inventory: Inventory, onCraft: (recipe: Recipe) => void) {
+  constructor(
+    inventory: Inventory,
+    getOwnedWeapons: () => ReadonlySet<WeaponId>,
+    onCraft: (recipe: Recipe) => void,
+  ) {
     this.inventory = inventory;
+    this.getOwnedWeapons = getOwnedWeapons;
     this.onCraft = onCraft;
 
     this.toggleButton = document.createElement("button");
@@ -32,6 +42,11 @@ export class CraftMenu {
     inventory.onChange(() => this.render());
   }
 
+  /** 武器の入手など、Inventory以外の変化で表示を更新したい時に呼ぶ */
+  refresh(): void {
+    this.render();
+  }
+
   private setOpen(open: boolean): void {
     this.isOpen = open;
     this.panel.style.display = open ? "flex" : "none";
@@ -42,6 +57,7 @@ export class CraftMenu {
     if (!this.isOpen) return;
 
     const counts = this.inventory.getCounts();
+    const ownedWeapons = this.getOwnedWeapons();
     this.panel.innerHTML = "";
 
     const title = document.createElement("h2");
@@ -49,7 +65,8 @@ export class CraftMenu {
     this.panel.appendChild(title);
 
     for (const recipe of RECIPES) {
-      const canAfford = this.inventory.canAfford(recipe.inputs);
+      const alreadyOwned = recipe.effect.type === "weapon" && ownedWeapons.has(recipe.effect.weaponId);
+      const canAfford = !alreadyOwned && this.inventory.canAfford(recipe.inputs);
 
       const card = document.createElement("div");
       card.className = "recipe-card";
@@ -67,8 +84,8 @@ export class CraftMenu {
       card.appendChild(cost);
 
       const button = document.createElement("button");
-      button.textContent = "作る";
-      button.disabled = !canAfford;
+      button.textContent = alreadyOwned ? "習得済み" : "作る";
+      button.disabled = alreadyOwned || !canAfford;
       button.addEventListener("click", () => this.onCraft(recipe));
       card.appendChild(button);
 

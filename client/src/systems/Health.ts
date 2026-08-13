@@ -6,7 +6,7 @@ export class Health {
   private readonly maxHp: number;
   private listeners: Listener[] = [];
 
-  constructor(maxHp = 3) {
+  constructor(maxHp = 5) {
     this.maxHp = maxHp;
     this.hp = maxHp;
   }
@@ -17,6 +17,13 @@ export class Health {
     this.hp = Math.max(0, this.hp - amount);
     this.notify();
     return this.hp <= 0;
+  }
+
+  /** 回復する。maxHpを超えない */
+  heal(amount = 1): void {
+    if (this.hp >= this.maxHp) return;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    this.notify();
   }
 
   reset(): void {

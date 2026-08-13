@@ -9,7 +9,7 @@ export type SlotData = {
   savedAt: number;
 };
 
-const ITEM_IDS: ItemId[] = ["wood", "stone", "herb"];
+const ITEM_IDS: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop"];
 
 function slotKey(slot: number): string {
   return `open-world-game:save-slot-${slot}`;
@@ -29,7 +29,7 @@ export function loadSlot(slot: number): SlotData | null {
     if (typeof parsed.savedAt !== "number" || typeof parsed.hp !== "number" || !parsed.counts) {
       return null;
     }
-    const counts = { wood: 0, stone: 0, herb: 0 };
+    const counts = { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0 };
     for (const id of ITEM_IDS) {
       const value = parsed.counts[id];
       if (typeof value === "number" && Number.isFinite(value)) counts[id] = value;

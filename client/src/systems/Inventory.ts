@@ -1,13 +1,13 @@
-export type ItemId = "wood" | "stone" | "herb";
+export type ItemId = "wood" | "stone" | "herb" | "coin" | "seed" | "crop";
 
 export const INVENTORY_STORAGE_KEY = "open-world-game:inventory";
-const ITEM_IDS: ItemId[] = ["wood", "stone", "herb"];
+const ITEM_IDS: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop"];
 
 type Counts = Record<ItemId, number>;
 type Listener = (counts: Readonly<Counts>) => void;
 
 function emptyCounts(): Counts {
-  return { wood: 0, stone: 0, herb: 0 };
+  return { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0 };
 }
 
 /** 個人インベントリ。localStorageに永続化し、リロードしても保持される */
