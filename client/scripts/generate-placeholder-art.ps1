@@ -28,8 +28,8 @@ function FillOval($gfx, $x, $y, $w, $h, $r, $gg, $b) {
     $brush.Dispose()
 }
 
-# ---------- tileset (32x32 x 4 tiles: grass, path, water, rock) ----------
-$tileset = New-Object System.Drawing.Bitmap ($tileSize * 4), $tileSize
+# ---------- tileset (32x32 x 5 tiles: grass, path, water, rock, bridge) ----------
+$tileset = New-Object System.Drawing.Bitmap ($tileSize * 5), $tileSize
 $g = [System.Drawing.Graphics]::FromImage($tileset)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
@@ -62,6 +62,15 @@ FillOval $g 102 12 20 16 100 100 100
 FillOval $g 100 8 20 16 140 140 140
 FillOval $g 104 10 10 6 170 170 170
 
+# tile4: bridge (wood planks laid over water, water peeking through the gaps)
+Fill $g 128 0 32 32 74 144 217
+Fill $g 128 3 32 7 170 130 90
+Fill $g 128 13 32 7 170 130 90
+Fill $g 128 23 32 7 170 130 90
+Fill $g 130 2 2 26 120 84 54
+Fill $g 130 12 2 26 120 84 54
+Fill $g 130 22 2 26 120 84 54
+
 $g.Dispose()
 $tileset.Save((Join-Path $assetsDir "tileset.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $tileset.Dispose()
@@ -81,36 +90,44 @@ $pants = @(60, 60, 90)
 $eye = @(40, 30, 30)
 
 function DrawFrame($gfx, $ox, $oy, $facing, $step) {
-    # head
-    FillOval $gfx ($ox+8) ($oy+4) 16 14 $skin[0] $skin[1] $skin[2]
-    # hat
-    FillOval $gfx ($ox+7) ($oy+0) 18 8 $hat[0] $hat[1] $hat[2]
-    # body (shirt)
-    Fill $gfx ($ox+6) ($oy+18) 20 20 $shirt[0] $shirt[1] $shirt[2]
+    # ドラクエ風の頭でっかちなプロポーション(頭を大きく・体を小さめに)にして、
+    # 32x64のフレームサイズは変えずに見た目の可愛さ・視認性を上げる
+    # head (bigger, rounder)
+    FillOval $gfx ($ox+6) ($oy+3) 20 17 $skin[0] $skin[1] $skin[2]
+    # hat (wider brim to match the bigger head)
+    FillOval $gfx ($ox+4) ($oy-1) 24 10 $hat[0] $hat[1] $hat[2]
+    FillOval $gfx ($ox+12) ($oy-4) 8 8 $hat[0] $hat[1] $hat[2]
+    # rosy cheeks for a cuter look
+    if ($facing -ne "up") {
+        FillOval $gfx ($ox+7) ($oy+13) 3 2 240 150 150
+        FillOval $gfx ($ox+22) ($oy+13) 3 2 240 150 150
+    }
+    # body (shirt, slightly smaller to emphasize the head)
+    Fill $gfx ($ox+8) ($oy+21) 16 16 $shirt[0] $shirt[1] $shirt[2]
 
     # arms + hands
-    Fill $gfx ($ox+2) ($oy+20) 5 14 $shirt[0] $shirt[1] $shirt[2]
-    Fill $gfx ($ox+25) ($oy+20) 5 14 $shirt[0] $shirt[1] $shirt[2]
-    FillOval $gfx ($ox+1) ($oy+32) 6 6 $skin[0] $skin[1] $skin[2]
-    FillOval $gfx ($ox+25) ($oy+32) 6 6 $skin[0] $skin[1] $skin[2]
+    Fill $gfx ($ox+4) ($oy+23) 5 12 $shirt[0] $shirt[1] $shirt[2]
+    Fill $gfx ($ox+23) ($oy+23) 5 12 $shirt[0] $shirt[1] $shirt[2]
+    FillOval $gfx ($ox+3) ($oy+33) 6 6 $skin[0] $skin[1] $skin[2]
+    FillOval $gfx ($ox+23) ($oy+33) 6 6 $skin[0] $skin[1] $skin[2]
 
     if ($facing -eq "down") {
-        FillOval $gfx ($ox+11) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
-        FillOval $gfx ($ox+18) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
+        FillOval $gfx ($ox+11) ($oy+10) 3 3 $eye[0] $eye[1] $eye[2]
+        FillOval $gfx ($ox+18) ($oy+10) 3 3 $eye[0] $eye[1] $eye[2]
     } elseif ($facing -eq "up") {
-        FillOval $gfx ($ox+7) ($oy+5) 18 8 $hair[0] $hair[1] $hair[2]
+        FillOval $gfx ($ox+5) ($oy+4) 22 10 $hair[0] $hair[1] $hair[2]
     } else {
         # side: draw a single eye (right-facing base; left uses flipX)
-        FillOval $gfx ($ox+20) ($oy+9) 3 3 $eye[0] $eye[1] $eye[2]
+        FillOval $gfx ($ox+21) ($oy+10) 3 3 $eye[0] $eye[1] $eye[2]
     }
 
     # legs: alternate which leg is longer to fake a walk cycle
     if ($step -eq 0) {
-        Fill $gfx ($ox+6) ($oy+36) 8 12 $pants[0] $pants[1] $pants[2]
-        Fill $gfx ($ox+18) ($oy+36) 8 10 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+8) ($oy+37) 7 11 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+17) ($oy+37) 7 9 $pants[0] $pants[1] $pants[2]
     } else {
-        Fill $gfx ($ox+6) ($oy+36) 8 10 $pants[0] $pants[1] $pants[2]
-        Fill $gfx ($ox+18) ($oy+36) 8 12 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+8) ($oy+37) 7 9 $pants[0] $pants[1] $pants[2]
+        Fill $gfx ($ox+17) ($oy+37) 7 11 $pants[0] $pants[1] $pants[2]
     }
 }
 
@@ -151,8 +168,8 @@ $g3.Dispose()
 $gsheet.Save((Join-Path $assetsDir "gathering.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $gsheet.Dispose()
 
-# ---------- building icons (32x32 x 5: fence, well, flower_bed, signpost, storage_shed) ----------
-$bsheet = New-Object System.Drawing.Bitmap ($tileSize * 5), $tileSize
+# ---------- building icons (32x32 x 6: fence, well, flower_bed, signpost, storage_shed, rock) ----------
+$bsheet = New-Object System.Drawing.Bitmap ($tileSize * 6), $tileSize
 $g4 = [System.Drawing.Graphics]::FromImage($bsheet)
 $g4.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
@@ -185,6 +202,12 @@ Fill $g4 130 16 24 12 170 130 90
 Fill $g4 128 6 28 12 150 60 50
 Fill $g4 138 20 8 8 90 62 42
 
+# frame5: rock (placed boulder, same look as the pickable rock-object)
+FillOval $g4 163 13 26 16 90 90 90
+FillOval $g4 162 9 24 16 130 130 130
+FillOval $g4 166 12 12 7 165 165 165
+FillOval $g4 178 16 6 4 105 105 105
+
 $g4.Dispose()
 $bsheet.Save((Join-Path $assetsDir "buildings.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $bsheet.Dispose()
@@ -213,17 +236,20 @@ $g6 = [System.Drawing.Graphics]::FromImage($nsheet)
 $g6.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
 
 function DrawNpc($gfx, $ox, $skinColor, $hairColor, $shirtColor) {
-    FillOval $gfx ($ox+8) 4 16 14 $skinColor[0] $skinColor[1] $skinColor[2]
-    FillOval $gfx ($ox+7) 0 18 8 $hairColor[0] $hairColor[1] $hairColor[2]
-    Fill $gfx ($ox+6) 18 20 20 $shirtColor[0] $shirtColor[1] $shirtColor[2]
-    Fill $gfx ($ox+2) 20 5 14 $shirtColor[0] $shirtColor[1] $shirtColor[2]
-    Fill $gfx ($ox+25) 20 5 14 $shirtColor[0] $shirtColor[1] $shirtColor[2]
-    FillOval $gfx ($ox+1) 32 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
-    FillOval $gfx ($ox+25) 32 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
-    FillOval $gfx ($ox+11) 9 3 3 40 30 30
-    FillOval $gfx ($ox+18) 9 3 3 40 30 30
-    Fill $gfx ($ox+6) 36 8 12 90 74 58
-    Fill $gfx ($ox+18) 36 8 12 90 74 58
+    # プレイヤーと同じく頭でっかちなドラクエ風プロポーションにする
+    FillOval $gfx ($ox+6) 3 20 17 $skinColor[0] $skinColor[1] $skinColor[2]
+    FillOval $gfx ($ox+5) 0 22 9 $hairColor[0] $hairColor[1] $hairColor[2]
+    FillOval $gfx ($ox+7) 13 3 2 240 150 150
+    FillOval $gfx ($ox+22) 13 3 2 240 150 150
+    Fill $gfx ($ox+8) 21 16 16 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    Fill $gfx ($ox+4) 23 5 12 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    Fill $gfx ($ox+23) 23 5 12 $shirtColor[0] $shirtColor[1] $shirtColor[2]
+    FillOval $gfx ($ox+3) 33 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
+    FillOval $gfx ($ox+23) 33 6 6 $skinColor[0] $skinColor[1] $skinColor[2]
+    FillOval $gfx ($ox+11) 10 3 3 40 30 30
+    FillOval $gfx ($ox+18) 10 3 3 40 30 30
+    Fill $gfx ($ox+8) 37 7 11 90 74 58
+    Fill $gfx ($ox+17) 37 7 11 90 74 58
 }
 
 $npcSkin = @(245, 194, 138)
@@ -302,4 +328,18 @@ $g9.Dispose()
 $shsheet.Save((Join-Path $assetsDir "shop.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $shsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png, $assetsDir\animal.png, $assetsDir\shop.png"
+# ---------- rock object (32x32 x 1: a pickable/placeable boulder) ----------
+$rsheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
+$g10 = [System.Drawing.Graphics]::FromImage($rsheet)
+$g10.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+FillOval $g10 3 13 26 16 90 90 90
+FillOval $g10 2 9 24 16 130 130 130
+FillOval $g10 6 12 12 7 165 165 165
+FillOval $g10 18 16 6 4 105 105 105
+
+$g10.Dispose()
+$rsheet.Save((Join-Path $assetsDir "rock-object.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$rsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png, $assetsDir\animal.png, $assetsDir\shop.png, $assetsDir\rock-object.png"

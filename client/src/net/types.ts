@@ -40,6 +40,7 @@ export type ServerMessage =
       selfId: string;
       players: PlayerState[];
       buildings: PlacedBuilding[];
+      worldSeed: number;
     }
   | { type: "player-joined"; player: PlayerState }
   | {

@@ -6,10 +6,12 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   herb: 2,
   crop: 3,
   meat: 4,
+  wheat: 5,
 };
 
 export const SHOP_BUY_PRICES: Partial<Record<ItemId, number>> = {
   seed: 2,
+  seed_wheat: 3,
 };
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
@@ -20,10 +22,13 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   seed: "🌱",
   crop: "🥕",
   meat: "🍖",
+  seed_wheat: "🌾",
+  wheat: "🍞",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {
-  seed: "たね",
+  seed: "たね(にんじん)",
+  seed_wheat: "たね(小麦)",
 };
 
 export type ShopPanelEvents = {

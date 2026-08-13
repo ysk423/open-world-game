@@ -6,7 +6,7 @@ const MIN_USES = 2;
 const MAX_USES = 5;
 const RESPAWN_DELAY_MS = 45000;
 
-// coin/seed/meat/cropは採集ポイントとしては出現しない(マップ上には配置されない)ため未使用
+// wood/stone/herb以外は採集ポイントとしては出現しない(マップ上には配置されない)ため未使用
 const FRAME_BY_ITEM: Record<ItemId, number> = {
   wood: 0,
   stone: 1,
@@ -15,6 +15,8 @@ const FRAME_BY_ITEM: Record<ItemId, number> = {
   seed: 0,
   crop: 0,
   meat: 0,
+  seed_wheat: 0,
+  wheat: 0,
 };
 
 export class GatheringPoint {

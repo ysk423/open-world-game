@@ -9,7 +9,17 @@ export type SlotData = {
   savedAt: number;
 };
 
-const ITEM_IDS: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop", "meat"];
+const ITEM_IDS: ItemId[] = [
+  "wood",
+  "stone",
+  "herb",
+  "coin",
+  "seed",
+  "crop",
+  "meat",
+  "seed_wheat",
+  "wheat",
+];
 
 function slotKey(slot: number): string {
   return `open-world-game:save-slot-${slot}`;
@@ -29,7 +39,17 @@ export function deleteSlot(slot: number): void {
 export function parseCounts(raw: unknown): Record<ItemId, number> | null {
   if (typeof raw !== "object" || raw === null) return null;
   const source = raw as Partial<Record<ItemId, number>>;
-  const counts = { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0, meat: 0 };
+  const counts = {
+    wood: 0,
+    stone: 0,
+    herb: 0,
+    coin: 0,
+    seed: 0,
+    crop: 0,
+    meat: 0,
+    seed_wheat: 0,
+    wheat: 0,
+  };
   for (const id of ITEM_IDS) {
     const value = source[id];
     if (typeof value === "number" && Number.isFinite(value)) counts[id] = value;

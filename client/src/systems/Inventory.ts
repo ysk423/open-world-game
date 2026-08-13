@@ -1,13 +1,42 @@
-export type ItemId = "wood" | "stone" | "herb" | "coin" | "seed" | "crop" | "meat";
+export type ItemId =
+  | "wood"
+  | "stone"
+  | "herb"
+  | "coin"
+  | "seed"
+  | "crop"
+  | "meat"
+  | "seed_wheat"
+  | "wheat";
 
 export const INVENTORY_STORAGE_KEY = "open-world-game:inventory";
-const ITEM_IDS: ItemId[] = ["wood", "stone", "herb", "coin", "seed", "crop", "meat"];
+const ITEM_IDS: ItemId[] = [
+  "wood",
+  "stone",
+  "herb",
+  "coin",
+  "seed",
+  "crop",
+  "meat",
+  "seed_wheat",
+  "wheat",
+];
 
 type Counts = Record<ItemId, number>;
 type Listener = (counts: Readonly<Counts>) => void;
 
 function emptyCounts(): Counts {
-  return { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0, meat: 0 };
+  return {
+    wood: 0,
+    stone: 0,
+    herb: 0,
+    coin: 0,
+    seed: 0,
+    crop: 0,
+    meat: 0,
+    seed_wheat: 0,
+    wheat: 0,
+  };
 }
 
 /** 個人インベントリ。localStorageに永続化し、リロードしても保持される */

@@ -11,6 +11,11 @@ function send(connection: Connection, message: ServerMessage): void {
 }
 
 const BUILDINGS_KEY = "buildings";
+const WORLD_SEED_KEY = "world-seed";
+
+function createWorldSeed(): number {
+  return Math.floor(Math.random() * 0xffffffff);
+}
 
 function saveSlotKey(slot: number): string {
   return `save-slot-${slot}-buildings`;
@@ -39,10 +44,19 @@ function isValidBuildingList(value: unknown): value is PlacedBuilding[] {
 export class Room extends Server {
   players = new Map<string, PlayerState>();
   buildings: PlacedBuilding[] = [];
+  worldSeed = 0;
 
   async onStart(): Promise<void> {
     const storedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(BUILDINGS_KEY);
     if (storedBuildings) this.buildings = storedBuildings;
+
+    const storedSeed = await this.ctx.storage.get<number>(WORLD_SEED_KEY);
+    if (storedSeed !== undefined) {
+      this.worldSeed = storedSeed;
+    } else {
+      this.worldSeed = createWorldSeed();
+      void this.ctx.storage.put(WORLD_SEED_KEY, this.worldSeed);
+    }
   }
 
   onConnect(connection: Connection, _context: ConnectionContext): void {
@@ -123,6 +137,7 @@ export class Room extends Server {
       selfId: connection.id,
       players: Array.from(this.players.values()),
       buildings: this.buildings,
+      worldSeed: this.worldSeed,
     });
 
     this.broadcast(
@@ -220,6 +235,9 @@ export class Room extends Server {
   private handleReset(): void {
     this.buildings = [];
     void this.ctx.storage.delete(BUILDINGS_KEY);
+    // ルームごとの采集/モンスター/動物/岩の配置をやり直すため、シードも新しく発行する
+    this.worldSeed = createWorldSeed();
+    void this.ctx.storage.put(WORLD_SEED_KEY, this.worldSeed);
     // 持ち物やHPなどのローカル状態はクライアント側でリセットするため、接続中の全員に通知する
     this.broadcast(JSON.stringify({ type: "game-reset" } satisfies ServerMessage));
 

@@ -5,7 +5,8 @@ import { Player } from "../entities/Player";
 import { RemotePlayer } from "../entities/RemotePlayer";
 import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
-import { FarmPlot } from "../entities/FarmPlot";
+import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
+import { Rock } from "../entities/Rock";
 import { Monster } from "../entities/Monster";
 import { Animal } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
@@ -19,6 +20,7 @@ import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
+import { generateWorldContent } from "../systems/WorldContentGenerator";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
@@ -28,10 +30,12 @@ import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
+import { ActionButton } from "../ui/ActionButton";
 import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
+const BRIDGE_GID = 5;
 
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
@@ -98,6 +102,8 @@ const ITEM_ICON: Record<ItemId, string> = {
   seed: "🌱",
   crop: "🥕",
   meat: "🍖",
+  seed_wheat: "🌾",
+  wheat: "🍞",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -125,6 +131,7 @@ export class GameScene extends Phaser.Scene {
   private monsters: Monster[] = [];
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
+  private rocks: Rock[] = [];
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
@@ -165,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image("monster", "assets/monster.png");
     this.load.image("animal", "assets/animal.png");
     this.load.image("shop", "assets/shop.png");
+    this.load.image("rock-object", "assets/rock-object.png");
     this.load.spritesheet("npc", "assets/npc.png", {
       frameWidth: 32,
       frameHeight: 64,
@@ -222,6 +230,7 @@ export class GameScene extends Phaser.Scene {
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
+      new ActionButton(() => this.handleShiftAction());
     }
 
     this.setupNetworking();
@@ -230,7 +239,7 @@ export class GameScene extends Phaser.Scene {
   private setupNetworking(): void {
     const { name } = getJoinInfo();
     this.roomClient = new RoomClient(SHARED_ROOM_ID, name, {
-      onInit: (selfId, players, buildings) => {
+      onInit: (selfId, players, buildings, worldSeed) => {
         this.selfId = selfId;
         for (const player of players) {
           if (player.id === selfId) continue;
@@ -241,6 +250,9 @@ export class GameScene extends Phaser.Scene {
         for (const building of buildings) {
           this.addBuildingSprite(building);
         }
+
+        this.clearWorldContent();
+        this.placeWorldContent(worldSeed);
       },
       onPlayerJoined: (player) => {
         if (player.id === this.selfId) return;
@@ -264,11 +276,15 @@ export class GameScene extends Phaser.Scene {
         this.addBuildingSprite(building);
       },
       onGameReset: () => {
+        for (const building of this.buildings) {
+          if (building.buildingType === "bridge") this.revertBridgeTile(building.x, building.y);
+        }
         this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
+        this.clearWorldContent();
         this.inventory.reset();
         this.health.reset();
         this.equipment.reset();
@@ -276,6 +292,9 @@ export class GameScene extends Phaser.Scene {
         body.reset(SPAWN_X, SPAWN_Y);
       },
       onGameLoaded: (slot, buildings) => {
+        for (const building of this.buildings) {
+          if (building.buildingType === "bridge") this.revertBridgeTile(building.x, building.y);
+        }
         this.buildings = buildings;
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
@@ -403,28 +422,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    const gatheringLayer = map.getObjectLayer("gathering");
-    if (gatheringLayer) {
-      for (const obj of gatheringLayer.objects) {
-        const itemId = obj.properties?.find(
-          (p: { name: string }) => p.name === "itemId",
-        )?.value as ItemId | undefined;
-        if (!itemId) continue;
-        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
-        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
-        this.gatheringPoints.push(new GatheringPoint(this, x, y, itemId));
-      }
-    }
-
-    const monsterLayer = map.getObjectLayer("monsters");
-    if (monsterLayer) {
-      for (const obj of monsterLayer.objects) {
-        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
-        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
-        this.spawnMonster(x, y);
-      }
-    }
-
     const npcLayer = map.getObjectLayer("npcs");
     if (npcLayer) {
       npcLayer.objects.forEach((obj, index) => {
@@ -437,15 +434,6 @@ export class GameScene extends Phaser.Scene {
         const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
         this.npcs.push(new Npc(this, x, y, index % 2, npcName, dialogue));
       });
-    }
-
-    const animalLayer = map.getObjectLayer("animals");
-    if (animalLayer) {
-      for (const obj of animalLayer.objects) {
-        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
-        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
-        this.spawnAnimal(x, y);
-      }
     }
 
     const shopLayer = map.getObjectLayer("shops");
@@ -467,11 +455,75 @@ export class GameScene extends Phaser.Scene {
       this.farmPlots.push(new FarmPlot(this, building.x, building.y));
       return;
     }
+    if (building.buildingType === "bridge") {
+      this.applyBridgeTile(building.x, building.y);
+      return;
+    }
     const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);
     this.buildingSprites.push(sprite);
     if (sprite.solid) {
       this.physics.add.collider(this.player.sprite, sprite.sprite);
     }
+  }
+
+  /** 橋はBuildingスプライトとしてではなく、水面タイルを橋タイルへ書き換えることで表現する(同じbuildings配列を使い、通行可否もタイル判定に乗る) */
+  private applyBridgeTile(worldX: number, worldY: number): void {
+    const tileX = Math.floor(worldX / TILE_SIZE);
+    const tileY = Math.floor(worldY / TILE_SIZE);
+    this.groundLayer?.putTileAt(BRIDGE_GID, tileX, tileY)?.setCollision(false);
+  }
+
+  private revertBridgeTile(worldX: number, worldY: number): void {
+    const tileX = Math.floor(worldX / TILE_SIZE);
+    const tileY = Math.floor(worldY / TILE_SIZE);
+    this.groundLayer?.putTileAt(WATER_GID, tileX, tileY)?.setCollision(true);
+  }
+
+  // ---------- ルームごとのランダム配置(采集ポイント・モンスター・動物・岩) ----------
+
+  /** サーバーから受け取ったworldSeedをもとに、決定的な擬似乱数で采集ポイント等を配置する */
+  private placeWorldContent(seed: number): void {
+    const avoidPoints: { x: number; y: number }[] = [
+      { x: SPAWN_X, y: SPAWN_Y },
+      ...this.npcs.map((npc) => ({ x: npc.worldX, y: npc.worldY })),
+      ...this.shops.map((shop) => ({ x: shop.worldX, y: shop.worldY })),
+    ];
+    const plan = generateWorldContent(seed, this.walkableTiles, TILE_SIZE, avoidPoints);
+
+    for (const point of plan.gathering) {
+      this.gatheringPoints.push(new GatheringPoint(this, point.x, point.y, point.itemId));
+    }
+    for (const point of plan.monsters) {
+      this.spawnMonster(point.x, point.y);
+    }
+    for (const point of plan.animals) {
+      this.spawnAnimal(point.x, point.y);
+    }
+    for (const point of plan.rocks) {
+      this.spawnRock(point.x, point.y);
+    }
+  }
+
+  /** 再接続時にworldSeedが変わっている場合に備えて、以前のランダム配置を消しておく */
+  private clearWorldContent(): void {
+    for (const gp of this.gatheringPoints) gp.destroy();
+    this.gatheringPoints = [];
+    for (const monster of this.monsters) monster.destroy();
+    this.monsters = [];
+    for (const overlap of this.monsterOverlaps) overlap.destroy();
+    this.monsterOverlaps = [];
+    for (const animal of this.animals) animal.destroy();
+    this.animals = [];
+    for (const rock of this.rocks) rock.destroy();
+    this.rocks = [];
+  }
+
+  // ---------- 岩(拾って再配置できる障害物) ----------
+
+  private spawnRock(x: number, y: number): void {
+    const rock = new Rock(this, x, y);
+    this.rocks.push(rock);
+    this.physics.add.collider(this.player.sprite, rock.sprite);
   }
 
   // ---------- モンスター ----------
@@ -538,6 +590,12 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "weapon" && this.equipment.getOwned().includes(recipe.effect.weaponId)) {
       return;
     }
+
+    if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
+      this.handleCraftBridge(recipe.name, recipe.inputs);
+      return;
+    }
+
     if (!this.inventory.spend(recipe.inputs)) return;
 
     if (recipe.effect.type === "weapon") {
@@ -562,6 +620,35 @@ export class GameScene extends Phaser.Scene {
 
     this.sound.play("sfx-craft", { volume: 0.5 });
     this.showFloatingMessage(`${recipe.name}を作った!`);
+  }
+
+  /** 橋は建物としてではなく、向いている方向の水面タイルを橋タイルに書き換える形で設置する */
+  private handleCraftBridge(name: string, inputs: Partial<Record<ItemId, number>>): void {
+    const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
+    const tileX = Math.floor(this.player.sprite.x / TILE_SIZE) + offset.x;
+    const tileY = Math.floor(this.player.sprite.y / TILE_SIZE) + offset.y;
+    const tile = this.groundLayer?.getTileAt(tileX, tileY);
+    if (!tile || tile.index !== WATER_GID) {
+      this.showFloatingMessage("水面に向かって橋をかけてください");
+      return;
+    }
+
+    if (!this.inventory.spend(inputs)) return;
+
+    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
+    const building: PlacedBuilding = {
+      id: crypto.randomUUID(),
+      buildingType: "bridge",
+      x: worldX,
+      y: worldY,
+    };
+    this.buildings.push(building);
+    this.addBuildingSprite(building);
+    this.roomClient.sendCraftBuilding("bridge", worldX, worldY);
+
+    this.sound.play("sfx-craft", { volume: 0.5 });
+    this.showFloatingMessage(`${name}を作った!`);
   }
 
   private showFloatingMessage(message: string): void {
@@ -789,19 +876,27 @@ export class GameScene extends Phaser.Scene {
     if (!closest) return false;
 
     if (closest.isReady) {
-      closest.harvest();
-      this.inventory.add("crop", 2);
-      this.sound.play("sfx-gather", { volume: 0.5 });
-      this.showGatherFeedback(closest.worldX, closest.worldY, "crop", 2);
+      const harvested = closest.harvest();
+      if (harvested) {
+        this.inventory.add(harvested.itemId, harvested.amount);
+        this.sound.play("sfx-gather", { volume: 0.5 });
+        this.showGatherFeedback(closest.worldX, closest.worldY, harvested.itemId, harvested.amount);
+      }
       return true;
     }
 
     if (closest.isEmpty) {
-      if (!this.inventory.spend({ seed: 1 })) {
-        this.showFloatingMessage("🌱の種が足りません");
+      const counts = this.inventory.getCounts();
+      const cropId = CROP_PRIORITY.find((id) => counts[CROP_CONFIG[id].seedItem] > 0);
+      if (!cropId) {
+        this.showFloatingMessage("たねが足りません");
         return true;
       }
-      closest.plant(this);
+      const seedItem = CROP_CONFIG[cropId].seedItem;
+      if (!this.inventory.spend({ [seedItem]: 1 } as Partial<Record<ItemId, number>>)) {
+        return true;
+      }
+      closest.plant(this, cropId);
       this.showFloatingMessage("種をまいた");
       return true;
     }
@@ -845,10 +940,43 @@ export class GameScene extends Phaser.Scene {
     if (this.tryTalk(point)) return;
     if (this.tryShop(point)) return;
     if (this.tryFarm(point)) return;
+    if (this.tryRock(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
     }
+  }
+
+  // ---------- 岩の採取(拾って石を入手) ----------
+
+  private tryRock(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Rock | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const rock of this.rocks) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, rock.worldX, rock.worldY);
+      if (clickDist > CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, rock.worldX, rock.worldY);
+      if (reachDist > REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = rock;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.rocks = this.rocks.filter((r) => r !== closest);
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    this.inventory.add("stone", 1);
+    this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
+    closest.destroy();
+    return true;
   }
 
   /** シフトキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */

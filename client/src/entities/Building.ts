@@ -1,18 +1,21 @@
 import Phaser from "phaser";
 import type { BuildingType } from "../systems/recipes";
 
-// farm_plotはGameScene側でFarmPlotとして扱われ、Buildingとして描画されることはない
+// farm_plot/bridgeはGameScene側でそれぞれFarmPlot/水面タイルの書き換えとして扱われ、
+// Buildingとして描画されることはない
 const FRAME_BY_TYPE: Record<BuildingType, number> = {
   fence: 0,
   well: 1,
   flower_bed: 2,
   signpost: 3,
   storage_shed: 4,
+  rock: 5,
   farm_plot: -1,
+  bridge: -1,
 };
 
-// 通り抜けられずに衝突する建物の種類(柵は「囲い」として機能してほしいため)
-const SOLID_TYPES: ReadonlySet<BuildingType> = new Set(["fence"]);
+// 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)
+const SOLID_TYPES: ReadonlySet<BuildingType> = new Set(["fence", "rock"]);
 
 export class Building {
   readonly sprite: Phaser.GameObjects.Sprite | Phaser.Types.Physics.Arcade.SpriteWithStaticBody;
