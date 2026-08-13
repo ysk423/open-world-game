@@ -10,8 +10,8 @@
   "type": "map",
   "tiledversion": "1.10.2",
   "version": "1.10",
-  "nextlayerid": 4,
-  "nextobjectid": 7,
+  "nextlayerid": 5,
+  "nextobjectid": 8,
   "layers": [
     {
       "id": 1,
@@ -2549,6 +2549,28 @@
               "value": "herb"
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "monsters",
+      "type": "objectgroup",
+      "x": 0,
+      "y": 0,
+      "opacity": 1,
+      "visible": true,
+      "objects": [
+        {
+          "id": 7,
+          "name": "monster_8",
+          "type": "monster",
+          "x": 192,
+          "y": 384,
+          "width": 16,
+          "height": 16,
+          "visible": true,
+          "properties": []
         }
       ]
     }

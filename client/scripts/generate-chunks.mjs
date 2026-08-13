@@ -56,7 +56,21 @@ function gatheringObject(itemId, tileX, tileY) {
   };
 }
 
-function buildMap(ground, obstacles, gatheringPoints) {
+function monsterObject(tileX, tileY) {
+  return {
+    id: nextObjectId++,
+    name: `monster_${nextObjectId}`,
+    type: "monster",
+    x: tileX * TILE_SIZE,
+    y: tileY * TILE_SIZE,
+    width: TILE_SIZE,
+    height: TILE_SIZE,
+    visible: true,
+    properties: [],
+  };
+}
+
+function buildMap(ground, obstacles, gatheringPoints, monsters = []) {
   return {
     compressionlevel: -1,
     width: WIDTH,
@@ -69,7 +83,7 @@ function buildMap(ground, obstacles, gatheringPoints) {
     type: "map",
     tiledversion: "1.10.2",
     version: "1.10",
-    nextlayerid: 4,
+    nextlayerid: 5,
     nextobjectid: nextObjectId,
     layers: [
       {
@@ -105,6 +119,16 @@ function buildMap(ground, obstacles, gatheringPoints) {
         opacity: 1,
         visible: true,
         objects: gatheringPoints,
+      },
+      {
+        id: 4,
+        name: "monsters",
+        type: "objectgroup",
+        x: 0,
+        y: 0,
+        opacity: 1,
+        visible: true,
+        objects: monsters,
       },
     ],
     tilesets: [
@@ -202,7 +226,10 @@ function buildNorth() {
     gatheringObject("herb", 20, 24),
   ];
 
-  return buildMap(ground, obstacles, gatheringPoints);
+  // 縦の道(x=18-19)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
+  const monsters = [monsterObject(28, 15)];
+
+  return buildMap(ground, obstacles, gatheringPoints, monsters);
 }
 
 // ---------------- chunk-east (homeの東) ----------------
@@ -239,7 +266,10 @@ function buildEast() {
     gatheringObject("herb", 25, 27),
   ];
 
-  return buildMap(ground, obstacles, gatheringPoints);
+  // 横の道(y=15-16)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
+  const monsters = [monsterObject(12, 24)];
+
+  return buildMap(ground, obstacles, gatheringPoints, monsters);
 }
 
 const chunks = {

@@ -2,7 +2,7 @@
 
 ブラウザで動く2Dドット絵の見下ろし型オープンワールドゲーム。詳細な仕様は [claude_code_spec.md](./claude_code_spec.md) を参照。
 
-現在の実装状況: **フェーズ3(クラフト・拠点の共有化)完了・本番デプロイ済み**。
+現在の実装状況: **フェーズ4(戦闘)完了・本番デプロイ済み**。
 
 **🎮 今すぐ遊べます: https://open-world-game-dxu.pages.dev**
 (同じルームIDで別のタブ/ウィンドウ・別の端末から入ると、最大4人でマルチプレイできる)
@@ -15,9 +15,9 @@
     /scenes               # Phaserのシーン(GameSceneなど)
     /input                # InputManager: キーボード/マウス入力の抽象化層
     /net                  # RoomClient(partysocket): WebSocket通信・状態同期
-    /entities             # プレイヤー・RemotePlayer・GatheringPoint・Building(拠点建物)
-    /systems              # Inventory(個人インベントリ、localStorage永続化)・recipes(クラフトレシピ定義)
-    /ui                   # InventoryHud・CraftMenu(DOM製のUI)
+    /entities             # プレイヤー・RemotePlayer・GatheringPoint・Building・Monster
+    /systems              # Inventory・recipes(クラフトレシピ定義)・Health(プレイヤー体力)
+    /ui                   # InventoryHud・CraftMenu・HealthHud(DOM製のUI)
     main.ts                # エントリポイント。参加フォーム → Phaser.Game起動
     style.css
   /public
@@ -102,11 +102,21 @@ npx wrangler pages deploy dist --project-name=open-world-game
 ## 操作方法
 
 - 移動: `W`/`A`/`S`/`D` または矢印キー
-- アクション(採集・攻撃・メニュー選択など): マウス/トラックパッドのクリック。プレイヤーの近くにある
-  採集ポイント(木・岩・草)をクリックするとアイテムが手に入る
+- アクション: マウス/トラックパッドのクリック。近くの採集ポイント(木・岩・草)をクリックすると
+  アイテムが手に入り、近くのモンスターをクリックすると攻撃する
 - クラフト: 画面右下の「🔨 クラフト」ボタンでメニューを開閉
 - マップの端まで歩くと隣接チャンクへ移動する(拠点=chunk-homeの北にchunk-north、東にchunk-east。
   未解放の場合は進めず、ロックメッセージが出る)
+
+## 戦闘の仕組み(現状)
+
+- モンスターは1種類(小さなスライム)。chunk-northとchunk-eastに1体ずつ、メインの通り道からは
+  外れた場所に配置されているので、戦わずに迂回して探索を続けることもできる
+- 攻撃: モンスターに近づいてクリックすると1ダメージ。HP3で3回攻撃すると倒れて消える
+- 接触ダメージ: モンスターに触れるとプレイヤーが1ダメージを受ける(1秒間の無敵時間つき)
+- プレイヤーの体力は❤️3つ。0になってもゲームオーバーにはならず、拠点(chunk-home)へ運ばれて
+  体力全回復した状態で再開できる(仕様書9章、フェーズ4の受け入れ基準どおりの軽いペナルティ)
+- モンスターの体力・撃破状態はプレイヤーごとの表示で、マルチプレイでは同期しない(個人ローカルの戦闘)
 
 ## 探索・収集の仕組み(現状)
 

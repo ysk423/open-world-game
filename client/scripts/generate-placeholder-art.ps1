@@ -173,4 +173,21 @@ $g4.Dispose()
 $bsheet.Save((Join-Path $assetsDir "buildings.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $bsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png"
+# ---------- monster (16x16 x 1: small slime) ----------
+$msheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
+$g5 = [System.Drawing.Graphics]::FromImage($msheet)
+$g5.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+
+Fill $g5 3 6 10 8 150 60 160
+Fill $g5 5 4 6 3 150 60 160
+Fill $g5 4 13 8 2 108 40 118
+Fill $g5 5 8 2 2 250 250 250
+Fill $g5 9 8 2 2 250 250 250
+Fill $g5 5 9 1 1 20 20 20
+Fill $g5 9 9 1 1 20 20 20
+
+$g5.Dispose()
+$msheet.Save((Join-Path $assetsDir "monster.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$msheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png"

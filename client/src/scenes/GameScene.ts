@@ -5,13 +5,16 @@ import { Player } from "../entities/Player";
 import { RemotePlayer } from "../entities/RemotePlayer";
 import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
+import { Monster } from "../entities/Monster";
 import { RoomClient } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
+import { Health } from "../systems/Health";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
+import { HealthHud } from "../ui/HealthHud";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
@@ -39,6 +42,14 @@ const ENTRY_OFFSET = 30;
 const GATHER_CLICK_RADIUS = 20;
 const GATHER_REACH_RADIUS = 40;
 
+// 攻撃の判定距離
+const ATTACK_CLICK_RADIUS = 20;
+const ATTACK_REACH_RADIUS = 40;
+
+const PLAYER_MAX_HP = 3;
+const CONTACT_DAMAGE = 1;
+const CONTACT_INVULN_MS = 1000;
+
 type ChunkDirection = "north" | "south" | "east" | "west";
 
 const CHUNK_NEIGHBORS: Record<string, Partial<Record<ChunkDirection, string>>> = {
@@ -53,6 +64,8 @@ export class GameScene extends Phaser.Scene {
   private roomClient!: RoomClient;
   private inventory!: Inventory;
   private craftMenu!: CraftMenu;
+  private health!: Health;
+  private invulnerableUntil = 0;
 
   private remotePlayers = new Map<string, RemotePlayer>();
   private selfId: string | null = null;
@@ -67,6 +80,8 @@ export class GameScene extends Phaser.Scene {
   private obstacleCollider?: Phaser.Physics.Arcade.Collider;
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
+  private monsters: Monster[] = [];
+  private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
 
   private baseState = {
     buildings: [] as PlacedBuilding[],
@@ -103,6 +118,7 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 16,
       frameHeight: 16,
     });
+    this.load.image("monster", "assets/monster.png");
   }
 
   create(): void {
@@ -111,6 +127,8 @@ export class GameScene extends Phaser.Scene {
     this.craftMenu = new CraftMenu(this.inventory, this.baseState.unlockedChunks, (recipe) => {
       this.handleCraft(recipe);
     });
+    this.health = new Health(PLAYER_MAX_HP);
+    new HealthHud(this.health);
 
     this.player = new Player(
       this,
@@ -216,6 +234,10 @@ export class GameScene extends Phaser.Scene {
     this.gatheringPoints = [];
     for (const building of this.buildingSprites) building.destroy();
     this.buildingSprites = [];
+    for (const overlap of this.monsterOverlaps) overlap.destroy();
+    this.monsterOverlaps = [];
+    for (const monster of this.monsters) monster.destroy();
+    this.monsters = [];
 
     const map = this.make.tilemap({ key: chunkId });
     const tileset = map.addTilesetImage("tileset", "tiles");
@@ -252,6 +274,21 @@ export class GameScene extends Phaser.Scene {
         const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
         const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
         this.gatheringPoints.push(new GatheringPoint(this, x, y, itemId));
+      }
+    }
+
+    const monsterLayer = map.getObjectLayer("monsters");
+    if (monsterLayer) {
+      for (const obj of monsterLayer.objects) {
+        const x = (obj.x ?? 0) + (obj.width ?? TILE_SIZE) / 2;
+        const y = (obj.y ?? 0) + (obj.height ?? TILE_SIZE) / 2;
+        const monster = new Monster(this, x, y);
+        this.monsters.push(monster);
+        this.monsterOverlaps.push(
+          this.physics.add.overlap(this.player.sprite, monster.sprite, () => {
+            this.handleMonsterContact();
+          }),
+        );
       }
     }
 
@@ -372,10 +409,10 @@ export class GameScene extends Phaser.Scene {
       this.roomClient.sendCraftUnlock(recipe.effect.chunkId);
     }
 
-    this.showCraftFeedback(`${recipe.name}を作った!`);
+    this.showFloatingMessage(`${recipe.name}を作った!`);
   }
 
-  private showCraftFeedback(message: string): void {
+  private showFloatingMessage(message: string): void {
     const text = this.add
       .text(this.player.sprite.x, this.player.sprite.y - 20, message, {
         fontSize: "10px",
@@ -414,9 +451,82 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ---------- アクション(採集など) ----------
+  // ---------- 戦闘 ----------
+
+  private handleMonsterContact(): void {
+    const now = this.time.now;
+    if (now < this.invulnerableUntil) return;
+    this.invulnerableUntil = now + CONTACT_INVULN_MS;
+
+    const defeated = this.health.damage(CONTACT_DAMAGE);
+    this.player.sprite.setTint(0xff5555);
+    this.time.delayedCall(200, () => {
+      if (this.player.sprite.active) this.player.sprite.clearTint();
+    });
+
+    if (defeated) {
+      this.respawnAtBase();
+    }
+  }
+
+  private respawnAtBase(): void {
+    this.isTransitioning = true;
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      if (this.currentChunk !== "chunk-home") {
+        this.buildChunk("chunk-home");
+      }
+      const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+      body.reset(
+        SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2,
+        SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2,
+      );
+      this.health.reset();
+      this.cameras.main.fadeIn(200, 0, 0, 0);
+      this.isTransitioning = false;
+      this.showFloatingMessage("気を失った…拠点で目が覚めた");
+    });
+  }
+
+  private tryAttack(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Monster | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const monster of this.monsters) {
+      const clickDist = Phaser.Math.Distance.Between(
+        point.worldX,
+        point.worldY,
+        monster.sprite.x,
+        monster.sprite.y,
+      );
+      if (clickDist > ATTACK_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, monster.sprite.x, monster.sprite.y);
+      if (reachDist > ATTACK_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = monster;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const died = closest.takeDamage(this, 1);
+    if (died) {
+      this.monsters = this.monsters.filter((m) => m !== closest);
+      closest.destroy();
+    }
+    return true;
+  }
+
+  // ---------- アクション(採集・攻撃など) ----------
 
   private handleAction(point: ActionPoint): void {
+    if (this.tryAttack(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);

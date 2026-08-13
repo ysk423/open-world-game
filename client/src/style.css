@@ -106,6 +106,19 @@ body {
   font-size: 16px;
 }
 
+#health-hud {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  font-size: 16px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  user-select: none;
+}
+
 #craft-toggle {
   position: fixed;
   right: 12px;
