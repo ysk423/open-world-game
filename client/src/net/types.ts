@@ -30,7 +30,9 @@ export type ClientMessage =
   | { type: "craft-building"; buildingType: string; x: number; y: number }
   | { type: "save-game"; slot: number }
   | { type: "load-game"; slot: number }
-  | { type: "delete-game"; slot: number };
+  | { type: "delete-game"; slot: number }
+  | { type: "export-game"; slot: number }
+  | { type: "import-game"; slot: number; buildings: PlacedBuilding[] };
 
 export type ServerMessage =
   | {
@@ -53,6 +55,8 @@ export type ServerMessage =
   | { type: "building-placed"; building: PlacedBuilding }
   | { type: "game-reset" }
   | { type: "game-loaded"; slot: number; buildings: PlacedBuilding[] }
-  | { type: "load-failed"; slot: number };
+  | { type: "load-failed"; slot: number }
+  | { type: "export-data"; slot: number; buildings: PlacedBuilding[] }
+  | { type: "export-failed"; slot: number };
 
 export const SAVE_SLOT_COUNT = 3;

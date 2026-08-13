@@ -5,6 +5,11 @@
 // 切り替える方式)だったが、切り替え時のフェード演出やエリア開放要素をなくし、
 // 1枚の大きなマップを自由に歩き回れるようにするため、3チャンク分をタイル座標オフセットで
 // 合成して1枚のワールドマップに焼き込む。
+//
+// 各領域は元のデザイン解像度(40x30)のまま組み立て、最後にSCALE倍に拡大(同じ相対レイアウトを
+// タイル単位で複製)してからワールドへ合成する。以前は北東の隅が空き地(岩で埋めた死角)
+// だったが、この拡大に合わせて北東領域(buildNortheast)を新設し、4領域が隙間なく
+// つながる2x2グリッドにした。
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -14,8 +19,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TILE_SIZE = 32;
 const CHUNK_W = 40;
 const CHUNK_H = 30;
-const WORLD_W = CHUNK_W * 2;
-const WORLD_H = CHUNK_H * 2;
+// マップを4倍(面積)に拡大するため、各領域を縦横2倍に引き伸ばす
+const SCALE = 2;
+const SCALED_CHUNK_W = CHUNK_W * SCALE;
+const SCALED_CHUNK_H = CHUNK_H * SCALE;
+const WORLD_W = SCALED_CHUNK_W * 2;
+const WORLD_H = SCALED_CHUNK_H * 2;
 
 // gid: 0=空, 1=草, 2=道, 3=水, 4=岩
 const GRASS = 1;
@@ -123,7 +132,7 @@ function shopObject(tileX, tileY) {
 }
 
 // 各領域(旧チャンク)を、自分だけのローカル座標系(0-39, 0-29)で組み立てる。
-// ---------------- home領域(ワールド原点(0,30)) ----------------
+// ---------------- home領域(homeの北西) ----------------
 function buildHome() {
   const ground = makeGrid(CHUNK_W, CHUNK_H, GRASS);
   const obstacles = makeGrid(CHUNK_W, CHUNK_H, 0);
@@ -155,11 +164,14 @@ function buildHome() {
     gatheringObject("wood", 6, 8),
     gatheringObject("wood", 12, 4),
     gatheringObject("wood", 33, 6),
+    gatheringObject("wood", 2, 18),
     gatheringObject("stone", 9, 21),
     gatheringObject("stone", 24, 21),
+    gatheringObject("stone", 36, 15),
     gatheringObject("herb", 14, 10),
     gatheringObject("herb", 27, 18),
     gatheringObject("herb", 5, 25),
+    gatheringObject("herb", 20, 4),
   ];
 
   const npcs = [
@@ -167,13 +179,14 @@ function buildHome() {
     npcObject(16, 18, "ケン", "この湾はどこまでも歩いて回れるよ。北や東にも足を延ばしてみて。"),
   ];
 
-  const animals = [animalObject(24, 17)];
+  const monsters = [monsterObject(4, 27)];
+  const animals = [animalObject(24, 17), animalObject(35, 24)];
   const shops = [shopObject(14, 14)];
 
-  return { ground, obstacles, gatheringPoints, monsters: [], npcs, animals, shops };
+  return { ground, obstacles, gatheringPoints, monsters, npcs, animals, shops };
 }
 
-// ---------------- north領域(ワールド原点(0,0)、homeの北) ----------------
+// ---------------- north領域(homeの北) ----------------
 function buildNorth() {
   const ground = makeGrid(CHUNK_W, CHUNK_H, GRASS);
   const obstacles = makeGrid(CHUNK_W, CHUNK_H, 0);
@@ -194,26 +207,29 @@ function buildNorth() {
   ];
   for (const [x, y] of rockPositions) setTile(obstacles, CHUNK_W, CHUNK_H, x, y, ROCK);
 
-  // 南(home)は隣接領域なので壁を作らない
-  addBorderWalls(obstacles, CHUNK_W, CHUNK_H, new Set(["north", "east", "west"]));
+  // 南(home)・東(northeast、新設)は隣接領域なので壁を作らない
+  addBorderWalls(obstacles, CHUNK_W, CHUNK_H, new Set(["north", "west"]));
 
   const gatheringPoints = [
     gatheringObject("wood", 22, 8),
     gatheringObject("wood", 15, 15),
+    gatheringObject("wood", 33, 20),
     gatheringObject("stone", 32, 12),
     gatheringObject("stone", 28, 20),
+    gatheringObject("stone", 4, 25),
     gatheringObject("herb", 10, 18),
     gatheringObject("herb", 20, 24),
+    gatheringObject("herb", 36, 6),
   ];
 
   // 縦の道(x=18-19)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
-  const monsters = [monsterObject(28, 15)];
-  const animals = [animalObject(26, 20)];
+  const monsters = [monsterObject(28, 15), monsterObject(15, 5)];
+  const animals = [animalObject(26, 20), animalObject(6, 15)];
 
   return { ground, obstacles, gatheringPoints, monsters, npcs: [], animals, shops: [] };
 }
 
-// ---------------- east領域(ワールド原点(40,30)、homeの東) ----------------
+// ---------------- east領域(homeの東) ----------------
 function buildEast() {
   const ground = makeGrid(CHUNK_W, CHUNK_H, GRASS);
   const obstacles = makeGrid(CHUNK_W, CHUNK_H, 0);
@@ -234,21 +250,60 @@ function buildEast() {
   ];
   for (const [x, y] of rockPositions) setTile(obstacles, CHUNK_W, CHUNK_H, x, y, ROCK);
 
-  // 西(home)は隣接領域なので壁を作らない
-  addBorderWalls(obstacles, CHUNK_W, CHUNK_H, new Set(["north", "south", "east"]));
+  // 西(home)・北(northeast、新設)は隣接領域なので壁を作らない
+  addBorderWalls(obstacles, CHUNK_W, CHUNK_H, new Set(["south", "east"]));
 
   const gatheringPoints = [
     gatheringObject("wood", 12, 6),
     gatheringObject("wood", 30, 5),
+    gatheringObject("wood", 36, 25),
     gatheringObject("stone", 18, 20),
     gatheringObject("stone", 35, 15),
     gatheringObject("herb", 6, 12),
     gatheringObject("herb", 25, 27),
+    gatheringObject("herb", 3, 3),
   ];
 
   // 横の道(y=15-16)から離れた開けた場所に配置。道を通るだけなら遭遇せず迂回できる
-  const monsters = [monsterObject(12, 24)];
-  const animals = [animalObject(25, 10)];
+  const monsters = [monsterObject(12, 24), monsterObject(33, 20)];
+  const animals = [animalObject(25, 10), animalObject(9, 27)];
+
+  return { ground, obstacles, gatheringPoints, monsters, npcs: [], animals, shops: [] };
+}
+
+// ---------------- northeast領域(homeの北東。マップ拡大に合わせて新設) ----------------
+function buildNortheast() {
+  const ground = makeGrid(CHUNK_W, CHUNK_H, GRASS);
+  const obstacles = makeGrid(CHUNK_W, CHUNK_H, 0);
+
+  // 中央に大きな湖
+  for (let y = 10; y < 20; y++) {
+    for (let x = 14; x < 26; x++) {
+      setTile(ground, CHUNK_W, CHUNK_H, x, y, WATER);
+    }
+  }
+
+  const rockPositions = [
+    [4, 6], [5, 6], [34, 5], [35, 5], [7, 24], [30, 25], [20, 3], [10, 15],
+  ];
+  for (const [x, y] of rockPositions) setTile(obstacles, CHUNK_W, CHUNK_H, x, y, ROCK);
+
+  // 西(north)・南(east)は隣接領域なので壁を作らない
+  addBorderWalls(obstacles, CHUNK_W, CHUNK_H, new Set(["north", "east"]));
+
+  const gatheringPoints = [
+    gatheringObject("wood", 5, 12),
+    gatheringObject("wood", 34, 10),
+    gatheringObject("wood", 20, 26),
+    gatheringObject("stone", 8, 20),
+    gatheringObject("stone", 30, 15),
+    gatheringObject("herb", 12, 5),
+    gatheringObject("herb", 28, 22),
+    gatheringObject("herb", 36, 18),
+  ];
+
+  const monsters = [monsterObject(20, 8)];
+  const animals = [animalObject(30, 6), animalObject(9, 9)];
 
   return { ground, obstacles, gatheringPoints, monsters, npcs: [], animals, shops: [] };
 }
@@ -269,10 +324,51 @@ function offsetObjects(objects, originX, originY) {
   }));
 }
 
+// 元のデザイン解像度(40x30)で作った領域を、タイル単位でfactor倍に引き伸ばす
+// (1タイルをfactor x factorのブロックに複製する。同じ相対レイアウトのまま面積だけ増える)
+function scaleGrid(grid, width, height, factor) {
+  const newWidth = width * factor;
+  const out = new Array(newWidth * height * factor);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const value = grid[y * width + x];
+      for (let dy = 0; dy < factor; dy++) {
+        for (let dx = 0; dx < factor; dx++) {
+          out[(y * factor + dy) * newWidth + (x * factor + dx)] = value;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function scaleObjects(objects, factor) {
+  return objects.map((obj) => ({
+    ...obj,
+    x: obj.x * factor,
+    y: obj.y * factor,
+    width: obj.width * factor,
+    height: obj.height * factor,
+  }));
+}
+
+function scaleRegion(region, factor) {
+  return {
+    ground: scaleGrid(region.ground, CHUNK_W, CHUNK_H, factor),
+    obstacles: scaleGrid(region.obstacles, CHUNK_W, CHUNK_H, factor),
+    gatheringPoints: scaleObjects(region.gatheringPoints, factor),
+    monsters: scaleObjects(region.monsters, factor),
+    npcs: scaleObjects(region.npcs, factor),
+    animals: scaleObjects(region.animals, factor),
+    shops: scaleObjects(region.shops, factor),
+  };
+}
+
 const regions = [
-  { ...buildNorth(), originX: 0, originY: 0 },
-  { ...buildHome(), originX: 0, originY: CHUNK_H },
-  { ...buildEast(), originX: CHUNK_W, originY: CHUNK_H },
+  { ...scaleRegion(buildNorth(), SCALE), originX: 0, originY: 0 },
+  { ...scaleRegion(buildHome(), SCALE), originX: 0, originY: SCALED_CHUNK_H },
+  { ...scaleRegion(buildEast(), SCALE), originX: SCALED_CHUNK_W, originY: SCALED_CHUNK_H },
+  { ...scaleRegion(buildNortheast(), SCALE), originX: SCALED_CHUNK_W, originY: 0 },
 ];
 
 const worldGround = makeGrid(WORLD_W, WORLD_H, GRASS);
@@ -284,21 +380,21 @@ const worldAnimals = [];
 const worldShops = [];
 
 for (const region of regions) {
-  blitGrid(worldGround, WORLD_W, region.ground, CHUNK_W, CHUNK_H, region.originX, region.originY);
-  blitGrid(worldObstacles, WORLD_W, region.obstacles, CHUNK_W, CHUNK_H, region.originX, region.originY);
+  blitGrid(worldGround, WORLD_W, region.ground, SCALED_CHUNK_W, SCALED_CHUNK_H, region.originX, region.originY);
+  blitGrid(
+    worldObstacles,
+    WORLD_W,
+    region.obstacles,
+    SCALED_CHUNK_W,
+    SCALED_CHUNK_H,
+    region.originX,
+    region.originY,
+  );
   worldGathering.push(...offsetObjects(region.gatheringPoints, region.originX, region.originY));
   worldMonsters.push(...offsetObjects(region.monsters, region.originX, region.originY));
   worldNpcs.push(...offsetObjects(region.npcs, region.originX, region.originY));
   worldAnimals.push(...offsetObjects(region.animals, region.originX, region.originY));
   worldShops.push(...offsetObjects(region.shops, region.originX, region.originY));
-}
-
-// north領域とeast領域の間(北東の隅、x:[40,80) y:[0,30))はどの領域にも属さない死角。
-// 岩で完全に埋めて、山として通行不能にする(見た目にも自然な世界の輪郭になる)。
-for (let y = 0; y < CHUNK_H; y++) {
-  for (let x = 0; x < CHUNK_W; x++) {
-    setTile(worldObstacles, WORLD_W, WORLD_H, CHUNK_W + x, y, ROCK);
-  }
 }
 
 const world = {

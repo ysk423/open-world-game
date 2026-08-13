@@ -25,6 +25,18 @@ export function deleteSlot(slot: number): void {
   localStorage.removeItem(slotKey(slot));
 }
 
+/** 個数データの妥当性を検証し、正規化して返す。不正な値は0として扱う */
+export function parseCounts(raw: unknown): Record<ItemId, number> | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const source = raw as Partial<Record<ItemId, number>>;
+  const counts = { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0, meat: 0 };
+  for (const id of ITEM_IDS) {
+    const value = source[id];
+    if (typeof value === "number" && Number.isFinite(value)) counts[id] = value;
+  }
+  return counts;
+}
+
 export function loadSlot(slot: number): SlotData | null {
   try {
     const raw = localStorage.getItem(slotKey(slot));
@@ -33,11 +45,8 @@ export function loadSlot(slot: number): SlotData | null {
     if (typeof parsed.savedAt !== "number" || typeof parsed.hp !== "number" || !parsed.counts) {
       return null;
     }
-    const counts = { wood: 0, stone: 0, herb: 0, coin: 0, seed: 0, crop: 0, meat: 0 };
-    for (const id of ITEM_IDS) {
-      const value = parsed.counts[id];
-      if (typeof value === "number" && Number.isFinite(value)) counts[id] = value;
-    }
+    const counts = parseCounts(parsed.counts);
+    if (!counts) return null;
     return { counts, hp: parsed.hp, savedAt: parsed.savedAt };
   } catch {
     return null;

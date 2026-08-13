@@ -434,6 +434,61 @@ body {
   background: #a84848;
 }
 
+#data-toggle {
+  position: fixed;
+  right: 12px;
+  top: 126px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#data-toggle:hover {
+  background: rgba(50, 50, 50, 0.85);
+}
+
+#data-panel {
+  position: fixed;
+  right: 12px;
+  top: 164px;
+  width: 280px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+#data-panel h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+#data-panel h3 {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #ccc;
+}
+
+#data-panel input[type="file"] {
+  font-size: 11px;
+  color: #ddd;
+}
+
+#data-panel select {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: none;
+  font-size: 11px;
+}
+
 #equipment-toggle {
   position: fixed;
   right: 12px;

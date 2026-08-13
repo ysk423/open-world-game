@@ -18,11 +18,13 @@ import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
+import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
+import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
@@ -34,8 +36,9 @@ const ROCK_GID = 4;
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
 
-// スポーン地点(縦の道の上、タイル座標。ワールド全体の座標系)
-const SPAWN_TILE = { x: 19, y: 40 };
+// スポーン地点(縦の道の上、タイル座標。ワールド全体の座標系。
+// マップを2倍スケール(4倍面積)に拡張したのに合わせて元の(19,40)を2倍にしてある)
+const SPAWN_TILE = { x: 38, y: 80 };
 const SPAWN_X = SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2;
 const SPAWN_Y = SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
 
@@ -102,6 +105,7 @@ export class GameScene extends Phaser.Scene {
   private health!: Health;
   private invulnerableUntil = 0;
   private pendingLoadSlot: number | null = null;
+  private pendingExportSlot: number | null = null;
 
   private remotePlayers = new Map<string, RemotePlayer>();
   private selfId: string | null = null;
@@ -186,6 +190,10 @@ export class GameScene extends Phaser.Scene {
       onSave: (slot) => this.handleSave(slot),
       onLoad: (slot) => this.handleLoad(slot),
       onDelete: (slot) => this.handleDelete(slot),
+    });
+    new DataManagementPanel({
+      onExport: (slot) => this.handleExport(slot),
+      onImport: (slot, data) => this.handleImport(slot, data),
     });
     this.shopPanel = new ShopPanel(this.inventory, {
       onSell: (itemId) => this.handleSell(itemId),
@@ -285,6 +293,19 @@ export class GameScene extends Phaser.Scene {
         this.pendingLoadSlot = null;
         this.showFloatingMessage(`スロット${slot}は空です`);
       },
+      onExportData: (slot, buildings) => {
+        if (this.pendingExportSlot !== slot) return;
+        this.pendingExportSlot = null;
+        const local = loadSlot(slot);
+        if (!local) return;
+        const file = buildExportFile(slot, local.counts, local.hp, buildings);
+        downloadJsonFile(`open-world-game-slot${slot}.json`, file);
+        this.showFloatingMessage(`スロット${slot}をエクスポートしました`);
+      },
+      onExportFailed: (slot) => {
+        this.pendingExportSlot = null;
+        this.showFloatingMessage(`スロット${slot}は空です`);
+      },
     });
   }
 
@@ -305,6 +326,18 @@ export class GameScene extends Phaser.Scene {
   private handleLoad(slot: number): void {
     this.pendingLoadSlot = slot;
     this.roomClient.sendLoadGame(slot);
+  }
+
+  private handleExport(slot: number): void {
+    if (!loadSlot(slot)) return;
+    this.pendingExportSlot = slot;
+    this.roomClient.sendExportGame(slot);
+  }
+
+  private handleImport(slot: number, data: ExportedSaveFile): void {
+    saveSlot(slot, data.counts, data.hp);
+    this.pendingLoadSlot = slot;
+    this.roomClient.sendImportGame(slot, data.buildings);
   }
 
   private addRemotePlayer(player: PlayerState): void {
