@@ -6,6 +6,12 @@ body {
   height: 100%;
   background: #1a1a1a;
   overflow: hidden;
+  /* iOSでの引っ張り更新・ゴムのようなバウンススクロールを防ぐ。
+     touch-actionはここでは指定しない(bodyに指定すると、下のパネル類のoverflow-y:auto
+     スクロールまで巻き込んで無効化されてしまうため、キャンバスやDパッドなど個別の要素にだけ付ける) */
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
@@ -20,6 +26,55 @@ body {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  touch-action: none;
+}
+
+/* パネルを開閉するトグルボタンは、DOM順に関わらず常にパネルより手前でタップできるようにする
+   (パネルの中身が伸びて別のトグルボタンと画面上で重なることがあるため) */
+#craft-toggle,
+#help-toggle,
+#save-toggle,
+#data-toggle,
+#equipment-toggle {
+  z-index: 6;
+}
+
+#craft-menu,
+#help-panel,
+#save-panel,
+#data-panel,
+#equipment-panel,
+#shop-panel {
+  z-index: 4;
+}
+
+/* タッチ操作の端末では指で狙いにくいので、ボタン類を一回り大きくする */
+@media (pointer: coarse) {
+  #craft-toggle,
+  #help-toggle,
+  #save-toggle,
+  #data-toggle,
+  #equipment-toggle,
+  #heal-button {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .recipe-card button,
+  .save-slot-row button,
+  .equipment-row button,
+  .shop-row button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  #game-reset-button {
+    padding: 12px;
+  }
+
+  #join-form button {
+    padding: 14px;
+  }
 }
 
 #join-screen {
@@ -328,6 +383,8 @@ body {
   right: 12px;
   top: 50px;
   width: 260px;
+  max-height: min(320px, 55vh);
+  overflow-y: auto;
   flex-direction: column;
   gap: 10px;
   padding: 14px;
@@ -382,6 +439,8 @@ body {
   right: 12px;
   top: 126px;
   width: 260px;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
   flex-direction: column;
   gap: 10px;
   padding: 14px;
@@ -437,7 +496,7 @@ body {
 #data-toggle {
   position: fixed;
   right: 12px;
-  top: 126px;
+  top: 164px;
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -455,8 +514,10 @@ body {
 #data-panel {
   position: fixed;
   right: 12px;
-  top: 164px;
+  top: 202px;
   width: 280px;
+  max-height: min(320px, 55vh);
+  overflow-y: auto;
   flex-direction: column;
   gap: 10px;
   padding: 14px;
@@ -492,7 +553,7 @@ body {
 #equipment-toggle {
   position: fixed;
   right: 12px;
-  top: 164px;
+  top: 240px;
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
@@ -510,8 +571,10 @@ body {
 #equipment-panel {
   position: fixed;
   right: 12px;
-  top: 202px;
+  top: 278px;
   width: 260px;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
   flex-direction: column;
   gap: 8px;
   padding: 14px;

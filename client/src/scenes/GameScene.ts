@@ -45,25 +45,30 @@ const SPAWN_Y = SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
 // 位置同期を送る間隔(ms)。低頻度・高頻度どちらにも寄せすぎない程度の値
 const NETWORK_TICK_MS = 80;
 
+// タッチ操作は指先の面積があり狙った場所ぴったりをタップしにくいため、
+// クリック判定(タップ位置と対象の距離)をマウスより広めにとる
+const CLICK_RADIUS = isTouchDevice() ? 65 : 40;
+const REACH_RADIUS = 80;
+
 // 採集の判定距離
-const GATHER_CLICK_RADIUS = 40;
-const GATHER_REACH_RADIUS = 80;
+const GATHER_CLICK_RADIUS = CLICK_RADIUS;
+const GATHER_REACH_RADIUS = REACH_RADIUS;
 
 // 攻撃の判定距離
-const ATTACK_CLICK_RADIUS = 40;
-const ATTACK_REACH_RADIUS = 80;
+const ATTACK_CLICK_RADIUS = CLICK_RADIUS;
+const ATTACK_REACH_RADIUS = REACH_RADIUS;
 
 // 会話の判定距離
-const TALK_CLICK_RADIUS = 40;
-const TALK_REACH_RADIUS = 80;
+const TALK_CLICK_RADIUS = CLICK_RADIUS;
+const TALK_REACH_RADIUS = REACH_RADIUS;
 
 // 畑の判定距離
-const FARM_CLICK_RADIUS = 40;
-const FARM_REACH_RADIUS = 80;
+const FARM_CLICK_RADIUS = CLICK_RADIUS;
+const FARM_REACH_RADIUS = REACH_RADIUS;
 
 // ショップの判定距離
-const SHOP_CLICK_RADIUS = 40;
-const SHOP_REACH_RADIUS = 80;
+const SHOP_CLICK_RADIUS = CLICK_RADIUS;
+const SHOP_REACH_RADIUS = REACH_RADIUS;
 
 // シフトキーでアクションする時、向いている方向のこの距離先を対象点にする
 const SHIFT_ACTION_REACH = 40;
