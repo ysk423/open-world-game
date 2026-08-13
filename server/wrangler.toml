@@ -1,0 +1,12 @@
+name = "open-world-game-server"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[durable_objects]
+bindings = [
+  { name = "Room", class_name = "Room" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

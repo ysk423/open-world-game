@@ -1,0 +1,81 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#app canvas {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+#join-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a1a;
+  font-family: system-ui, sans-serif;
+}
+
+#join-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 260px;
+  padding: 24px;
+  border-radius: 8px;
+  background: #2a2f2a;
+  color: #eee;
+}
+
+#join-form h1 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  text-align: center;
+}
+
+#join-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+#join-form input {
+  padding: 8px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #eee;
+  font-size: 14px;
+}
+
+#join-form button {
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background: #5b8cde;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#join-form button:hover {
+  background: #6f9be8;
+}

@@ -1,0 +1,6 @@
+# ローカル専用のClaude Code設定(パーミッション許可リストなど)
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
