@@ -118,6 +118,58 @@ body {
   cursor: not-allowed;
 }
 
+#touch-dpad {
+  position: fixed;
+  left: 12px;
+  bottom: 64px;
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+  z-index: 5;
+}
+
+.dpad-button {
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.55);
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.dpad-button:active {
+  background: rgba(91, 140, 222, 0.8);
+}
+
+.dpad-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dpad-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dpad-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.dpad-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
 #inventory-hud {
   position: fixed;
   left: 12px;

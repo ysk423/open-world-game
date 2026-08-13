@@ -23,6 +23,8 @@ import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
+import { TouchDPad } from "../ui/TouchDPad";
+import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
@@ -190,6 +192,9 @@ export class GameScene extends Phaser.Scene {
     this.inputManager.onShiftAction(() => {
       this.handleShiftAction();
     });
+    if (isTouchDevice()) {
+      new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
+    }
 
     this.setupNetworking();
   }

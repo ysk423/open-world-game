@@ -31,6 +31,9 @@ export class InputManager {
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
+  // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
+  private touchX = 0;
+  private touchY = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -80,6 +83,12 @@ export class InputManager {
     this.shiftActionHandlers.push(handler);
   }
 
+  /** 仮想十字キー(TouchDPad)からの入力を反映する。x/yはそれぞれ-1〜1 */
+  setTouchMove(x: number, y: number): void {
+    this.touchX = x;
+    this.touchY = y;
+  }
+
   /** 毎フレーム呼び出し、現在の移動状態を返す */
   getMoveState(): MoveState {
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
@@ -93,6 +102,10 @@ export class InputManager {
     if (right) x += 1;
     if (up) y -= 1;
     if (down) y += 1;
+
+    // キーボード入力がなければ、仮想十字キーの入力を使う
+    if (x === 0) x = this.touchX;
+    if (y === 0) y = this.touchY;
 
     const moving = x !== 0 || y !== 0;
 
