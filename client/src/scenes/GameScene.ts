@@ -19,6 +19,7 @@ import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
+import { Tools } from "../systems/Tools";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
@@ -127,6 +128,7 @@ export class GameScene extends Phaser.Scene {
   private roomClient!: RoomClient;
   private inventory!: Inventory;
   private equipment!: Equipment;
+  private tools!: Tools;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
   private health!: Health;
@@ -206,10 +208,12 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.inventory = new Inventory();
     this.equipment = new Equipment();
+    this.tools = new Tools();
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
       () => new Set(this.equipment.getOwned()),
+      () => new Set(this.tools.getOwned()),
       (recipe) => this.handleCraft(recipe),
     );
     new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId));
@@ -310,6 +314,7 @@ export class GameScene extends Phaser.Scene {
         this.syncMaxHpFromLevel();
         this.health.reset();
         this.equipment.reset();
+        this.tools.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
       },
@@ -633,6 +638,9 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "weapon" && this.equipment.getOwned().includes(recipe.effect.weaponId)) {
       return;
     }
+    if (recipe.effect.type === "tool" && this.tools.has(recipe.effect.toolId)) {
+      return;
+    }
 
     if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
       this.handleCraftBridge(recipe.name, recipe.inputs);
@@ -643,6 +651,14 @@ export class GameScene extends Phaser.Scene {
 
     if (recipe.effect.type === "weapon") {
       this.equipment.acquire(recipe.effect.weaponId);
+      this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage(`${recipe.name}を作った!`);
+      return;
+    }
+
+    if (recipe.effect.type === "tool") {
+      this.tools.acquire(recipe.effect.toolId);
       this.craftMenu.refresh();
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`${recipe.name}を作った!`);
@@ -1080,9 +1096,15 @@ export class GameScene extends Phaser.Scene {
       return false;
     }
 
+    // マインクラフト風の斧・つるはしを持っていると、対応する資材の採集量が増える
+    const hasBoost =
+      (closest.itemId === "wood" && this.tools.has("axe")) ||
+      (closest.itemId === "stone" && this.tools.has("pickaxe"));
+    const amount = hasBoost ? 2 : 1;
+
     this.sound.play("sfx-gather", { volume: 0.5 });
-    this.inventory.add(closest.itemId, 1);
-    this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId, 1);
+    this.inventory.add(closest.itemId, amount);
+    this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId, amount);
     return true;
   }
 

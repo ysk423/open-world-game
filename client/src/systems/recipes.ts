@@ -1,5 +1,6 @@
 import type { ItemId } from "./Inventory";
 import type { WeaponId } from "./Equipment";
+import type { ToolId } from "./Tools";
 
 export type BuildingType =
   | "fence"
@@ -13,7 +14,8 @@ export type BuildingType =
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
-  | { type: "weapon"; weaponId: WeaponId };
+  | { type: "weapon"; weaponId: WeaponId }
+  | { type: "tool"; toolId: ToolId };
 
 export type Recipe = {
   id: string;
@@ -70,6 +72,18 @@ export const RECIPES: Recipe[] = [
     name: "橋(向いている水面に架ける)",
     inputs: { wood: 3 },
     effect: { type: "building", buildingType: "bridge" },
+  },
+  {
+    id: "axe",
+    name: "斧(木の採集量+1)",
+    inputs: { wood: 3, stone: 1 },
+    effect: { type: "tool", toolId: "axe" },
+  },
+  {
+    id: "pickaxe",
+    name: "つるはし(石の採集量+1)",
+    inputs: { wood: 1, stone: 4 },
+    effect: { type: "tool", toolId: "pickaxe" },
   },
   {
     id: "wooden_sword",

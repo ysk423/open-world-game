@@ -1,5 +1,6 @@
 import type { Inventory, ItemId } from "../systems/Inventory";
 import type { WeaponId } from "../systems/Equipment";
+import type { ToolId } from "../systems/Tools";
 import { RECIPES, type Recipe } from "../systems/recipes";
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
@@ -20,15 +21,18 @@ export class CraftMenu {
   private isOpen = false;
   private inventory: Inventory;
   private getOwnedWeapons: () => ReadonlySet<WeaponId>;
+  private getOwnedTools: () => ReadonlySet<ToolId>;
   private onCraft: (recipe: Recipe) => void;
 
   constructor(
     inventory: Inventory,
     getOwnedWeapons: () => ReadonlySet<WeaponId>,
+    getOwnedTools: () => ReadonlySet<ToolId>,
     onCraft: (recipe: Recipe) => void,
   ) {
     this.inventory = inventory;
     this.getOwnedWeapons = getOwnedWeapons;
+    this.getOwnedTools = getOwnedTools;
     this.onCraft = onCraft;
 
     this.toggleButton = document.createElement("button");
@@ -61,6 +65,7 @@ export class CraftMenu {
 
     const counts = this.inventory.getCounts();
     const ownedWeapons = this.getOwnedWeapons();
+    const ownedTools = this.getOwnedTools();
     this.panel.innerHTML = "";
 
     const title = document.createElement("h2");
@@ -68,7 +73,9 @@ export class CraftMenu {
     this.panel.appendChild(title);
 
     for (const recipe of RECIPES) {
-      const alreadyOwned = recipe.effect.type === "weapon" && ownedWeapons.has(recipe.effect.weaponId);
+      const alreadyOwned =
+        (recipe.effect.type === "weapon" && ownedWeapons.has(recipe.effect.weaponId)) ||
+        (recipe.effect.type === "tool" && ownedTools.has(recipe.effect.toolId));
       const canAfford = !alreadyOwned && this.inventory.canAfford(recipe.inputs);
 
       const card = document.createElement("div");
