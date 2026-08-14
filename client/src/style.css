@@ -35,7 +35,8 @@ body {
 #help-toggle,
 #save-toggle,
 #data-toggle,
-#equipment-toggle {
+#equipment-toggle,
+#stats-toggle {
   z-index: 6;
 }
 
@@ -44,6 +45,7 @@ body {
 #save-panel,
 #data-panel,
 #equipment-panel,
+#stats-panel,
 #shop-panel {
   z-index: 4;
 }
@@ -55,6 +57,7 @@ body {
   #save-toggle,
   #data-toggle,
   #equipment-toggle,
+  #stats-toggle,
   #heal-button {
     padding: 10px 16px;
     font-size: 14px;
@@ -636,6 +639,50 @@ body {
   margin: 0;
   font-size: 11px;
   color: #aaa;
+}
+
+#stats-toggle {
+  position: fixed;
+  right: 12px;
+  top: 316px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#stats-toggle:hover {
+  background: rgba(50, 50, 50, 0.85);
+}
+
+#stats-panel {
+  position: fixed;
+  right: 12px;
+  top: 354px;
+  width: 260px;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+#stats-panel h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.stats-row {
+  font-size: 12px;
+  color: #ddd;
 }
 
 #shop-panel {

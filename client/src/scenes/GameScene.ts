@@ -22,6 +22,8 @@ import { Equipment } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Tools } from "../systems/Tools";
 import { Quests, getQuestForNpc } from "../systems/Quests";
+import { Stats } from "../systems/Stats";
+import { StatsPanel } from "../ui/StatsPanel";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
@@ -132,6 +134,7 @@ export class GameScene extends Phaser.Scene {
   private equipment!: Equipment;
   private tools!: Tools;
   private quests!: Quests;
+  private stats!: Stats;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
   private health!: Health;
@@ -214,6 +217,8 @@ export class GameScene extends Phaser.Scene {
     this.equipment = new Equipment();
     this.tools = new Tools();
     this.quests = new Quests();
+    this.stats = new Stats();
+    new StatsPanel(this.stats);
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
@@ -883,6 +888,7 @@ export class GameScene extends Phaser.Scene {
         monster.destroy();
         this.scheduleMonsterRespawn();
         this.grantExp(MONSTER_EXP * rewardMultiplier);
+        this.stats.recordMonsterDefeat(monster.isRare);
         if (monster.isRare) this.showFloatingMessage("★ レアモンスターを倒した!");
       }
     } else {
@@ -895,6 +901,7 @@ export class GameScene extends Phaser.Scene {
         animal.destroy();
         this.scheduleAnimalRespawn();
         this.grantExp(ANIMAL_EXP);
+        this.stats.recordAnimalDefeat();
       }
     }
     return true;
@@ -996,6 +1003,7 @@ export class GameScene extends Phaser.Scene {
       const harvested = closest.harvest();
       if (harvested) {
         this.inventory.add(harvested.itemId, harvested.amount);
+        this.stats.recordGather(harvested.itemId, harvested.amount);
         this.sound.play("sfx-gather", { volume: 0.5 });
         this.showGatherFeedback(closest.worldX, closest.worldY, harvested.itemId, harvested.amount);
       }
@@ -1091,6 +1099,7 @@ export class GameScene extends Phaser.Scene {
     this.rocks = this.rocks.filter((r) => r !== closest);
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add("stone", 1);
+    this.stats.recordGather("stone", 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
     closest.destroy();
     return true;
@@ -1137,6 +1146,7 @@ export class GameScene extends Phaser.Scene {
 
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add(closest.itemId, amount);
+    this.stats.recordGather(closest.itemId, amount);
     this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId, amount);
     return true;
   }
