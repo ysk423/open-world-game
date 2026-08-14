@@ -14,11 +14,15 @@ body {
   user-select: none;
 }
 
+/* ゲーム内部解像度(768x432)は横長固定なので、スマホを縦持ちにするとFITスケールで
+   横幅いっぱいまで縮小されてcanvasの高さがかなり小さくなる。中央寄せだと下固定の
+   仮想D-pad/アクションボタンとcanvasの下半分が重なってしまうため、上詰めにして
+   常にcanvasの下に操作キー用の余白ができるようにする */
 #app {
   width: 100vw;
   height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 }
 
@@ -226,6 +230,31 @@ body {
 .dpad-down {
   grid-column: 2;
   grid-row: 3;
+}
+
+#action-button {
+  position: fixed;
+  right: 12px;
+  bottom: 76px;
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(91, 140, 222, 0.75);
+  color: #fff;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  z-index: 5;
+}
+
+#action-button:active {
+  background: rgba(91, 140, 222, 0.95);
 }
 
 #inventory-hud {

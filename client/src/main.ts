@@ -25,7 +25,10 @@ function startGame(): void {
     },
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      // 縦持ちスマホでは横長の内部解像度がFITで大きく縮小され、canvasの高さが画面の
+      // 一部だけになる。CENTER_BOTHだと縦方向にも中央寄せされ、下固定の仮想操作キーと
+      // canvasの下半分が重なってしまうため、横方向だけ中央寄せして縦は上詰めにする
+      autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
       width: INTERNAL_WIDTH,
       height: INTERNAL_HEIGHT,
     },
