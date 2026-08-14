@@ -8,6 +8,7 @@ import { Building } from "../entities/Building";
 import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
 import { Torch } from "../entities/Torch";
+import { Bed } from "../entities/Bed";
 import { Monster } from "../entities/Monster";
 import { Animal } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
@@ -167,6 +168,8 @@ export class GameScene extends Phaser.Scene {
   private animals: Animal[] = [];
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
+  private beds: Bed[] = [];
+  private respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
@@ -333,6 +336,9 @@ export class GameScene extends Phaser.Scene {
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
         this.torches = [];
+        for (const bed of this.beds) bed.destroy();
+        this.beds = [];
+        this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
         this.experience.reset();
@@ -356,6 +362,9 @@ export class GameScene extends Phaser.Scene {
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
         this.torches = [];
+        for (const bed of this.beds) bed.destroy();
+        this.beds = [];
+        this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         for (const building of buildings) this.addBuildingSprite(building);
 
         // 自分が要求したロードの場合のみ、個人の持ち物・HPも復元する(他プレイヤーの分は変えない)
@@ -536,6 +545,10 @@ export class GameScene extends Phaser.Scene {
     }
     if (building.buildingType === "torch") {
       this.torches.push(new Torch(this, building.x, building.y));
+      return;
+    }
+    if (building.buildingType === "bed") {
+      this.beds.push(new Bed(this, building.x, building.y));
       return;
     }
     const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);
@@ -849,7 +862,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeOut(200, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-      body.reset(SPAWN_X, SPAWN_Y);
+      body.reset(this.respawnPoint.x, this.respawnPoint.y);
       this.health.reset();
       this.cameras.main.fadeIn(200, 0, 0, 0);
       this.showFloatingMessage("気を失った…拠点で目が覚めた");
@@ -1107,6 +1120,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShop(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
+    if (this.tryBed(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
@@ -1143,6 +1157,36 @@ export class GameScene extends Phaser.Scene {
     this.stats.recordGather("stone", 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
     closest.destroy();
+    return true;
+  }
+
+  // ---------- ベッド(復帰地点の設定) ----------
+
+  private tryBed(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Bed | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const bed of this.beds) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, bed.worldX, bed.worldY);
+      if (clickDist > CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, bed.worldX, bed.worldY);
+      if (reachDist > REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = bed;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.respawnPoint = { x: closest.worldX, y: closest.worldY };
+    this.sound.play("sfx-craft", { volume: 0.4 });
+    this.showFloatingMessage("🛏 ここを復帰地点にした");
     return true;
   }
 
