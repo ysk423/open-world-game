@@ -3,6 +3,7 @@ import type { Direction, MoveState } from "../input/InputManager";
 
 // 32pxタイル(16pxの倍)に合わせて、当たり判定・移動速度も倍にしてある。
 const SPEED = 180;
+const SPRINT_MULTIPLIER = 1.6;
 
 // スプライトシートのフレーム番号(2列x3行、行: down/side/up)
 const FRAMES = {
@@ -48,12 +49,12 @@ export class Player {
     define("walk-up", FRAMES.up, 6, -1);
   }
 
-  update(moveState: MoveState): void {
+  update(moveState: MoveState, sprinting = false): void {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
 
     const velocity = new Phaser.Math.Vector2(moveState.x, moveState.y);
     if (velocity.lengthSq() > 0) {
-      velocity.normalize().scale(SPEED);
+      velocity.normalize().scale(sprinting ? SPEED * SPRINT_MULTIPLIER : SPEED);
     }
     body.setVelocity(velocity.x, velocity.y);
 

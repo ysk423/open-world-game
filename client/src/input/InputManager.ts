@@ -28,12 +28,15 @@ export class InputManager {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private shiftKey: Phaser.Input.Keyboard.Key;
+  private sprintKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
   // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
   private touchX = 0;
   private touchY = 0;
+  // タッチのダッシュボタンが押されているか(キーボードのスペースキーと合わせて判定する)
+  private touchSprint = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -49,6 +52,7 @@ export class InputManager {
       Phaser.Input.Keyboard.Key
     >;
     this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.sprintKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
@@ -87,6 +91,16 @@ export class InputManager {
   setTouchMove(x: number, y: number): void {
     this.touchX = x;
     this.touchY = y;
+  }
+
+  /** タッチのダッシュボタンの押下状態を反映する */
+  setTouchSprint(active: boolean): void {
+    this.touchSprint = active;
+  }
+
+  /** ダッシュが要求されているか(スペースキー、またはタッチのダッシュボタン) */
+  isSprintRequested(): boolean {
+    return this.sprintKey.isDown || this.touchSprint;
   }
 
   /** 毎フレーム呼び出し、現在の移動状態を返す */

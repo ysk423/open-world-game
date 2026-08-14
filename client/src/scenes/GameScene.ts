@@ -20,6 +20,7 @@ import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
+import { Stamina } from "../systems/Stamina";
 import { Tools } from "../systems/Tools";
 import { Quests, getQuestForNpc } from "../systems/Quests";
 import { Stats } from "../systems/Stats";
@@ -39,6 +40,8 @@ import { ExperienceHud } from "../ui/ExperienceHud";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
 import { ActionButton } from "../ui/ActionButton";
+import { SprintButton } from "../ui/SprintButton";
+import { StaminaHud } from "../ui/StaminaHud";
 import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
@@ -144,6 +147,7 @@ export class GameScene extends Phaser.Scene {
   private experience!: Experience;
   private craftMenu!: CraftMenu;
   private health!: Health;
+  private stamina!: Stamina;
   private invulnerableUntil = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
@@ -238,6 +242,8 @@ export class GameScene extends Phaser.Scene {
     this.health = new Health(PLAYER_MAX_HP);
     this.syncMaxHpFromLevel();
     new HealthHud(this.health, () => this.handleHeal());
+    this.stamina = new Stamina();
+    new StaminaHud(this.stamina);
     new HelpPanel();
     new SaveLoadPanel({
       onSave: (slot) => this.handleSave(slot),
@@ -271,6 +277,7 @@ export class GameScene extends Phaser.Scene {
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
       new ActionButton(() => this.handleShiftAction());
+      new SprintButton((active) => this.inputManager.setTouchSprint(active));
     }
 
     this.setupNetworking();
@@ -331,6 +338,7 @@ export class GameScene extends Phaser.Scene {
         this.experience.reset();
         this.syncMaxHpFromLevel();
         this.health.reset();
+        this.stamina.reset();
         this.equipment.reset();
         this.tools.reset();
         this.quests.reset();
@@ -419,7 +427,9 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const moveState = this.inputManager.getMoveState();
-    this.player.update(moveState);
+    const sprinting = moveState.moving && this.inputManager.isSprintRequested() && this.stamina.canSprint();
+    this.player.update(moveState, sprinting);
+    this.stamina.tick(delta, sprinting);
 
     for (const remote of this.remotePlayers.values()) {
       remote.tick();
