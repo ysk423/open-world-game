@@ -7,6 +7,7 @@ import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
 import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
+import { Torch } from "../entities/Torch";
 import { Monster } from "../entities/Monster";
 import { Animal } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
@@ -150,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
   private rocks: Rock[] = [];
+  private torches: Torch[] = [];
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
@@ -308,6 +310,8 @@ export class GameScene extends Phaser.Scene {
         this.buildingSprites = [];
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
+        for (const torch of this.torches) torch.destroy();
+        this.torches = [];
         this.clearWorldContent();
         this.inventory.reset();
         this.experience.reset();
@@ -327,6 +331,8 @@ export class GameScene extends Phaser.Scene {
         this.buildingSprites = [];
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
+        for (const torch of this.torches) torch.destroy();
+        this.torches = [];
         for (const building of buildings) this.addBuildingSprite(building);
 
         // 自分が要求したロードの場合のみ、個人の持ち物・HPも復元する(他プレイヤーの分は変えない)
@@ -501,6 +507,10 @@ export class GameScene extends Phaser.Scene {
     }
     if (building.buildingType === "bridge") {
       this.applyBridgeTile(building.x, building.y);
+      return;
+    }
+    if (building.buildingType === "torch") {
+      this.torches.push(new Torch(this, building.x, building.y));
       return;
     }
     const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);

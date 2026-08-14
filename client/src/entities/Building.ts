@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import type { BuildingType } from "../systems/recipes";
 
-// farm_plot/bridgeはGameScene側でそれぞれFarmPlot/水面タイルの書き換えとして扱われ、
+// farm_plot/bridge/torchはGameScene側でそれぞれFarmPlot/水面タイルの書き換え/Torchとして扱われ、
 // Buildingとして描画されることはない
 const FRAME_BY_TYPE: Record<BuildingType, number> = {
   fence: 0,
@@ -12,6 +12,7 @@ const FRAME_BY_TYPE: Record<BuildingType, number> = {
   rock: 5,
   farm_plot: -1,
   bridge: -1,
+  torch: -1,
 };
 
 // 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)

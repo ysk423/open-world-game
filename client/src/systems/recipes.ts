@@ -10,7 +10,8 @@ export type BuildingType =
   | "storage_shed"
   | "farm_plot"
   | "rock"
-  | "bridge";
+  | "bridge"
+  | "torch";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -72,6 +73,12 @@ export const RECIPES: Recipe[] = [
     name: "橋(向いている水面に架ける)",
     inputs: { wood: 3 },
     effect: { type: "building", buildingType: "bridge" },
+  },
+  {
+    id: "torch",
+    name: "たいまつ(夜、周囲を明るくする)",
+    inputs: { wood: 2 },
+    effect: { type: "building", buildingType: "torch" },
   },
   {
     id: "axe",
