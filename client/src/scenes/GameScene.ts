@@ -21,6 +21,7 @@ import { Equipment } from "../systems/Equipment";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
+import { getCycleProgress, getNightIntensity, isNight } from "../systems/DayNightCycle";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
@@ -94,6 +95,10 @@ const ANIMAL_RESPAWN_DELAY_MS = 15000;
 // 再出現位置は極力プレイヤーから離す(近すぎる候補は避ける)
 const MONSTER_RESPAWN_MIN_DIST = 150;
 
+// 夜間の画面の暗さの最大値(0=無色、1=完全に不透明)
+const NIGHT_OVERLAY_MAX_ALPHA = 0.5;
+const NIGHT_OVERLAY_COLOR = 0x0a1a40;
+
 const ITEM_ICON: Record<ItemId, string> = {
   wood: "🪵",
   stone: "🪨",
@@ -135,6 +140,7 @@ export class GameScene extends Phaser.Scene {
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
+  private nightOverlay!: Phaser.GameObjects.Rectangle;
 
   private buildings: PlacedBuilding[] = [];
 
@@ -377,11 +383,21 @@ export class GameScene extends Phaser.Scene {
       remote.tick();
     }
 
+    this.updateDayNightCycle();
+
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
       this.sinceLastSend = 0;
       this.sendLocalStateIfChanged();
     }
+  }
+
+  // ---------- 昼夜サイクル ----------
+
+  private updateDayNightCycle(): void {
+    const progress = getCycleProgress(Date.now());
+    const intensity = getNightIntensity(progress);
+    this.nightOverlay.setFillStyle(NIGHT_OVERLAY_COLOR, intensity * NIGHT_OVERLAY_MAX_ALPHA);
   }
 
   // ---------- ワールド構築 ----------
@@ -411,6 +427,13 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.add.collider(this.player.sprite, groundLayer);
     this.physics.add.collider(this.player.sprite, obstacleLayer);
+
+    // 昼夜サイクルの暗さを表現するオーバーレイ(カメラに固定し、UI用の文字表示より下に描画する)
+    this.nightOverlay = this.add
+      .rectangle(0, 0, this.scale.width, this.scale.height, NIGHT_OVERLAY_COLOR, 0)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(15);
 
     // モンスターの再出現先を選ぶための、歩行可能なタイル座標一覧(水・岩以外)
     this.walkableTiles = [];
@@ -560,7 +583,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private scheduleMonsterRespawn(): void {
-    this.time.delayedCall(MONSTER_RESPAWN_DELAY_MS, () => {
+    // マインクラフトのように、夜は敵の再出現が早まる
+    const night = isNight(getCycleProgress(Date.now()));
+    const delay = night ? MONSTER_RESPAWN_DELAY_MS / 2 : MONSTER_RESPAWN_DELAY_MS;
+    this.time.delayedCall(delay, () => {
       const pos = this.pickRandomWalkableWorldPos();
       if (!pos) return;
       this.spawnMonster(pos.x, pos.y);
