@@ -16,7 +16,8 @@ export type BuildingType =
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
   | { type: "weapon"; weaponId: WeaponId }
-  | { type: "tool"; toolId: ToolId };
+  | { type: "tool"; toolId: ToolId }
+  | { type: "item"; itemId: ItemId; amount: number };
 
 export type Recipe = {
   id: string;
@@ -73,6 +74,12 @@ export const RECIPES: Recipe[] = [
     name: "橋(向いている水面に架ける)",
     inputs: { wood: 3 },
     effect: { type: "building", buildingType: "bridge" },
+  },
+  {
+    id: "cooked_meat",
+    name: "焚き火で肉を焼く(売値アップ)",
+    inputs: { meat: 1 },
+    effect: { type: "item", itemId: "cooked_meat", amount: 1 },
   },
   {
     id: "torch",

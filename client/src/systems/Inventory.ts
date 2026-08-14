@@ -7,7 +7,8 @@ export type ItemId =
   | "crop"
   | "meat"
   | "seed_wheat"
-  | "wheat";
+  | "wheat"
+  | "cooked_meat";
 
 export const INVENTORY_STORAGE_KEY = "open-world-game:inventory";
 const ITEM_IDS: ItemId[] = [
@@ -20,6 +21,7 @@ const ITEM_IDS: ItemId[] = [
   "meat",
   "seed_wheat",
   "wheat",
+  "cooked_meat",
 ];
 
 type Counts = Record<ItemId, number>;
@@ -36,6 +38,7 @@ function emptyCounts(): Counts {
     meat: 0,
     seed_wheat: 0,
     wheat: 0,
+    cooked_meat: 0,
   };
 }
 

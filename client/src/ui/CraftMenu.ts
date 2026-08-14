@@ -13,6 +13,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   meat: "🍖",
   seed_wheat: "🌾",
   wheat: "🍞",
+  cooked_meat: "🍗",
 };
 
 export class CraftMenu {

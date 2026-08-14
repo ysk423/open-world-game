@@ -7,6 +7,7 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   crop: 3,
   meat: 4,
   wheat: 5,
+  cooked_meat: 7,
 };
 
 export const SHOP_BUY_PRICES: Partial<Record<ItemId, number>> = {
@@ -24,6 +25,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   meat: "🍖",
   seed_wheat: "🌾",
   wheat: "🍞",
+  cooked_meat: "🍗",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {

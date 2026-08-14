@@ -124,6 +124,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   meat: "🍖",
   seed_wheat: "🌾",
   wheat: "🍞",
+  cooked_meat: "🍗",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -679,6 +680,13 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "tool") {
       this.tools.acquire(recipe.effect.toolId);
       this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage(`${recipe.name}を作った!`);
+      return;
+    }
+
+    if (recipe.effect.type === "item") {
+      this.inventory.add(recipe.effect.itemId, recipe.effect.amount);
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`${recipe.name}を作った!`);
       return;
