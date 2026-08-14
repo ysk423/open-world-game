@@ -94,6 +94,10 @@ const CONTACT_INVULN_MS = 1000;
 const MONSTER_EXP = 8;
 const ANIMAL_EXP = 4;
 
+// はぐれメタル/色違い風の「レアモンスター」の出現率と報酬倍率
+const RARE_MONSTER_CHANCE = 0.1;
+const RARE_MONSTER_REWARD_MULTIPLIER = 3;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -564,7 +568,8 @@ export class GameScene extends Phaser.Scene {
   // ---------- モンスター ----------
 
   private spawnMonster(x: number, y: number): void {
-    const monster = new Monster(this, x, y);
+    const isRare = Math.random() < RARE_MONSTER_CHANCE;
+    const monster = new Monster(this, x, y, isRare);
     this.monsters.push(monster);
     if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
     if (this.obstacleLayer) this.physics.add.collider(monster.sprite, this.obstacleLayer);
@@ -841,11 +846,14 @@ export class GameScene extends Phaser.Scene {
       const died = monster.takeDamage(this, this.getPlayerDamage());
       if (died) {
         this.monsters = this.monsters.filter((m) => m !== monster);
-        this.inventory.add("coin", 2);
-        this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", 2);
+        const rewardMultiplier = monster.isRare ? RARE_MONSTER_REWARD_MULTIPLIER : 1;
+        const coinReward = 2 * rewardMultiplier;
+        this.inventory.add("coin", coinReward);
+        this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", coinReward);
         monster.destroy();
         this.scheduleMonsterRespawn();
-        this.grantExp(MONSTER_EXP);
+        this.grantExp(MONSTER_EXP * rewardMultiplier);
+        if (monster.isRare) this.showFloatingMessage("★ レアモンスターを倒した!");
       }
     } else {
       const animal = closest.obj;

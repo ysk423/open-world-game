@@ -9,19 +9,27 @@ const WANDER_MOVE_MS = 1000;
 const WANDER_DELAY_MIN_MS = 1500;
 const WANDER_DELAY_MAX_MS = 3500;
 
+// ドラクエの「はぐれメタル」やポケモンの色違いを参考にした、稀に出現する強敵の色味とHP倍率
+const RARE_TINT = 0xffd700;
+export const RARE_HP_MULTIPLIER = 3;
+
 export class Monster {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly worldX: number;
   readonly worldY: number;
-  private hp = MAX_HP;
+  readonly isRare: boolean;
+  private hp: number;
   private wanderTimer?: Phaser.Time.TimerEvent;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, isRare = false) {
     this.worldX = x;
     this.worldY = y;
+    this.isRare = isRare;
+    this.hp = isRare ? MAX_HP * RARE_HP_MULTIPLIER : MAX_HP;
     this.sprite = scene.physics.add.sprite(x, y, "monster", 0);
     this.sprite.setDepth(6);
     this.sprite.setImmovable(true);
+    if (isRare) this.sprite.setTint(RARE_TINT);
 
     scene.tweens.add({
       targets: this.sprite,
@@ -71,7 +79,10 @@ export class Monster {
     this.hp -= amount;
     this.sprite.setTint(0xff8888);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
-      if (this.sprite.active) this.sprite.clearTint();
+      if (!this.sprite.active) return;
+      // レア個体は被弾フラッシュの後、無色に戻さず金色に戻す
+      if (this.isRare) this.sprite.setTint(RARE_TINT);
+      else this.sprite.clearTint();
     });
     return this.isDead;
   }
