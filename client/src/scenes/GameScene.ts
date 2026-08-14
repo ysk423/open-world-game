@@ -18,6 +18,7 @@ import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
+import { Experience } from "../systems/Experience";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
@@ -29,6 +30,7 @@ import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
 import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
+import { ExperienceHud } from "../ui/ExperienceHud";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
 import { ActionButton } from "../ui/ActionButton";
@@ -88,6 +90,10 @@ const PLAYER_MAX_HP = 5;
 const CONTACT_DAMAGE = 1;
 const CONTACT_INVULN_MS = 1000;
 
+// ドラクエ風の経験値。モンスターの方が動物より手強い分、経験値も多めにする
+const MONSTER_EXP = 8;
+const ANIMAL_EXP = 4;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -117,6 +123,7 @@ export class GameScene extends Phaser.Scene {
   private roomClient!: RoomClient;
   private inventory!: Inventory;
   private equipment!: Equipment;
+  private experience!: Experience;
   private craftMenu!: CraftMenu;
   private health!: Health;
   private invulnerableUntil = 0;
@@ -202,7 +209,10 @@ export class GameScene extends Phaser.Scene {
       (recipe) => this.handleCraft(recipe),
     );
     new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId));
+    this.experience = new Experience();
+    new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
+    this.syncMaxHpFromLevel();
     new HealthHud(this.health, () => this.handleHeal());
     new HelpPanel();
     new SaveLoadPanel({
@@ -292,6 +302,8 @@ export class GameScene extends Phaser.Scene {
         this.farmPlots = [];
         this.clearWorldContent();
         this.inventory.reset();
+        this.experience.reset();
+        this.syncMaxHpFromLevel();
         this.health.reset();
         this.equipment.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
@@ -731,6 +743,26 @@ export class GameScene extends Phaser.Scene {
     this.showFloatingMessage(`買った(-${price} 💰)`);
   }
 
+  // ---------- 経験値・レベル ----------
+
+  /** レベルに応じた最大HPの上乗せ分をHealthに反映する(増えた分は現在HPにも加算される) */
+  private syncMaxHpFromLevel(): void {
+    this.health.setMaxHp(PLAYER_MAX_HP + this.experience.getBonusMaxHp());
+  }
+
+  /** 装備の攻撃力にレベルボーナスを加えた、実際に敵へ与えるダメージ */
+  private getPlayerDamage(): number {
+    return this.equipment.getDamage() + this.experience.getBonusDamage();
+  }
+
+  /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
+  private grantExp(amount: number): void {
+    const newLevel = this.experience.add(amount);
+    if (newLevel === null) return;
+    this.syncMaxHpFromLevel();
+    this.showFloatingMessage(`レベルアップ!Lv.${newLevel}`);
+  }
+
   // ---------- 戦闘 ----------
 
   private handleMonsterContact(): void {
@@ -806,23 +838,25 @@ export class GameScene extends Phaser.Scene {
 
     if (closest.kind === "monster") {
       const monster = closest.obj;
-      const died = monster.takeDamage(this, this.equipment.getDamage());
+      const died = monster.takeDamage(this, this.getPlayerDamage());
       if (died) {
         this.monsters = this.monsters.filter((m) => m !== monster);
         this.inventory.add("coin", 2);
         this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", 2);
         monster.destroy();
         this.scheduleMonsterRespawn();
+        this.grantExp(MONSTER_EXP);
       }
     } else {
       const animal = closest.obj;
-      const died = animal.takeDamage(this, this.equipment.getDamage());
+      const died = animal.takeDamage(this, this.getPlayerDamage());
       if (died) {
         this.animals = this.animals.filter((a) => a !== animal);
         this.inventory.add("meat", 1);
         this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "meat", 1);
         animal.destroy();
         this.scheduleAnimalRespawn();
+        this.grantExp(ANIMAL_EXP);
       }
     }
     return true;

@@ -3,7 +3,7 @@ type Listener = (hp: number, maxHp: number) => void;
 /** プレイヤーの体力。ゲームオーバーはなく、0になったら呼び出し側が拠点復帰などを行う */
 export class Health {
   private hp: number;
-  private readonly maxHp: number;
+  private maxHp: number;
   private listeners: Listener[] = [];
 
   constructor(maxHp = 5) {
@@ -28,6 +28,14 @@ export class Health {
 
   reset(): void {
     this.hp = this.maxHp;
+    this.notify();
+  }
+
+  /** 最大HPを変更する(レベルアップ用)。増えた分は現在HPにもそのまま加算される */
+  setMaxHp(newMaxHp: number): void {
+    const diff = newMaxHp - this.maxHp;
+    this.maxHp = newMaxHp;
+    this.hp = diff > 0 ? Math.min(this.maxHp, this.hp + diff) : Math.min(this.hp, this.maxHp);
     this.notify();
   }
 

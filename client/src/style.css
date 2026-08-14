@@ -269,6 +269,20 @@ body {
   user-select: none;
 }
 
+#experience-hud {
+  position: fixed;
+  left: 12px;
+  top: 56px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  pointer-events: none;
+  user-select: none;
+}
+
 #heal-button {
   pointer-events: auto;
   padding: 4px 8px;
