@@ -65,5 +65,10 @@ export class StatsPanel {
     animalRow.className = "stats-row";
     animalRow.textContent = `🐾 動物討伐: ${snapshot.animalsDefeated}`;
     this.panel.appendChild(animalRow);
+
+    const friendRow = document.createElement("div");
+    friendRow.className = "stats-row";
+    friendRow.textContent = `💛 動物となかよく: ${snapshot.animalsBefriended}`;
+    this.panel.appendChild(friendRow);
   }
 }

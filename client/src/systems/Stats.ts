@@ -5,6 +5,7 @@ export type StatsSnapshot = {
   monstersDefeated: number;
   rareMonstersDefeated: number;
   animalsDefeated: number;
+  animalsBefriended: number;
 };
 
 const STATS_STORAGE_KEY = "open-world-game:stats";
@@ -26,6 +27,7 @@ function emptySnapshot(): StatsSnapshot {
     monstersDefeated: 0,
     rareMonstersDefeated: 0,
     animalsDefeated: 0,
+    animalsBefriended: 0,
   };
 }
 
@@ -55,7 +57,12 @@ export class Stats {
           if (typeof value === "number" && Number.isFinite(value)) next.itemsGathered[id] = value;
         }
       }
-      for (const key of ["monstersDefeated", "rareMonstersDefeated", "animalsDefeated"] as const) {
+      for (const key of [
+        "monstersDefeated",
+        "rareMonstersDefeated",
+        "animalsDefeated",
+        "animalsBefriended",
+      ] as const) {
         const value = parsed[key];
         if (typeof value === "number" && Number.isFinite(value)) next[key] = value;
       }
@@ -84,6 +91,12 @@ export class Stats {
 
   recordAnimalDefeat(): void {
     this.snapshot.animalsDefeated += 1;
+    this.save();
+    this.notify();
+  }
+
+  recordAnimalBefriended(): void {
+    this.snapshot.animalsBefriended += 1;
     this.save();
     this.notify();
   }

@@ -103,6 +103,11 @@ const ANIMAL_EXP = 4;
 const RARE_MONSTER_CHANCE = 0.1;
 const RARE_MONSTER_REWARD_MULTIPLIER = 3;
 
+// 牧場物語風の動物への餌やり。作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる
+const FEED_ITEMS: ItemId[] = ["wheat", "crop"];
+const ANIMAL_FEED_COIN_REWARD = 3;
+const ANIMAL_FEED_EXP_MULTIPLIER = 2;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -882,9 +887,8 @@ export class GameScene extends Phaser.Scene {
 
     if (!closest) return false;
 
-    this.sound.play("sfx-attack", { volume: 0.5 });
-
     if (closest.kind === "monster") {
+      this.sound.play("sfx-attack", { volume: 0.5 });
       const monster = closest.obj;
       const died = monster.takeDamage(this, this.getPlayerDamage());
       if (died) {
@@ -899,18 +903,37 @@ export class GameScene extends Phaser.Scene {
         this.stats.recordMonsterDefeat(monster.isRare);
         if (monster.isRare) this.showFloatingMessage("★ レアモンスターを倒した!");
       }
-    } else {
-      const animal = closest.obj;
-      const died = animal.takeDamage(this, this.getPlayerDamage());
-      if (died) {
-        this.animals = this.animals.filter((a) => a !== animal);
-        this.inventory.add("meat", 1);
-        this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "meat", 1);
-        animal.destroy();
-        this.scheduleAnimalRespawn();
-        this.grantExp(ANIMAL_EXP);
-        this.stats.recordAnimalDefeat();
-      }
+      return true;
+    }
+
+    const animal = closest.obj;
+
+    // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる
+    const feedItem = FEED_ITEMS.find((id) => this.inventory.getCounts()[id] > 0);
+    if (feedItem) {
+      this.inventory.spend({ [feedItem]: 1 } as Partial<Record<ItemId, number>>);
+      this.animals = this.animals.filter((a) => a !== animal);
+      this.inventory.add("coin", ANIMAL_FEED_COIN_REWARD);
+      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "coin", ANIMAL_FEED_COIN_REWARD);
+      this.showFloatingMessage("🐾 動物となかよくなった!");
+      this.sound.play("sfx-gather", { volume: 0.5 });
+      animal.destroy();
+      this.scheduleAnimalRespawn();
+      this.grantExp(ANIMAL_EXP * ANIMAL_FEED_EXP_MULTIPLIER);
+      this.stats.recordAnimalBefriended();
+      return true;
+    }
+
+    this.sound.play("sfx-attack", { volume: 0.5 });
+    const died = animal.takeDamage(this, this.getPlayerDamage());
+    if (died) {
+      this.animals = this.animals.filter((a) => a !== animal);
+      this.inventory.add("meat", 1);
+      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "meat", 1);
+      animal.destroy();
+      this.scheduleAnimalRespawn();
+      this.grantExp(ANIMAL_EXP);
+      this.stats.recordAnimalDefeat();
     }
     return true;
   }
