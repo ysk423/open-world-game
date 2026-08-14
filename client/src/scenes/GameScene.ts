@@ -21,6 +21,7 @@ import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Tools } from "../systems/Tools";
+import { Quests, getQuestForNpc } from "../systems/Quests";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
@@ -130,6 +131,7 @@ export class GameScene extends Phaser.Scene {
   private inventory!: Inventory;
   private equipment!: Equipment;
   private tools!: Tools;
+  private quests!: Quests;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
   private health!: Health;
@@ -211,6 +213,7 @@ export class GameScene extends Phaser.Scene {
     this.inventory = new Inventory();
     this.equipment = new Equipment();
     this.tools = new Tools();
+    this.quests = new Quests();
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
@@ -319,6 +322,7 @@ export class GameScene extends Phaser.Scene {
         this.health.reset();
         this.equipment.reset();
         this.tools.reset();
+        this.quests.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
       },
@@ -921,7 +925,26 @@ export class GameScene extends Phaser.Scene {
     if (!closest) return false;
 
     this.sound.play("sfx-talk", { volume: 0.5 });
-    this.showDialogue(closest.worldX, closest.worldY, closest.npcName, closest.dialogue);
+
+    const quest = getQuestForNpc(closest.npcName);
+    if (quest && !this.quests.isCompleted(closest.npcName)) {
+      const spent = this.inventory.spend({
+        [quest.requestItem]: quest.requestAmount,
+      } as Partial<Record<ItemId, number>>);
+      if (spent) {
+        this.quests.complete(closest.npcName);
+        this.inventory.add("coin", quest.rewardCoin);
+        this.grantExp(quest.rewardExp);
+        this.showDialogue(closest.worldX, closest.worldY, closest.npcName, quest.completeDialogue);
+        this.showGatherFeedback(closest.worldX, closest.worldY, "coin", quest.rewardCoin);
+      } else {
+        this.showDialogue(closest.worldX, closest.worldY, closest.npcName, quest.askDialogue);
+      }
+      return true;
+    }
+
+    const dialogue = quest ? quest.thanksDialogue : closest.dialogue;
+    this.showDialogue(closest.worldX, closest.worldY, closest.npcName, dialogue);
     return true;
   }
 
