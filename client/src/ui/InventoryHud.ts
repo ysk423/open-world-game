@@ -13,6 +13,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   wheat: "🍞",
   cooked_meat: "🍗",
   fish: "🐟",
+  milk: "🥛",
 };
 const ITEM_ORDER: ItemId[] = [
   "wood",

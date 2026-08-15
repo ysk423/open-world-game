@@ -180,6 +180,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   wheat: "🍞",
   cooked_meat: "🍗",
   fish: "🐟",
+  milk: "🥛",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -1037,6 +1038,23 @@ export class GameScene extends Phaser.Scene {
     const playerX = this.player.sprite.x;
     const playerY = this.player.sprite.y;
 
+    // 牧場物語風に、相棒(なついた動物)をクリックすると用意できたミルクを集められる
+    if (this.pet) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, this.pet.sprite.x, this.pet.sprite.y);
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, this.pet.sprite.x, this.pet.sprite.y);
+      if (clickDist <= ATTACK_CLICK_RADIUS && reachDist <= ATTACK_REACH_RADIUS) {
+        if (this.pet.collectProduce(this)) {
+          this.inventory.add("milk", 1);
+          this.stats.recordGather("milk", 1);
+          this.showGatherFeedback(this.pet.sprite.x, this.pet.sprite.y, "milk", 1);
+          this.sound.play("sfx-gather", { volume: 0.5 });
+        } else {
+          this.showFloatingMessage("🐾 まだ用意中…");
+        }
+        return true;
+      }
+    }
+
     type Target = { kind: "monster"; obj: Monster } | { kind: "animal"; obj: Animal };
     let closest: Target | null = null;
     let closestDist = Number.POSITIVE_INFINITY;
@@ -1117,7 +1135,7 @@ export class GameScene extends Phaser.Scene {
       this.animals = this.animals.filter((a) => a !== animal);
       this.pet?.destroy();
       this.pet = animal;
-      animal.startFollowing();
+      animal.startFollowing(this);
       this.inventory.add("coin", ANIMAL_FEED_COIN_REWARD);
       this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "coin", ANIMAL_FEED_COIN_REWARD);
       this.showFloatingMessage("🐾 なついて相棒になった!");

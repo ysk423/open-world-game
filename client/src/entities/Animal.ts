@@ -14,6 +14,10 @@ const FOLLOW_SPEED = 90;
 const FOLLOW_MIN_DIST = 32;
 const FOLLOW_TINT = 0xffe9a8;
 
+// 牧場物語風に、相棒になった動物は一定間隔でミルクを用意してくれる
+const PRODUCE_INTERVAL_MS = 15000;
+const PRODUCE_READY_TINT = 0xfff59d;
+
 /** 動物。モンスターと違い接触してもプレイヤーにダメージを与えない。倒すと肉をドロップする。
  * 餌付けでなつくと相棒になり、以後はプレイヤーを追いかけるようになる */
 export class Animal {
@@ -23,6 +27,8 @@ export class Animal {
   private hp = MAX_HP;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private following = false;
+  private produceTimer?: Phaser.Time.TimerEvent;
+  private hasProduce = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.worldX = x;
@@ -42,13 +48,35 @@ export class Animal {
     return this.following;
   }
 
-  /** 餌付けでなついた時に呼ぶ。以後はさまよう代わりにプレイヤーを追いかける */
-  startFollowing(): void {
+  get hasProduceReady(): boolean {
+    return this.hasProduce;
+  }
+
+  /** 餌付けでなついた時に呼ぶ。以後はさまよう代わりにプレイヤーを追いかけ、定期的にミルクを用意する */
+  startFollowing(scene: Phaser.Scene): void {
     this.following = true;
     this.wanderTimer?.remove();
     this.wanderTimer = undefined;
     this.sprite.setVelocity(0, 0);
     this.sprite.setTint(FOLLOW_TINT);
+    this.scheduleProduce(scene);
+  }
+
+  private scheduleProduce(scene: Phaser.Scene): void {
+    this.produceTimer = scene.time.delayedCall(PRODUCE_INTERVAL_MS, () => {
+      if (!this.sprite.active) return;
+      this.hasProduce = true;
+      this.sprite.setTint(PRODUCE_READY_TINT);
+    });
+  }
+
+  /** 用意できたミルクを集める。用意ができていなければ何もせずfalseを返す */
+  collectProduce(scene: Phaser.Scene): boolean {
+    if (!this.hasProduce) return false;
+    this.hasProduce = false;
+    this.sprite.setTint(FOLLOW_TINT);
+    this.scheduleProduce(scene);
+    return true;
   }
 
   /** 相棒になった後、毎フレーム呼んでプレイヤーを追いかけさせる */
@@ -102,6 +130,7 @@ export class Animal {
 
   destroy(): void {
     this.wanderTimer?.remove();
+    this.produceTimer?.remove();
     this.sprite.destroy();
   }
 }

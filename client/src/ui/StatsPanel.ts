@@ -13,9 +13,10 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   wheat: "🍞",
   cooked_meat: "🍗",
   fish: "🐟",
+  milk: "🥛",
 };
 
-const GATHERABLE_ITEMS: ItemId[] = ["wood", "stone", "herb", "seed_wheat", "wheat", "fish"];
+const GATHERABLE_ITEMS: ItemId[] = ["wood", "stone", "herb", "seed_wheat", "wheat", "fish", "milk"];
 
 /** 画面右上の「📖 図鑑」ボタンで開閉するパネル。ポケモン図鑑を参考にした生涯累計の記録を表示する */
 export class StatsPanel {
