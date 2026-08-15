@@ -1,5 +1,9 @@
 import Phaser from "phaser";
 import type { ItemId } from "../systems/Inventory";
+import { isRaining } from "../systems/Weather";
+
+// 牧場物語を参考に、雨の日は水やりの手間が省けて育成が早まる
+const RAIN_GROWTH_MULTIPLIER = 0.5;
 
 type FarmStage = "empty" | "growing" | "ready";
 
@@ -76,7 +80,8 @@ export class FarmPlot {
     this.sprite.setFrame(FRAME_BY_STAGE.growing);
     this.sprite.clearTint();
     const config = CROP_CONFIG[cropId];
-    this.growTimer = scene.time.delayedCall(config.growDurationMs, () => {
+    const duration = isRaining(Date.now()) ? config.growDurationMs * RAIN_GROWTH_MULTIPLIER : config.growDurationMs;
+    this.growTimer = scene.time.delayedCall(duration, () => {
       if (!this.sprite.active) return;
       this.stage = "ready";
       this.sprite.setFrame(FRAME_BY_STAGE.ready);

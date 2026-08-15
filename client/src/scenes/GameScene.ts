@@ -33,6 +33,7 @@ import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
 import { getCycleProgress, getNightIntensity, isNight } from "../systems/DayNightCycle";
+import { isRaining } from "../systems/Weather";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
@@ -141,6 +142,10 @@ const MONSTER_RESPAWN_MIN_DIST = 150;
 const NIGHT_OVERLAY_MAX_ALPHA = 0.5;
 const NIGHT_OVERLAY_COLOR = 0x0a1a40;
 
+// 牧場物語風の天候(雨)。降っている間は画面を少し暗くし、雨粒パーティクルを降らせる
+const RAIN_OVERLAY_COLOR = 0x3a4a5c;
+const RAIN_OVERLAY_ALPHA = 0.25;
+
 const ITEM_ICON: Record<ItemId, string> = {
   wood: "🪵",
   stone: "🪨",
@@ -198,6 +203,9 @@ export class GameScene extends Phaser.Scene {
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
+  private rainOverlay!: Phaser.GameObjects.Rectangle;
+  private rainEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private isCurrentlyRaining = false;
 
   private buildings: PlacedBuilding[] = [];
 
@@ -475,6 +483,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateDayNightCycle();
+    this.updateWeather();
 
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
@@ -489,6 +498,27 @@ export class GameScene extends Phaser.Scene {
     const progress = getCycleProgress(Date.now());
     const intensity = getNightIntensity(progress);
     this.nightOverlay.setFillStyle(NIGHT_OVERLAY_COLOR, intensity * NIGHT_OVERLAY_MAX_ALPHA);
+  }
+
+  // ---------- 天候(雨) ----------
+
+  private updateWeather(): void {
+    const raining = isRaining(Date.now());
+    if (raining !== this.isCurrentlyRaining) {
+      this.isCurrentlyRaining = raining;
+      if (raining) this.rainEmitter.start();
+      else this.rainEmitter.stop();
+    }
+    this.rainOverlay.setFillStyle(RAIN_OVERLAY_COLOR, raining ? RAIN_OVERLAY_ALPHA : 0);
+  }
+
+  private ensureRainDropTexture(): void {
+    if (this.textures.exists("rain-drop")) return;
+    const g = this.add.graphics();
+    g.lineStyle(2, 0xbfd9f7, 1);
+    g.lineBetween(2, 0, -3, 14);
+    g.generateTexture("rain-drop", 8, 16);
+    g.destroy();
   }
 
   // ---------- ワールド構築 ----------
@@ -525,6 +555,28 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(15);
+
+    // 天候(雨)の暗さオーバーレイと雨粒パーティクル(どちらもカメラに固定)
+    this.rainOverlay = this.add
+      .rectangle(0, 0, this.scale.width, this.scale.height, RAIN_OVERLAY_COLOR, 0)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(14);
+    this.ensureRainDropTexture();
+    this.rainEmitter = this.add
+      .particles(0, 0, "rain-drop", {
+        x: { min: 0, max: this.scale.width },
+        y: -10,
+        lifespan: 700,
+        speedY: { min: 260, max: 340 },
+        speedX: { min: -20, max: -10 },
+        alpha: { start: 0.6, end: 0.2 },
+        quantity: 2,
+        frequency: 40,
+        emitting: false,
+      })
+      .setScrollFactor(0)
+      .setDepth(14);
 
     // モンスターの再出現先を選ぶための、歩行可能なタイル座標一覧(水・岩以外)
     this.walkableTiles = [];
