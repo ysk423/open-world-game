@@ -22,8 +22,10 @@ const SOLID_TYPES: ReadonlySet<BuildingType> = new Set(["fence", "rock"]);
 export class Building {
   readonly sprite: Phaser.GameObjects.Sprite | Phaser.Types.Physics.Arcade.SpriteWithStaticBody;
   readonly solid: boolean;
+  readonly buildingType: BuildingType;
 
   constructor(scene: Phaser.Scene, x: number, y: number, buildingType: BuildingType) {
+    this.buildingType = buildingType;
     this.solid = SOLID_TYPES.has(buildingType);
     this.sprite = this.solid
       ? scene.physics.add.staticSprite(x, y, "buildings", FRAME_BY_TYPE[buildingType])

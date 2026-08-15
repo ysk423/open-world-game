@@ -23,6 +23,8 @@ import { Health } from "../systems/Health";
 import { Equipment } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
+import { Storage } from "../systems/Storage";
+import { StoragePanel } from "../ui/StoragePanel";
 import { Tools } from "../systems/Tools";
 import { Quests, getQuestForNpc } from "../systems/Quests";
 import { Stats } from "../systems/Stats";
@@ -156,6 +158,8 @@ export class GameScene extends Phaser.Scene {
   private craftMenu!: CraftMenu;
   private health!: Health;
   private stamina!: Stamina;
+  private storage!: Storage;
+  private storagePanel!: StoragePanel;
   private invulnerableUntil = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
@@ -268,6 +272,11 @@ export class GameScene extends Phaser.Scene {
     this.shopPanel = new ShopPanel(this.inventory, {
       onSell: (itemId) => this.handleSell(itemId),
       onBuy: (itemId) => this.handleBuy(itemId),
+    });
+    this.storage = new Storage();
+    this.storagePanel = new StoragePanel(this.inventory, this.storage, {
+      onDeposit: (itemId) => this.handleDeposit(itemId),
+      onWithdraw: (itemId) => this.handleWithdraw(itemId),
     });
 
     if (!this.sound.get("bgm")) {
@@ -846,6 +855,18 @@ export class GameScene extends Phaser.Scene {
     this.showFloatingMessage(`買った(-${price} 💰)`);
   }
 
+  // ---------- 倉庫 ----------
+
+  private handleDeposit(itemId: ItemId): void {
+    if (!this.inventory.spend({ [itemId]: 1 } as Partial<Record<ItemId, number>>)) return;
+    this.storage.add(itemId, 1);
+  }
+
+  private handleWithdraw(itemId: ItemId): void {
+    if (!this.storage.spend({ [itemId]: 1 } as Partial<Record<ItemId, number>>)) return;
+    this.inventory.add(itemId, 1);
+  }
+
   // ---------- 経験値・レベル ----------
 
   /** レベルに応じた最大HPの上乗せ分をHealthに反映する(増えた分は現在HPにも加算される) */
@@ -1139,12 +1160,42 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 倉庫(建物のstorage_shedに話しかけると開く) ----------
+
+  private tryStorage(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "storage_shed") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.storagePanel.toggle();
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
     if (this.tryAttack(point)) return;
     if (this.tryTalk(point)) return;
     if (this.tryShop(point)) return;
+    if (this.tryStorage(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;

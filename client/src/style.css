@@ -825,18 +825,40 @@ button:active {
   z-index: 10;
 }
 
+#storage-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  max-height: min(400px, 70vh);
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.96);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 10;
+}
+
 .shop-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-#shop-panel h2 {
+#shop-panel h2,
+#storage-panel h2 {
   margin: 0;
   font-size: 14px;
 }
 
-#shop-close {
+#shop-close,
+#storage-close {
   padding: 2px 8px;
   border: none;
   border-radius: 4px;
@@ -846,7 +868,8 @@ button:active {
   cursor: pointer;
 }
 
-#shop-close:hover {
+#shop-close:hover,
+#storage-close:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
