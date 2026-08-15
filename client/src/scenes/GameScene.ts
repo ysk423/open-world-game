@@ -105,6 +105,12 @@ const PLAYER_MAX_HP = 5;
 const CONTACT_DAMAGE = 1;
 const CONTACT_INVULN_MS = 1000;
 
+// DQ風の状態異常「毒」。レア個体・ボスとの接触でまれに毒になり、一定時間じわじわダメージを受ける
+const POISON_CHANCE = 0.4;
+const POISON_DURATION_MS = 8000;
+const POISON_TICK_MS = 1000;
+const POISON_DAMAGE_PER_TICK = 1;
+
 // ドラクエ風の経験値。モンスターの方が動物より手強い分、経験値も多めにする
 const MONSTER_EXP = 8;
 const ANIMAL_EXP = 4;
@@ -211,6 +217,8 @@ export class GameScene extends Phaser.Scene {
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
   private nextWellAllowedAt = 0;
+  private poisonedUntil = 0;
+  private nextPoisonTickAt = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
 
@@ -532,6 +540,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDayNightCycle();
     this.updateWeather();
     this.updateMinimap();
+    this.updatePoison();
 
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
@@ -801,7 +810,7 @@ export class GameScene extends Phaser.Scene {
     if (this.obstacleLayer) this.physics.add.collider(monster.sprite, this.obstacleLayer);
     this.monsterOverlaps.push(
       this.physics.add.overlap(this.player.sprite, monster.sprite, () => {
-        this.handleMonsterContact();
+        this.handleMonsterContact(monster);
       }),
     );
   }
@@ -969,14 +978,21 @@ export class GameScene extends Phaser.Scene {
   // ---------- 回復 ----------
 
   private handleHeal(): void {
-    if (this.health.getHp() >= this.health.getMaxHp()) return;
+    const atFullHp = this.health.getHp() >= this.health.getMaxHp();
+    const isPoisoned = this.time.now < this.poisonedUntil;
+    if (atFullHp && !isPoisoned) return;
     if (!this.inventory.spend({ herb: 1 })) {
       this.showFloatingMessage("🌿が足りません");
       return;
     }
-    this.health.heal(1);
+    if (!atFullHp) this.health.heal(1);
     this.sound.play("sfx-gather", { volume: 0.4 });
-    this.showFloatingMessage("回復した(-1 🌿)");
+    if (isPoisoned) {
+      this.poisonedUntil = 0;
+      this.showFloatingMessage(atFullHp ? "毒が治った(-1 🌿)" : "回復した・毒も治った(-1 🌿)");
+    } else {
+      this.showFloatingMessage("回復した(-1 🌿)");
+    }
   }
 
   // ---------- ショップ ----------
@@ -1034,7 +1050,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- 戦闘 ----------
 
-  private handleMonsterContact(): void {
+  private handleMonsterContact(monster: Monster): void {
     const now = this.time.now;
     if (now < this.invulnerableUntil) return;
     this.invulnerableUntil = now + CONTACT_INVULN_MS;
@@ -1045,6 +1061,12 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(200, () => {
       if (this.player.sprite.active) this.player.sprite.clearTint();
     });
+
+    if ((monster.isRare || monster.isBoss) && Math.random() < POISON_CHANCE) {
+      this.poisonedUntil = Math.max(this.poisonedUntil, now + POISON_DURATION_MS);
+      this.nextPoisonTickAt = now + POISON_TICK_MS;
+      this.showFloatingMessage("🤢 毒を受けた…");
+    }
 
     if (defeated) {
       this.respawnAtBase();
@@ -1057,9 +1079,26 @@ export class GameScene extends Phaser.Scene {
       const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
       body.reset(this.respawnPoint.x, this.respawnPoint.y);
       this.health.reset();
+      this.poisonedUntil = 0;
       this.cameras.main.fadeIn(200, 0, 0, 0);
       this.showFloatingMessage("気を失った…拠点で目が覚めた");
     });
+  }
+
+  // ---------- 毒(状態異常) ----------
+
+  private updatePoison(): void {
+    const now = this.time.now;
+    if (now >= this.poisonedUntil) return;
+    if (now < this.nextPoisonTickAt) return;
+
+    this.nextPoisonTickAt = now + POISON_TICK_MS;
+    const defeated = this.health.damage(POISON_DAMAGE_PER_TICK);
+    this.showFloatingMessage("🤢 毒でダメージを受けた");
+    if (defeated) {
+      this.poisonedUntil = 0;
+      this.respawnAtBase();
+    }
   }
 
   private tryAttack(point: ActionPoint): boolean {
@@ -1474,7 +1513,8 @@ export class GameScene extends Phaser.Scene {
 
     if (!closest) return false;
 
-    if (this.health.getHp() >= this.health.getMaxHp()) {
+    const isPoisoned = this.time.now < this.poisonedUntil;
+    if (this.health.getHp() >= this.health.getMaxHp() && !isPoisoned) {
       this.showFloatingMessage("元気いっぱいだ");
       return true;
     }
@@ -1485,6 +1525,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.health.reset();
+    this.poisonedUntil = 0;
     this.sound.play("sfx-gather", { volume: 0.4 });
     this.showFloatingMessage(`🛏️ HPが全回復した!(-${INN_HEAL_COST}💰)`);
     return true;
