@@ -138,6 +138,20 @@ const WELL_COOLDOWN_MS = 5000;
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
 
+// ドラクエ風の道しるべ。使うとゲームのコツをヒントとして教えてくれる
+const SIGNPOST_MESSAGES = [
+  "ダッシュボタン(またはスペースキー)を押しながら移動するとダッシュできる。スタミナ切れに注意。",
+  "井戸に話しかけるとスタミナが全回復するぞ。",
+  "夜になるとモンスターの再出現が早まる…油断せずに。",
+  "宝箱はしばらくすると別の場所に現れる。見つけたら開けておこう。",
+  "雨の日は畑の作物がよく育つらしい。",
+  "動物に作物をあげると、なかよくなれるかもしれない。",
+  "倉庫に預けたものは、拠点をリセットしても消えないぞ。",
+  "水辺をタップすると釣りができる。気長に試そう。",
+];
+
+
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -1379,6 +1393,37 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 道しるべ(ヒント表示) ----------
+
+  private trySignpost(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "signpost") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    // 同じ道しるべは常に同じヒントを示すよう、建物リスト内の位置から決定的に選ぶ
+    const index = this.buildingSprites.indexOf(closest) % SIGNPOST_MESSAGES.length;
+    this.showDialogue(closest.sprite.x, closest.sprite.y, "道しるべ", SIGNPOST_MESSAGES[index]);
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
@@ -1388,6 +1433,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
     if (this.tryFlowerBed(point)) return;
+    if (this.trySignpost(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
