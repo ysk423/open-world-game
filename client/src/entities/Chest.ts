@@ -5,15 +5,21 @@ const TEXTURE_KEY = "chest-icon";
 function ensureTexture(scene: Phaser.Scene): void {
   if (scene.textures.exists(TEXTURE_KEY)) return;
   const g = scene.add.graphics();
+  g.fillStyle(0x4a2c14, 1);
+  g.fillRect(2, 11, 28, 18);
   g.fillStyle(0x7a4a23, 1);
   g.fillRect(3, 12, 26, 16);
+  g.fillStyle(0x8f5a2c, 1);
+  g.fillRect(3, 12, 26, 3);
   g.fillStyle(0x5c3417, 1);
-  g.fillRect(3, 12, 26, 5);
-  g.fillStyle(0xe8b93a, 1);
   g.fillRect(3, 15, 26, 2);
+  g.fillStyle(0xe8b93a, 1);
+  g.fillRect(3, 20, 26, 2);
   g.fillRect(14, 12, 4, 16);
   g.fillStyle(0xffe27a, 1);
   g.fillCircle(16, 21, 2.5);
+  g.fillStyle(0xfff0b3, 1);
+  g.fillCircle(15, 20, 1);
   g.generateTexture(TEXTURE_KEY, 32, 32);
   g.destroy();
 }

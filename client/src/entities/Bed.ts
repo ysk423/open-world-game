@@ -5,12 +5,18 @@ const TEXTURE_KEY = "bed-icon";
 function ensureTexture(scene: Phaser.Scene): void {
   if (scene.textures.exists(TEXTURE_KEY)) return;
   const g = scene.add.graphics();
+  g.fillStyle(0x5c3a19, 1);
+  g.fillRect(1, 5, 30, 24);
   g.fillStyle(0x8a5a2b, 1);
   g.fillRect(2, 6, 28, 22);
-  g.fillStyle(0xd94f4f, 1);
+  g.fillStyle(0xb03d3d, 1);
   g.fillRect(4, 12, 24, 15);
-  g.fillStyle(0xffffff, 1);
+  g.fillStyle(0xd94f4f, 1);
+  g.fillRect(4, 12, 24, 12);
+  g.fillStyle(0xe8e8e8, 1);
   g.fillRect(5, 8, 9, 7);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(5, 8, 9, 4);
   g.generateTexture(TEXTURE_KEY, 32, 32);
   g.destroy();
 }

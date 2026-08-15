@@ -8,12 +8,16 @@ const GLOW_RADIUS = 140;
 function ensureTextures(scene: Phaser.Scene): void {
   if (!scene.textures.exists(ICON_TEXTURE_KEY)) {
     const g = scene.add.graphics();
+    g.fillStyle(0x4a2f14, 1);
+    g.fillRect(12, 15, 8, 18);
     g.fillStyle(0x8a5a2b, 1);
     g.fillRect(13, 16, 6, 16);
+    g.fillStyle(0xd9541f, 1);
+    g.fillCircle(16, 13, 8);
     g.fillStyle(0xffb020, 1);
-    g.fillCircle(16, 12, 7);
+    g.fillCircle(16, 12, 6);
     g.fillStyle(0xffe27a, 1);
-    g.fillCircle(16, 10, 4);
+    g.fillCircle(16, 10, 3.5);
     g.generateTexture(ICON_TEXTURE_KEY, 32, 32);
     g.destroy();
   }
