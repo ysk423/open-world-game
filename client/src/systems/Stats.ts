@@ -24,6 +24,7 @@ function emptySnapshot(): StatsSnapshot {
       seed_wheat: 0,
       wheat: 0,
       cooked_meat: 0,
+      fish: 0,
     },
     monstersDefeated: 0,
     rareMonstersDefeated: 0,

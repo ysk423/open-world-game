@@ -121,6 +121,11 @@ const CHEST_MIN_COIN_REWARD = 8;
 const CHEST_MAX_COIN_REWARD = 20;
 const CHEST_RESPAWN_DELAY_MS = 60000;
 
+// 牧場物語/どうぶつの森風の釣り。水面をクリック/タップすると釣りを試みる
+const FISH_COOLDOWN_MS = 1500;
+const FISH_SUCCESS_CHANCE = 0.6;
+const FISH_EXP = 4;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -143,6 +148,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   seed_wheat: "🌾",
   wheat: "🍞",
   cooked_meat: "🍗",
+  fish: "🐟",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -161,6 +167,7 @@ export class GameScene extends Phaser.Scene {
   private storage!: Storage;
   private storagePanel!: StoragePanel;
   private invulnerableUntil = 0;
+  private nextFishAllowedAt = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
 
@@ -1200,6 +1207,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
     if (this.tryChest(point)) return;
+    if (this.tryFish(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
@@ -1308,6 +1316,40 @@ export class GameScene extends Phaser.Scene {
     this.grantExp(CHEST_EXP);
     chest.destroy();
     this.scheduleChestRespawn();
+  }
+
+  // ---------- 釣り(水面をクリック/タップすると試みる) ----------
+
+  private tryFish(point: ActionPoint): boolean {
+    const dist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      point.worldX,
+      point.worldY,
+    );
+    if (dist > REACH_RADIUS) return false;
+
+    const tileX = Math.floor(point.worldX / TILE_SIZE);
+    const tileY = Math.floor(point.worldY / TILE_SIZE);
+    const tile = this.groundLayer?.getTileAt(tileX, tileY);
+    if (!tile || tile.index !== WATER_GID) return false;
+
+    const now = this.time.now;
+    if (now < this.nextFishAllowedAt) {
+      return true;
+    }
+    this.nextFishAllowedAt = now + FISH_COOLDOWN_MS;
+
+    if (Math.random() < FISH_SUCCESS_CHANCE) {
+      this.inventory.add("fish", 1);
+      this.stats.recordGather("fish", 1);
+      this.grantExp(FISH_EXP);
+      this.sound.play("sfx-gather", { volume: 0.5 });
+      this.showGatherFeedback(point.worldX, point.worldY, "fish", 1);
+    } else {
+      this.showFloatingMessage("😅 逃げられた…");
+    }
+    return true;
   }
 
   /** シフトキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */

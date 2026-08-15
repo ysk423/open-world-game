@@ -12,6 +12,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   seed_wheat: "🌾",
   wheat: "🍞",
   cooked_meat: "🍗",
+  fish: "🐟",
 };
 
 const STORABLE_ITEMS: ItemId[] = [
@@ -25,6 +26,7 @@ const STORABLE_ITEMS: ItemId[] = [
   "seed_wheat",
   "wheat",
   "cooked_meat",
+  "fish",
 ];
 
 export type StoragePanelEvents = {

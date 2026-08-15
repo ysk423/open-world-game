@@ -12,6 +12,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   seed_wheat: "🌾",
   wheat: "🍞",
   cooked_meat: "🍗",
+  fish: "🐟",
 };
 const ITEM_ORDER: ItemId[] = [
   "wood",
@@ -24,6 +25,7 @@ const ITEM_ORDER: ItemId[] = [
   "seed_wheat",
   "wheat",
   "cooked_meat",
+  "fish",
 ];
 
 export class InventoryHud {
