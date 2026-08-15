@@ -48,6 +48,7 @@ import { TouchDPad } from "../ui/TouchDPad";
 import { ActionButton } from "../ui/ActionButton";
 import { SprintButton } from "../ui/SprintButton";
 import { StaminaHud } from "../ui/StaminaHud";
+import { Minimap, type MinimapPoint } from "../ui/Minimap";
 import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
@@ -237,6 +238,7 @@ export class GameScene extends Phaser.Scene {
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
+  private minimap!: Minimap;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private rainOverlay!: Phaser.GameObjects.Rectangle;
   private rainEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -529,6 +531,7 @@ export class GameScene extends Phaser.Scene {
 
     this.updateDayNightCycle();
     this.updateWeather();
+    this.updateMinimap();
 
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
@@ -555,6 +558,22 @@ export class GameScene extends Phaser.Scene {
       else this.rainEmitter.stop();
     }
     this.rainOverlay.setFillStyle(RAIN_OVERLAY_COLOR, raining ? RAIN_OVERLAY_ALPHA : 0);
+  }
+
+  // ---------- ミニマップ ----------
+
+  private updateMinimap(): void {
+    const points: MinimapPoint[] = [];
+    for (const shop of this.shops) {
+      points.push({ x: shop.worldX, y: shop.worldY, color: "#4ade80" });
+    }
+    for (const npc of this.npcs) {
+      points.push({ x: npc.worldX, y: npc.worldY, color: "#60a5fa" });
+    }
+    for (const building of this.buildingSprites) {
+      points.push({ x: building.sprite.x, y: building.sprite.y, color: "#facc15" });
+    }
+    this.minimap.render(this.player.sprite.x, this.player.sprite.y, points);
   }
 
   private ensureRainDropTexture(): void {
@@ -590,6 +609,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
     this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    this.minimap = new Minimap(mapWidthPx, mapHeightPx);
 
     this.physics.add.collider(this.player.sprite, groundLayer);
     this.physics.add.collider(this.player.sprite, obstacleLayer);
