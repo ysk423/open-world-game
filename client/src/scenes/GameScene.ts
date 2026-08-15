@@ -27,6 +27,7 @@ import { Storage } from "../systems/Storage";
 import { StoragePanel } from "../ui/StoragePanel";
 import { Tools } from "../systems/Tools";
 import { Quests, getQuestForNpc } from "../systems/Quests";
+import { Affinity, AFFINITY_MILESTONE_STEP } from "../systems/Affinity";
 import { Stats } from "../systems/Stats";
 import { StatsPanel } from "../ui/StatsPanel";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
@@ -189,6 +190,7 @@ export class GameScene extends Phaser.Scene {
   private equipment!: Equipment;
   private tools!: Tools;
   private quests!: Quests;
+  private affinity!: Affinity;
   private stats!: Stats;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
@@ -285,6 +287,7 @@ export class GameScene extends Phaser.Scene {
     this.equipment = new Equipment();
     this.tools = new Tools();
     this.quests = new Quests();
+    this.affinity = new Affinity();
     this.stats = new Stats();
     new StatsPanel(this.stats);
     new InventoryHud(this.inventory);
@@ -409,6 +412,7 @@ export class GameScene extends Phaser.Scene {
         this.equipment.reset();
         this.tools.reset();
         this.quests.reset();
+        this.affinity.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
       },
@@ -1167,6 +1171,23 @@ export class GameScene extends Phaser.Scene {
         this.showGatherFeedback(closest.worldX, closest.worldY, "coin", quest.rewardCoin);
       } else {
         this.showDialogue(closest.worldX, closest.worldY, closest.npcName, quest.askDialogue);
+      }
+      return true;
+    }
+
+    // 牧場物語風、クエスト達成後も同じ好物を渡すと少しずつなかよくなれる
+    if (quest && this.inventory.spend({ [quest.requestItem]: 1 } as Partial<Record<ItemId, number>>)) {
+      const reachedMilestone = this.affinity.add(closest.npcName);
+      this.stats.recordGiftGiven();
+      this.inventory.add("coin", 1);
+      this.showGatherFeedback(closest.worldX, closest.worldY, "coin", 1);
+      if (reachedMilestone) {
+        const bonus = AFFINITY_MILESTONE_STEP;
+        this.inventory.add("coin", bonus);
+        this.grantExp(bonus);
+        this.showDialogue(closest.worldX, closest.worldY, closest.npcName, "すっかりなかよしね!これはお礼よ。");
+      } else {
+        this.showDialogue(closest.worldX, closest.worldY, closest.npcName, "また持ってきてくれたのね、ありがとう!");
       }
       return true;
     }

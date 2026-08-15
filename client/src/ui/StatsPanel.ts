@@ -81,5 +81,10 @@ export class StatsPanel {
     bossRow.className = "stats-row";
     bossRow.textContent = `👑 ボス討伐: ${snapshot.bossesDefeated}`;
     this.panel.appendChild(bossRow);
+
+    const giftRow = document.createElement("div");
+    giftRow.className = "stats-row";
+    giftRow.textContent = `🎀 NPCへの贈り物: ${snapshot.giftsGiven}`;
+    this.panel.appendChild(giftRow);
   }
 }

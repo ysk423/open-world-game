@@ -8,6 +8,7 @@ export type StatsSnapshot = {
   animalsBefriended: number;
   chestsOpened: number;
   bossesDefeated: number;
+  giftsGiven: number;
 };
 
 const STATS_STORAGE_KEY = "open-world-game:stats";
@@ -33,6 +34,7 @@ function emptySnapshot(): StatsSnapshot {
     animalsBefriended: 0,
     chestsOpened: 0,
     bossesDefeated: 0,
+    giftsGiven: 0,
   };
 }
 
@@ -69,6 +71,7 @@ export class Stats {
         "animalsBefriended",
         "chestsOpened",
         "bossesDefeated",
+        "giftsGiven",
       ] as const) {
         const value = parsed[key];
         if (typeof value === "number" && Number.isFinite(value)) next[key] = value;
@@ -116,6 +119,12 @@ export class Stats {
 
   recordBossDefeated(): void {
     this.snapshot.bossesDefeated += 1;
+    this.save();
+    this.notify();
+  }
+
+  recordGiftGiven(): void {
+    this.snapshot.giftsGiven += 1;
     this.save();
     this.notify();
   }
