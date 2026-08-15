@@ -131,6 +131,9 @@ const FISH_EXP = 4;
 const BOSS_REWARD_MULTIPLIER = 10;
 const BOSS_RESPAWN_DELAY_MS = 90000;
 
+// 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
+const WELL_COOLDOWN_MS = 5000;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -177,6 +180,7 @@ export class GameScene extends Phaser.Scene {
   private storagePanel!: StoragePanel;
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
+  private nextWellAllowedAt = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
 
@@ -1280,6 +1284,49 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 井戸(建物のwellを使うとスタミナが全回復する) ----------
+
+  private tryWell(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "well") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (this.stamina.getStamina() >= this.stamina.getMaxStamina()) {
+      this.showFloatingMessage("スタミナは満タンだ");
+      return true;
+    }
+
+    const now = this.time.now;
+    if (now < this.nextWellAllowedAt) {
+      this.showFloatingMessage("一休みしよう…");
+      return true;
+    }
+    this.nextWellAllowedAt = now + WELL_COOLDOWN_MS;
+
+    this.stamina.reset();
+    this.sound.play("sfx-gather", { volume: 0.4 });
+    this.showFloatingMessage("💧 スタミナが全回復した!");
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
@@ -1287,6 +1334,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryTalk(point)) return;
     if (this.tryShop(point)) return;
     if (this.tryStorage(point)) return;
+    if (this.tryWell(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
