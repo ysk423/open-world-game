@@ -505,9 +505,12 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const moveState = this.inputManager.getMoveState();
-    const sprinting = moveState.moving && this.inputManager.isSprintRequested() && this.stamina.canSprint();
+    // ポケモンの自転車を参考に、所持していればスタミナを気にせずダッシュし続けられる
+    const hasBicycle = this.tools.has("bicycle");
+    const sprinting =
+      moveState.moving && this.inputManager.isSprintRequested() && (hasBicycle || this.stamina.canSprint());
     this.player.update(moveState, sprinting);
-    this.stamina.tick(delta, sprinting);
+    this.stamina.tick(delta, sprinting && !hasBicycle);
     this.boss?.updateNameLabel();
     this.pet?.followUpdate(this.player.sprite.x, this.player.sprite.y);
 

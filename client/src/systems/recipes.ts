@@ -113,6 +113,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "wateringCan" },
   },
   {
+    id: "bicycle",
+    name: "自転車(スタミナを消費せずダッシュし続けられる)",
+    inputs: { wood: 5, stone: 2 },
+    effect: { type: "tool", toolId: "bicycle" },
+  },
+  {
     id: "wooden_sword",
     name: "木の剣",
     inputs: { wood: 3 },
