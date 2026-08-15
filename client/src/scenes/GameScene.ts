@@ -135,6 +135,9 @@ const BOSS_RESPAWN_DELAY_MS = 90000;
 // 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
 const WELL_COOLDOWN_MS = 5000;
 
+// DQ/牧場物語風の宿屋。コインを払うとHPが全回復する
+const INN_HEAL_COST = 5;
+
 // 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
@@ -1406,6 +1409,47 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 宿屋(コインを払うとHPが全回復する) ----------
+
+  private tryInn(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "inn") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (this.health.getHp() >= this.health.getMaxHp()) {
+      this.showFloatingMessage("元気いっぱいだ");
+      return true;
+    }
+
+    if (!this.inventory.spend({ coin: INN_HEAL_COST } as Partial<Record<ItemId, number>>)) {
+      this.showFloatingMessage(`💰が足りない(${INN_HEAL_COST}枚必要)`);
+      return true;
+    }
+
+    this.health.reset();
+    this.sound.play("sfx-gather", { volume: 0.4 });
+    this.showFloatingMessage(`🛏️ HPが全回復した!(-${INN_HEAL_COST}💰)`);
+    return true;
+  }
+
   // ---------- 花壇(時間経過でハーブが育つ) ----------
 
   private tryFlowerBed(point: ActionPoint): boolean {
@@ -1487,6 +1531,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShop(point)) return;
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
+    if (this.tryInn(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.trySignpost(point)) return;
     if (this.tryFarm(point)) return;

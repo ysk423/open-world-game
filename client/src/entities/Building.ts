@@ -14,6 +14,13 @@ const FRAME_BY_TYPE: Record<BuildingType, number> = {
   bridge: -1,
   torch: -1,
   bed: -1,
+  // 専用の見た目素材がないので倉庫と同じフレームを流用し、色味だけ変えて区別する
+  inn: 4,
+};
+
+// 専用フレームを持たない建物向けの色味の上書き
+const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
+  inn: 0xffb74d,
 };
 
 // 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)
@@ -31,6 +38,8 @@ export class Building {
       ? scene.physics.add.staticSprite(x, y, "buildings", FRAME_BY_TYPE[buildingType])
       : scene.add.sprite(x, y, "buildings", FRAME_BY_TYPE[buildingType]);
     this.sprite.setDepth(4);
+    const tint = TINT_BY_TYPE[buildingType];
+    if (tint !== undefined) this.sprite.setTint(tint);
   }
 
   destroy(): void {
