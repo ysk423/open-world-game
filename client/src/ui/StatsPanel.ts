@@ -70,5 +70,10 @@ export class StatsPanel {
     friendRow.className = "stats-row";
     friendRow.textContent = `💛 動物となかよく: ${snapshot.animalsBefriended}`;
     this.panel.appendChild(friendRow);
+
+    const chestRow = document.createElement("div");
+    chestRow.className = "stats-row";
+    chestRow.textContent = `🎁 宝箱を開けた数: ${snapshot.chestsOpened}`;
+    this.panel.appendChild(chestRow);
   }
 }

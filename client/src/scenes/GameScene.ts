@@ -9,6 +9,7 @@ import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
 import { Torch } from "../entities/Torch";
 import { Bed } from "../entities/Bed";
+import { Chest } from "../entities/Chest";
 import { Monster } from "../entities/Monster";
 import { Animal } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
@@ -112,6 +113,12 @@ const FEED_ITEMS: ItemId[] = ["wheat", "crop"];
 const ANIMAL_FEED_COIN_REWARD = 3;
 const ANIMAL_FEED_EXP_MULTIPLIER = 2;
 
+// DQ/ゼルダ風の宝箱。開けた後はしばらくして別の場所に再出現する
+const CHEST_EXP = 10;
+const CHEST_MIN_COIN_REWARD = 8;
+const CHEST_MAX_COIN_REWARD = 20;
+const CHEST_RESPAWN_DELAY_MS = 60000;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -169,6 +176,7 @@ export class GameScene extends Phaser.Scene {
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
   private beds: Bed[] = [];
+  private chests: Chest[] = [];
   private respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
@@ -594,6 +602,9 @@ export class GameScene extends Phaser.Scene {
     for (const point of plan.rocks) {
       this.spawnRock(point.x, point.y);
     }
+    for (const point of plan.chests) {
+      this.spawnChest(point.x, point.y);
+    }
   }
 
   /** 再接続時にworldSeedが変わっている場合に備えて、以前のランダム配置を消しておく */
@@ -608,6 +619,8 @@ export class GameScene extends Phaser.Scene {
     this.animals = [];
     for (const rock of this.rocks) rock.destroy();
     this.rocks = [];
+    for (const chest of this.chests) chest.destroy();
+    this.chests = [];
   }
 
   // ---------- 岩(拾って再配置できる障害物) ----------
@@ -616,6 +629,20 @@ export class GameScene extends Phaser.Scene {
     const rock = new Rock(this, x, y);
     this.rocks.push(rock);
     this.physics.add.collider(this.player.sprite, rock.sprite);
+  }
+
+  // ---------- 宝箱 ----------
+
+  private spawnChest(x: number, y: number): void {
+    this.chests.push(new Chest(this, x, y));
+  }
+
+  private scheduleChestRespawn(): void {
+    this.time.delayedCall(CHEST_RESPAWN_DELAY_MS, () => {
+      const pos = this.pickRandomWalkableWorldPos();
+      if (!pos) return;
+      this.spawnChest(pos.x, pos.y);
+    });
   }
 
   // ---------- モンスター ----------
@@ -1121,6 +1148,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
+    if (this.tryChest(point)) return;
     const harvested = this.tryGather(point);
     if (!harvested) {
       this.showActionFeedback(point.worldX, point.worldY);
@@ -1188,6 +1216,47 @@ export class GameScene extends Phaser.Scene {
     this.sound.play("sfx-craft", { volume: 0.4 });
     this.showFloatingMessage("🛏 ここを復帰地点にした");
     return true;
+  }
+
+  // ---------- 宝箱を開ける ----------
+
+  private tryChest(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Chest | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const chest of this.chests) {
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, chest.worldX, chest.worldY);
+      if (clickDist > CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, chest.worldX, chest.worldY);
+      if (reachDist > REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = chest;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    this.openChest(closest);
+    return true;
+  }
+
+  private openChest(chest: Chest): void {
+    this.chests = this.chests.filter((c) => c !== chest);
+    const coinReward = Phaser.Math.Between(CHEST_MIN_COIN_REWARD, CHEST_MAX_COIN_REWARD);
+    this.inventory.add("coin", coinReward);
+    this.stats.recordChestOpened();
+    this.showGatherFeedback(chest.worldX, chest.worldY, "coin", coinReward);
+    this.showFloatingMessage("🎁 宝箱を開けた!");
+    this.sound.play("sfx-craft", { volume: 0.5 });
+    this.grantExp(CHEST_EXP);
+    chest.destroy();
+    this.scheduleChestRespawn();
   }
 
   /** シフトキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */

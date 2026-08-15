@@ -5,6 +5,7 @@ export type WorldContentPlan = {
   monsters: { x: number; y: number }[];
   animals: { x: number; y: number }[];
   rocks: { x: number; y: number }[];
+  chests: { x: number; y: number }[];
 };
 
 // ルームごとに少しずつ内容を変えるための配置数(採集ポイントの内訳)
@@ -16,6 +17,8 @@ const GATHERING_COUNTS: Partial<Record<ItemId, number>> = {
 const MONSTER_COUNT = 6;
 const ANIMAL_COUNT = 8;
 const ROCK_COUNT = 22;
+// DQ/ゼルダ風の宝箱。岩などよりずっと数を絞って「見つけたら嬉しい」希少感を出す
+const CHEST_COUNT = 5;
 
 // 配置済みのもの・避けたい地点(スポーン地点やNPCなど)から最低限空けたい距離(ワールドpx)
 const MIN_SPACING_PX = 56;
@@ -77,6 +80,7 @@ export function generateWorldContent(
   const monsters = placeMany(MONSTER_COUNT);
   const animals = placeMany(ANIMAL_COUNT);
   const rocks = placeMany(ROCK_COUNT);
+  const chests = placeMany(CHEST_COUNT);
 
-  return { gathering, monsters, animals, rocks };
+  return { gathering, monsters, animals, rocks, chests };
 }
