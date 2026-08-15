@@ -18,29 +18,39 @@ const BOSS_TINT = 0xdc2626;
 export const BOSS_HP_MULTIPLIER = 8;
 const BOSS_SCALE = 1.7;
 
+// マインクラフトのスライムを参考に、通常の個体は倒すと一回り小さい「子スライム」に分裂する
+const MINI_TINT = 0x8affc1;
+const MINI_SCALE = 0.6;
+const MINI_HP = 1;
+
 export class Monster {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly worldX: number;
   readonly worldY: number;
   readonly isRare: boolean;
   readonly isBoss: boolean;
+  readonly isMini: boolean;
+  /** 倒した時に子スライムへ分裂するかどうか(ボス・レア・分裂済みの子は分裂しない) */
+  readonly canSplit: boolean;
   private hp: number;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private nameLabel?: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, isRare = false, isBoss = false) {
+  constructor(scene: Phaser.Scene, x: number, y: number, isRare = false, isBoss = false, isMini = false) {
     this.worldX = x;
     this.worldY = y;
     this.isRare = isRare;
     this.isBoss = isBoss;
-    this.hp = isBoss ? MAX_HP * BOSS_HP_MULTIPLIER : isRare ? MAX_HP * RARE_HP_MULTIPLIER : MAX_HP;
+    this.isMini = isMini;
+    this.canSplit = !isBoss && !isRare && !isMini;
+    this.hp = isBoss ? MAX_HP * BOSS_HP_MULTIPLIER : isRare ? MAX_HP * RARE_HP_MULTIPLIER : isMini ? MINI_HP : MAX_HP;
     this.sprite = scene.physics.add.sprite(x, y, "monster", 0);
     this.sprite.setDepth(6);
     this.sprite.setImmovable(true);
 
-    const baseScale = isBoss ? BOSS_SCALE : 1;
+    const baseScale = isBoss ? BOSS_SCALE : isMini ? MINI_SCALE : 1;
+    if (baseScale !== 1) this.sprite.setScale(baseScale);
     if (isBoss) {
-      this.sprite.setScale(baseScale);
       this.sprite.setTint(BOSS_TINT);
       this.nameLabel = scene.add
         .text(x, y - 24, "👑 ボス", { fontSize: "9px", color: "#ffffff" })
@@ -48,6 +58,8 @@ export class Monster {
         .setDepth(6);
     } else if (isRare) {
       this.sprite.setTint(RARE_TINT);
+    } else if (isMini) {
+      this.sprite.setTint(MINI_TINT);
     }
 
     scene.tweens.add({
@@ -99,9 +111,10 @@ export class Monster {
     this.sprite.setTint(0xff8888);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
       if (!this.sprite.active) return;
-      // レア個体・ボスは被弾フラッシュの後、無色に戻さず元の色味に戻す
+      // レア個体・ボス・子スライムは被弾フラッシュの後、無色に戻さず元の色味に戻す
       if (this.isBoss) this.sprite.setTint(BOSS_TINT);
       else if (this.isRare) this.sprite.setTint(RARE_TINT);
+      else if (this.isMini) this.sprite.setTint(MINI_TINT);
       else this.sprite.clearTint();
     });
     return this.isDead;

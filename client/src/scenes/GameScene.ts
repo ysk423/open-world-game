@@ -112,6 +112,11 @@ const ANIMAL_EXP = 4;
 const RARE_MONSTER_CHANCE = 0.1;
 const RARE_MONSTER_REWARD_MULTIPLIER = 3;
 
+// マインクラフトのスライムを参考に、通常モンスターは倒すと2体の子スライムに分裂する
+const SLIME_SPLIT_COUNT = 2;
+const SLIME_SPLIT_OFFSET = 16;
+const MINI_REWARD_MULTIPLIER = 0.5;
+
 // 牧場物語風の動物への餌やり。作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる
 const FEED_ITEMS: ItemId[] = ["wheat", "crop"];
 const ANIMAL_FEED_COIN_REWARD = 3;
@@ -767,9 +772,9 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- モンスター ----------
 
-  private spawnMonster(x: number, y: number, isBoss = false): void {
-    const isRare = !isBoss && Math.random() < RARE_MONSTER_CHANCE;
-    const monster = new Monster(this, x, y, isRare, isBoss);
+  private spawnMonster(x: number, y: number, isBoss = false, isMini = false): void {
+    const isRare = !isBoss && !isMini && Math.random() < RARE_MONSTER_CHANCE;
+    const monster = new Monster(this, x, y, isRare, isBoss, isMini);
     this.monsters.push(monster);
     if (isBoss) this.boss = monster;
     if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
@@ -1105,16 +1110,29 @@ export class GameScene extends Phaser.Scene {
           ? BOSS_REWARD_MULTIPLIER
           : monster.isRare
             ? RARE_MONSTER_REWARD_MULTIPLIER
-            : 1;
-        const coinReward = 2 * rewardMultiplier;
+            : monster.isMini
+              ? MINI_REWARD_MULTIPLIER
+              : 1;
+        const coinReward = Math.max(1, Math.round(2 * rewardMultiplier));
         this.inventory.add("coin", coinReward);
         this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", coinReward);
+        const deathX = monster.sprite.x;
+        const deathY = monster.sprite.y;
+        const shouldSplit = monster.canSplit;
         monster.destroy();
         if (monster.isBoss) {
           this.boss = null;
           this.scheduleBossRespawn();
-        } else {
+        } else if (!monster.isMini) {
           this.scheduleMonsterRespawn();
+        }
+        if (shouldSplit) {
+          for (let i = 0; i < SLIME_SPLIT_COUNT; i++) {
+            const angle = Phaser.Math.Angle.Random();
+            const sx = deathX + Math.cos(angle) * SLIME_SPLIT_OFFSET;
+            const sy = deathY + Math.sin(angle) * SLIME_SPLIT_OFFSET;
+            this.spawnMonster(sx, sy, false, true);
+          }
         }
         this.grantExp(MONSTER_EXP * rewardMultiplier);
         this.stats.recordMonsterDefeat(monster.isRare);
@@ -1123,6 +1141,8 @@ export class GameScene extends Phaser.Scene {
           this.showFloatingMessage("👑 ボスを倒した!");
         } else if (monster.isRare) {
           this.showFloatingMessage("★ レアモンスターを倒した!");
+        } else if (shouldSplit) {
+          this.showFloatingMessage("スライムが分裂した!");
         }
       }
       return true;
