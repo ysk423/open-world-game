@@ -134,6 +134,10 @@ const BOSS_RESPAWN_DELAY_MS = 90000;
 // 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
 const WELL_COOLDOWN_MS = 5000;
 
+// 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
+const FLOWER_BED_HERB_INTERVAL_MS = 20000;
+const FLOWER_BED_MAX_YIELD = 5;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -193,6 +197,7 @@ export class GameScene extends Phaser.Scene {
 
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
+  private flowerBedPlantedAt = new Map<Building, number>();
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private boss: Monster | null = null;
@@ -373,6 +378,7 @@ export class GameScene extends Phaser.Scene {
         this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
+        this.flowerBedPlantedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -399,6 +405,7 @@ export class GameScene extends Phaser.Scene {
         this.buildings = buildings;
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
+        this.flowerBedPlantedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -641,6 +648,9 @@ export class GameScene extends Phaser.Scene {
     this.buildingSprites.push(sprite);
     if (sprite.solid) {
       this.physics.add.collider(this.player.sprite, sprite.sprite);
+    }
+    if (sprite.buildingType === "flower_bed") {
+      this.flowerBedPlantedAt.set(sprite, Date.now());
     }
   }
 
@@ -1327,6 +1337,48 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 花壇(時間経過でハーブが育つ) ----------
+
+  private tryFlowerBed(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "flower_bed") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const plantedAt = this.flowerBedPlantedAt.get(closest) ?? Date.now();
+    const elapsed = Date.now() - plantedAt;
+    const yieldAmount = Math.min(FLOWER_BED_MAX_YIELD, Math.floor(elapsed / FLOWER_BED_HERB_INTERVAL_MS));
+
+    if (yieldAmount <= 0) {
+      this.showFloatingMessage("🌱 まだ育っていない…");
+      return true;
+    }
+
+    this.flowerBedPlantedAt.set(closest, Date.now());
+    this.inventory.add("herb", yieldAmount);
+    this.stats.recordGather("herb", yieldAmount);
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "herb", yieldAmount);
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
@@ -1335,6 +1387,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShop(point)) return;
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
+    if (this.tryFlowerBed(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
