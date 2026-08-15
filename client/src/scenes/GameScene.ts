@@ -219,6 +219,7 @@ export class GameScene extends Phaser.Scene {
   private boss: Monster | null = null;
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
+  private pet: Animal | null = null;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
   private beds: Bed[] = [];
@@ -402,6 +403,8 @@ export class GameScene extends Phaser.Scene {
         this.torches = [];
         for (const bed of this.beds) bed.destroy();
         this.beds = [];
+        this.pet?.destroy();
+        this.pet = null;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
@@ -506,6 +509,7 @@ export class GameScene extends Phaser.Scene {
     this.player.update(moveState, sprinting);
     this.stamina.tick(delta, sprinting);
     this.boss?.updateNameLabel();
+    this.pet?.followUpdate(this.player.sprite.x, this.player.sprite.y);
 
     for (const remote of this.remotePlayers.values()) {
       remote.tick();
@@ -1102,16 +1106,19 @@ export class GameScene extends Phaser.Scene {
 
     const animal = closest.obj;
 
-    // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる
+    // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる。
+    // ポケモン風に、なついた動物はその場で消える代わりにプレイヤーについてくる相棒になる(1匹まで)
     const feedItem = FEED_ITEMS.find((id) => this.inventory.getCounts()[id] > 0);
     if (feedItem) {
       this.inventory.spend({ [feedItem]: 1 } as Partial<Record<ItemId, number>>);
       this.animals = this.animals.filter((a) => a !== animal);
+      this.pet?.destroy();
+      this.pet = animal;
+      animal.startFollowing();
       this.inventory.add("coin", ANIMAL_FEED_COIN_REWARD);
       this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "coin", ANIMAL_FEED_COIN_REWARD);
-      this.showFloatingMessage("🐾 動物となかよくなった!");
+      this.showFloatingMessage("🐾 なついて相棒になった!");
       this.sound.play("sfx-gather", { volume: 0.5 });
-      animal.destroy();
       this.scheduleAnimalRespawn();
       this.grantExp(ANIMAL_EXP * ANIMAL_FEED_EXP_MULTIPLIER);
       this.stats.recordAnimalBefriended();
