@@ -1268,6 +1268,12 @@ export class GameScene extends Phaser.Scene {
       return true;
     }
 
+    if (this.tools.has("wateringCan") && closest.water(this)) {
+      this.showFloatingMessage("💧 水をあげた");
+      this.sound.play("sfx-gather", { volume: 0.4 });
+      return true;
+    }
+
     this.showFloatingMessage("育成中…");
     return true;
   }

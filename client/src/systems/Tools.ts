@@ -1,7 +1,7 @@
-export type ToolId = "axe" | "pickaxe";
+export type ToolId = "axe" | "pickaxe" | "wateringCan";
 
 const TOOLS_STORAGE_KEY = "open-world-game:tools";
-const TOOL_IDS: ToolId[] = ["axe", "pickaxe"];
+const TOOL_IDS: ToolId[] = ["axe", "pickaxe", "wateringCan"];
 
 type Listener = (owned: ReadonlySet<ToolId>) => void;
 
@@ -10,8 +10,9 @@ function isToolId(value: unknown): value is ToolId {
 }
 
 /**
- * マインクラフトの斧・つるはしを参考にした採集ツール。武器と違って「装備」の概念はなく、
- * 一度作れば恒久的に対応する資材の採集量が増える(斧→木材、つるはし→石)。
+ * マインクラフトの斧・つるはしや牧場物語のじょうろを参考にした道具。武器と違って「装備」の
+ * 概念はなく、一度作れば恒久的に効果を発揮する(斧→木材採集量アップ、つるはし→石採集量アップ、
+ * じょうろ→畑に水をあげて成長を早める)。
  */
 export class Tools {
   private owned = new Set<ToolId>();

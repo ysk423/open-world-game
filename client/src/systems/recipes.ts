@@ -107,6 +107,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "pickaxe" },
   },
   {
+    id: "watering_can",
+    name: "じょうろ(畑に水をあげて成長を早める)",
+    inputs: { wood: 2, stone: 1 },
+    effect: { type: "tool", toolId: "wateringCan" },
+  },
+  {
     id: "wooden_sword",
     name: "木の剣",
     inputs: { wood: 3 },

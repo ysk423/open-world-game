@@ -4,6 +4,8 @@ import { isRaining } from "../systems/Weather";
 
 // 牧場物語を参考に、雨の日は水やりの手間が省けて育成が早まる
 const RAIN_GROWTH_MULTIPLIER = 0.5;
+// じょうろで手動で水をあげた時、残り時間からこの分だけ差し引く
+const WATER_BOOST_MS = 5000;
 
 type FarmStage = "empty" | "growing" | "ready";
 
@@ -72,6 +74,10 @@ export class FarmPlot {
     return this.stage === "ready";
   }
 
+  get isGrowing(): boolean {
+    return this.stage === "growing";
+  }
+
   /** 種をまく。空の畑でなければ何もしない */
   plant(scene: Phaser.Scene, cropId: CropId): void {
     if (this.stage !== "empty") return;
@@ -81,11 +87,24 @@ export class FarmPlot {
     this.sprite.clearTint();
     const config = CROP_CONFIG[cropId];
     const duration = isRaining(Date.now()) ? config.growDurationMs * RAIN_GROWTH_MULTIPLIER : config.growDurationMs;
-    this.growTimer = scene.time.delayedCall(duration, () => {
-      if (!this.sprite.active) return;
+    this.scheduleReady(scene, duration);
+  }
+
+  /** じょうろで水をあげる。育成中でなければ何もせずfalseを返す */
+  water(scene: Phaser.Scene): boolean {
+    if (this.stage !== "growing" || !this.growTimer) return false;
+    const remaining = Math.max(0, this.growTimer.delay - this.growTimer.elapsed);
+    this.growTimer.remove();
+    this.scheduleReady(scene, Math.max(0, remaining - WATER_BOOST_MS));
+    return true;
+  }
+
+  private scheduleReady(scene: Phaser.Scene, delayMs: number): void {
+    this.growTimer = scene.time.delayedCall(delayMs, () => {
+      if (!this.sprite.active || !this.plantedCrop) return;
       this.stage = "ready";
       this.sprite.setFrame(FRAME_BY_STAGE.ready);
-      this.sprite.setTint(config.readyTint);
+      this.sprite.setTint(CROP_CONFIG[this.plantedCrop].readyTint);
     });
   }
 
