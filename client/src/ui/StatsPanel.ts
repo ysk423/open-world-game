@@ -76,5 +76,10 @@ export class StatsPanel {
     chestRow.className = "stats-row";
     chestRow.textContent = `🎁 宝箱を開けた数: ${snapshot.chestsOpened}`;
     this.panel.appendChild(chestRow);
+
+    const bossRow = document.createElement("div");
+    bossRow.className = "stats-row";
+    bossRow.textContent = `👑 ボス討伐: ${snapshot.bossesDefeated}`;
+    this.panel.appendChild(bossRow);
   }
 }

@@ -126,6 +126,10 @@ const FISH_COOLDOWN_MS = 1500;
 const FISH_SUCCESS_CHANCE = 0.6;
 const FISH_EXP = 4;
 
+// DQ風のフィールドボス。常に1体だけワールドに存在し、倒すと大きな報酬をもたらす
+const BOSS_REWARD_MULTIPLIER = 10;
+const BOSS_RESPAWN_DELAY_MS = 90000;
+
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
 // 動物を倒してから再出現するまでの時間
@@ -182,6 +186,7 @@ export class GameScene extends Phaser.Scene {
   private buildingSprites: Building[] = [];
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
+  private boss: Monster | null = null;
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
   private rocks: Rock[] = [];
@@ -463,6 +468,7 @@ export class GameScene extends Phaser.Scene {
     const sprinting = moveState.moving && this.inputManager.isSprintRequested() && this.stamina.canSprint();
     this.player.update(moveState, sprinting);
     this.stamina.tick(delta, sprinting);
+    this.boss?.updateNameLabel();
 
     for (const remote of this.remotePlayers.values()) {
       remote.tick();
@@ -612,6 +618,8 @@ export class GameScene extends Phaser.Scene {
     for (const point of plan.monsters) {
       this.spawnMonster(point.x, point.y);
     }
+    const bossPos = this.pickRandomWalkableWorldPos();
+    if (bossPos) this.spawnMonster(bossPos.x, bossPos.y, true);
     for (const point of plan.animals) {
       this.spawnAnimal(point.x, point.y);
     }
@@ -629,6 +637,7 @@ export class GameScene extends Phaser.Scene {
     this.gatheringPoints = [];
     for (const monster of this.monsters) monster.destroy();
     this.monsters = [];
+    this.boss = null;
     for (const overlap of this.monsterOverlaps) overlap.destroy();
     this.monsterOverlaps = [];
     for (const animal of this.animals) animal.destroy();
@@ -663,10 +672,11 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- モンスター ----------
 
-  private spawnMonster(x: number, y: number): void {
-    const isRare = Math.random() < RARE_MONSTER_CHANCE;
-    const monster = new Monster(this, x, y, isRare);
+  private spawnMonster(x: number, y: number, isBoss = false): void {
+    const isRare = !isBoss && Math.random() < RARE_MONSTER_CHANCE;
+    const monster = new Monster(this, x, y, isRare, isBoss);
     this.monsters.push(monster);
+    if (isBoss) this.boss = monster;
     if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
     if (this.obstacleLayer) this.physics.add.collider(monster.sprite, this.obstacleLayer);
     this.monsterOverlaps.push(
@@ -674,6 +684,14 @@ export class GameScene extends Phaser.Scene {
         this.handleMonsterContact();
       }),
     );
+  }
+
+  private scheduleBossRespawn(): void {
+    this.time.delayedCall(BOSS_RESPAWN_DELAY_MS, () => {
+      const pos = this.pickRandomWalkableWorldPos();
+      if (!pos) return;
+      this.spawnMonster(pos.x, pos.y, true);
+    });
   }
 
   private pickRandomWalkableWorldPos(): { x: number; y: number } | null {
@@ -971,15 +989,29 @@ export class GameScene extends Phaser.Scene {
       const died = monster.takeDamage(this, this.getPlayerDamage());
       if (died) {
         this.monsters = this.monsters.filter((m) => m !== monster);
-        const rewardMultiplier = monster.isRare ? RARE_MONSTER_REWARD_MULTIPLIER : 1;
+        const rewardMultiplier = monster.isBoss
+          ? BOSS_REWARD_MULTIPLIER
+          : monster.isRare
+            ? RARE_MONSTER_REWARD_MULTIPLIER
+            : 1;
         const coinReward = 2 * rewardMultiplier;
         this.inventory.add("coin", coinReward);
         this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", coinReward);
         monster.destroy();
-        this.scheduleMonsterRespawn();
+        if (monster.isBoss) {
+          this.boss = null;
+          this.scheduleBossRespawn();
+        } else {
+          this.scheduleMonsterRespawn();
+        }
         this.grantExp(MONSTER_EXP * rewardMultiplier);
         this.stats.recordMonsterDefeat(monster.isRare);
-        if (monster.isRare) this.showFloatingMessage("★ レアモンスターを倒した!");
+        if (monster.isBoss) {
+          this.stats.recordBossDefeated();
+          this.showFloatingMessage("👑 ボスを倒した!");
+        } else if (monster.isRare) {
+          this.showFloatingMessage("★ レアモンスターを倒した!");
+        }
       }
       return true;
     }
