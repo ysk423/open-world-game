@@ -1520,11 +1520,8 @@ export class GameScene extends Phaser.Scene {
       return true;
     }
 
-    const dialogue = quest
-      ? quest.thanksDialogue
-      : getNightIntensity(getCycleProgress(Date.now())) > EVENING_INTENSITY_THRESHOLD
-        ? EVENING_GREETING
-        : closest.dialogue;
+    const isEvening = getNightIntensity(getCycleProgress(Date.now())) > EVENING_INTENSITY_THRESHOLD;
+    const dialogue = isEvening ? EVENING_GREETING : quest ? quest.thanksDialogue : closest.dialogue;
     this.showDialogue(closest.worldX, closest.worldY, closest.npcName, dialogue);
     return true;
   }
