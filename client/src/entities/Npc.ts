@@ -14,6 +14,8 @@ export class Npc {
   private readonly homeY: number;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private wanderTween?: Phaser.Tweens.Tween;
+  private sleeping = false;
+  private sleepIcon?: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -47,6 +49,31 @@ export class Npc {
     return this.sprite.y;
   }
 
+  get isSleeping(): boolean {
+    return this.sleeping;
+  }
+
+  /** 牧場物語風に、夜はNPCが眠って徘徊をやめる。isNight()の判定に合わせて毎フレーム呼ぶ想定 */
+  setSleeping(scene: Phaser.Scene, sleeping: boolean): void {
+    if (sleeping === this.sleeping) return;
+    this.sleeping = sleeping;
+
+    if (sleeping) {
+      this.wanderTimer?.remove();
+      this.wanderTimer = undefined;
+      this.wanderTween?.stop();
+      this.wanderTween = undefined;
+      this.sleepIcon = scene.add
+        .text(this.sprite.x, this.sprite.y - 48, "💤", { fontSize: "10px" })
+        .setOrigin(0.5, 1)
+        .setDepth(6);
+    } else {
+      this.sleepIcon?.destroy();
+      this.sleepIcon = undefined;
+      this.scheduleWander(scene);
+    }
+  }
+
   private scheduleWander(scene: Phaser.Scene): void {
     this.wanderTimer = scene.time.addEvent({
       delay: Phaser.Math.Between(WANDER_DELAY_MIN_MS, WANDER_DELAY_MAX_MS),
@@ -55,7 +82,7 @@ export class Npc {
   }
 
   private wander(scene: Phaser.Scene): void {
-    if (!this.sprite.active) return;
+    if (!this.sprite.active || this.sleeping) return;
 
     const targetX = this.homeX + Phaser.Math.Between(-WANDER_RADIUS, WANDER_RADIUS);
     const targetY = this.homeY + Phaser.Math.Between(-WANDER_RADIUS, WANDER_RADIUS);
@@ -75,6 +102,7 @@ export class Npc {
   destroy(): void {
     this.wanderTimer?.remove();
     this.wanderTween?.stop();
+    this.sleepIcon?.destroy();
     this.sprite.destroy();
     this.nameLabel.destroy();
   }

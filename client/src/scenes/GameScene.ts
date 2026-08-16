@@ -594,6 +594,12 @@ export class GameScene extends Phaser.Scene {
     const intensity = getNightIntensity(progress);
     this.nightOverlay.setFillStyle(NIGHT_OVERLAY_COLOR, intensity * NIGHT_OVERLAY_MAX_ALPHA);
 
+    // 牧場物語風に、夜はNPCが眠って徘徊をやめる(setSleeping内で状態が変わらなければ何もしない)
+    const night = isNight(progress);
+    for (const npc of this.npcs) {
+      npc.setSleeping(this, night);
+    }
+
     if (this.tools.has("handTorch")) {
       if (!this.handTorchGlow) {
         ensureTorchTextures(this);
@@ -1380,6 +1386,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!closest) return false;
+
+    if (closest.isSleeping) {
+      this.showFloatingMessage(`💤 ${closest.npcName}は眠っている…`);
+      return true;
+    }
 
     this.sound.play("sfx-talk", { volume: 0.5 });
 
