@@ -994,3 +994,53 @@ button:active {
   color: #999;
   cursor: not-allowed;
 }
+
+#survival-timer-hud {
+  position: fixed;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
+  z-index: 6;
+  white-space: nowrap;
+}
+
+#game-over-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  z-index: 30;
+}
+
+#game-over-overlay h1 {
+  margin: 0 0 8px;
+  font-size: 40px;
+  letter-spacing: 4px;
+  color: #ef4444;
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+
+#game-over-overlay p {
+  margin: 0;
+  font-size: 18px;
+}
+
+#game-over-overlay .game-over-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #999;
+}
