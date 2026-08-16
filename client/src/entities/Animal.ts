@@ -18,6 +18,11 @@ const FOLLOW_TINT = 0xffe9a8;
 const PRODUCE_INTERVAL_MS = 15000;
 const PRODUCE_READY_TINT = 0xfff59d;
 
+// ポケモン風に、相棒はミルクを集めるたびに経験を積み、レベルが上がるほど生産が早くなる
+const PET_LEVEL_UP_EVERY_COLLECTIONS = 3;
+const PET_MAX_LEVEL = 5;
+const PET_LEVEL_SPEED_MULTIPLIER = 0.85;
+
 /** 動物。モンスターと違い接触してもプレイヤーにダメージを与えない。倒すと肉をドロップする。
  * 餌付けでなつくと相棒になり、以後はプレイヤーを追いかけるようになる */
 export class Animal {
@@ -29,6 +34,8 @@ export class Animal {
   private following = false;
   private produceTimer?: Phaser.Time.TimerEvent;
   private hasProduce = false;
+  private level = 1;
+  private collectedCount = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.worldX = x;
@@ -52,6 +59,10 @@ export class Animal {
     return this.hasProduce;
   }
 
+  get petLevel(): number {
+    return this.level;
+  }
+
   /** 餌付けでなついた時に呼ぶ。以後はさまよう代わりにプレイヤーを追いかけ、定期的にミルクを用意する */
   startFollowing(scene: Phaser.Scene): void {
     this.following = true;
@@ -63,20 +74,30 @@ export class Animal {
   }
 
   private scheduleProduce(scene: Phaser.Scene): void {
-    this.produceTimer = scene.time.delayedCall(PRODUCE_INTERVAL_MS, () => {
+    const delay = Math.round(PRODUCE_INTERVAL_MS * Math.pow(PET_LEVEL_SPEED_MULTIPLIER, this.level - 1));
+    this.produceTimer = scene.time.delayedCall(delay, () => {
       if (!this.sprite.active) return;
       this.hasProduce = true;
       this.sprite.setTint(PRODUCE_READY_TINT);
     });
   }
 
-  /** 用意できたミルクを集める。用意ができていなければ何もせずfalseを返す */
-  collectProduce(scene: Phaser.Scene): boolean {
-    if (!this.hasProduce) return false;
+  /** 用意できたミルクを集める。用意ができていなければ何もせず{collected:false}を返す。
+   * 集めるたびに経験を積み、一定回数ごとにレベルアップして生産速度が上がる */
+  collectProduce(scene: Phaser.Scene): { collected: boolean; leveledUp: boolean } {
+    if (!this.hasProduce) return { collected: false, leveledUp: false };
     this.hasProduce = false;
     this.sprite.setTint(FOLLOW_TINT);
+
+    this.collectedCount += 1;
+    let leveledUp = false;
+    if (this.level < PET_MAX_LEVEL && this.collectedCount % PET_LEVEL_UP_EVERY_COLLECTIONS === 0) {
+      this.level += 1;
+      leveledUp = true;
+    }
+
     this.scheduleProduce(scene);
-    return true;
+    return { collected: true, leveledUp };
   }
 
   /** 相棒になった後、毎フレーム呼んでプレイヤーを追いかけさせる */

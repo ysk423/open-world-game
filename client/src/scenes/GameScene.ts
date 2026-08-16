@@ -1118,11 +1118,15 @@ export class GameScene extends Phaser.Scene {
       const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, this.pet.sprite.x, this.pet.sprite.y);
       const reachDist = Phaser.Math.Distance.Between(playerX, playerY, this.pet.sprite.x, this.pet.sprite.y);
       if (clickDist <= ATTACK_CLICK_RADIUS && reachDist <= ATTACK_REACH_RADIUS) {
-        if (this.pet.collectProduce(this)) {
+        const result = this.pet.collectProduce(this);
+        if (result.collected) {
           this.inventory.add("milk", 1);
           this.stats.recordGather("milk", 1);
           this.showGatherFeedback(this.pet.sprite.x, this.pet.sprite.y, "milk", 1);
           this.sound.play("sfx-gather", { volume: 0.5 });
+          if (result.leveledUp) {
+            this.showFloatingMessage(`🎉 相棒がレベルアップ!(Lv.${this.pet.petLevel})`);
+          }
         } else {
           this.showFloatingMessage("🐾 まだ用意中…");
         }
