@@ -17,12 +17,14 @@ const FRAME_BY_TYPE: Record<BuildingType, number> = {
   // 専用の見た目素材がないので倉庫と同じフレームを流用し、色味だけ変えて区別する
   inn: 4,
   shipping_bin: 4,
+  barn: 4,
 };
 
 // 専用フレームを持たない建物向けの色味の上書き
 const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
   inn: 0xffb74d,
   shipping_bin: 0x8b5cf6,
+  barn: 0x8b4513,
 };
 
 // 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)

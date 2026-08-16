@@ -183,6 +183,9 @@ const HEAL_STAMINA_COST = 25;
 const HEAL_COOLDOWN_MS = 5000;
 const HEAL_AMOUNT = 2;
 
+// 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
+const BARN_RADIUS = 100;
+
 // DQ風の「会心の一撃」。攻撃のたびに一定確率でダメージが跳ね上がる
 const CRIT_CHANCE = 0.15;
 const CRIT_MULTIPLIER = 2;
@@ -214,6 +217,7 @@ const SIGNPOST_MESSAGES = [
   "倉庫に預けたものは、拠点をリセットしても消えないぞ。",
   "水辺をタップすると釣りができる。気長に試そう。",
   "じょうろで2回以上水をあげた畑は、高品質に育って収穫量が増えるらしい。",
+  "納屋の近くにいる相棒は、ミルクの生産が早くなるらしい。",
 ];
 
 
@@ -615,6 +619,7 @@ export class GameScene extends Phaser.Scene {
       const targetX = this.player.sprite.x + Math.cos(angle) * PET_FORMATION_RADIUS;
       const targetY = this.player.sprite.y + Math.sin(angle) * PET_FORMATION_RADIUS;
       pet.followUpdate(targetX, targetY);
+      pet.setNearBarn(this.isNearBarn(pet.sprite.x, pet.sprite.y));
     });
 
     for (const remote of this.remotePlayers.values()) {
@@ -1208,6 +1213,15 @@ export class GameScene extends Phaser.Scene {
       (pet) => Phaser.Math.Distance.Between(pet.sprite.x, pet.sprite.y, x, y) <= PET_ASSIST_RADIUS,
     );
     return assisting ? PET_ASSIST_DAMAGE_BONUS : 0;
+  }
+
+  /** (x, y)が納屋の近くかどうか。相棒のミルク生産速度に反映する */
+  private isNearBarn(x: number, y: number): boolean {
+    return this.buildingSprites.some(
+      (building) =>
+        building.buildingType === "barn" &&
+        Phaser.Math.Distance.Between(building.sprite.x, building.sprite.y, x, y) <= BARN_RADIUS,
+    );
   }
 
   /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
