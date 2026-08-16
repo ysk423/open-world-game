@@ -25,6 +25,9 @@ const MINI_TINT = 0x8affc1;
 const MINI_SCALE = 0.6;
 const MINI_HP = 1;
 
+// マインクラフトのクリーパーを参考に、倒した時に近くにいるとプレイヤーが自爆ダメージを受ける個体
+const EXPLOSIVE_TINT = 0x4ade80;
+
 export class Monster {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly worldX: number;
@@ -32,6 +35,7 @@ export class Monster {
   readonly isRare: boolean;
   readonly isBoss: boolean;
   readonly isMini: boolean;
+  readonly isExplosive: boolean;
   /** ボスを倒した累計回数。次に出現するボスの強さ・報酬に反映される(0が初回) */
   readonly bossTier: number;
   /** 倒した時に子スライムへ分裂するかどうか(ボス・レア・分裂済みの子は分裂しない) */
@@ -48,6 +52,7 @@ export class Monster {
     isBoss = false,
     isMini = false,
     bossTier = 0,
+    isExplosive = false,
   ) {
     this.worldX = x;
     this.worldY = y;
@@ -55,6 +60,7 @@ export class Monster {
     this.isBoss = isBoss;
     this.isMini = isMini;
     this.bossTier = bossTier;
+    this.isExplosive = isExplosive;
     this.canSplit = !isBoss && !isRare && !isMini;
     this.hp = isBoss
       ? Math.round(MAX_HP * BOSS_HP_MULTIPLIER * (1 + bossTier * BOSS_TIER_HP_STEP))
@@ -80,6 +86,8 @@ export class Monster {
       this.sprite.setTint(RARE_TINT);
     } else if (isMini) {
       this.sprite.setTint(MINI_TINT);
+    } else if (isExplosive) {
+      this.sprite.setTint(EXPLOSIVE_TINT);
     }
 
     scene.tweens.add({
@@ -135,6 +143,7 @@ export class Monster {
       if (this.isBoss) this.sprite.setTint(BOSS_TINT);
       else if (this.isRare) this.sprite.setTint(RARE_TINT);
       else if (this.isMini) this.sprite.setTint(MINI_TINT);
+      else if (this.isExplosive) this.sprite.setTint(EXPLOSIVE_TINT);
       else this.sprite.clearTint();
     });
     return this.isDead;

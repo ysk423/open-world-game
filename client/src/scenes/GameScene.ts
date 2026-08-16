@@ -189,6 +189,11 @@ const HEAL_AMOUNT = 2;
 // マインクラフトの盾を参考に、Bキーを押している間はスタミナと引き換えに接触ダメージを完全に防ぐ
 const SHIELD_BLOCK_STAMINA_COST = 15;
 
+// マインクラフトのクリーパーを参考に、倒した時に近くにいると自爆ダメージを受けるモンスター
+const EXPLOSIVE_MONSTER_CHANCE = 0.12;
+const EXPLOSION_DAMAGE = 1;
+const EXPLOSION_RADIUS = 60;
+
 // マインクラフトのコンパスを参考に、拠点への方角・距離を常時表示する
 // (Math.atan2の角度0=東として時計回りに8方向を並べている)
 const COMPASS_DIRECTIONS = ["東", "南東", "南", "南西", "西", "北西", "北", "北東"];
@@ -261,6 +266,7 @@ const SIGNPOST_MESSAGES = [
   "納屋の近くにいる相棒は、ミルクの生産が早くなるらしい。",
   "蜂の巣からはちみつを収穫できるが、まれに蜂に刺されてしまうらしい。",
   "温泉は1日1回だけ、無料でHPとスタミナを全回復してくれるらしい。",
+  "緑色のモンスターは倒すと自爆するらしい。近づきすぎないように気をつけよう。",
 ];
 
 
@@ -1054,7 +1060,8 @@ export class GameScene extends Phaser.Scene {
       ? RARE_MONSTER_CHANCE * NIGHT_RARE_MONSTER_MULTIPLIER
       : RARE_MONSTER_CHANCE;
     const isRare = !isBoss && !isMini && Math.random() < rareChance;
-    const monster = new Monster(this, x, y, isRare, isBoss, isMini, bossTier);
+    const isExplosive = !isBoss && !isMini && !isRare && this.rollExplosiveMonster();
+    const monster = new Monster(this, x, y, isRare, isBoss, isMini, bossTier, isExplosive);
     this.monsters.push(monster);
     if (isBoss) this.boss = monster;
     if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
@@ -1347,6 +1354,11 @@ export class GameScene extends Phaser.Scene {
     return Math.random() < BEEHIVE_STING_CHANCE;
   }
 
+  /** マインクラフトのクリーパーを参考に、モンスターが自爆する個体として出現するかどうかの抽選 */
+  private rollExplosiveMonster(): boolean {
+    return Math.random() < EXPLOSIVE_MONSTER_CHANCE;
+  }
+
   /** マインクラフトの棘の鎧を参考に、攻撃を受けた時に防具がモンスターへ反撃するかどうかの抽選 */
   private rollThorns(): boolean {
     return Math.random() < this.equipment.getThornsChance();
@@ -1515,6 +1527,14 @@ export class GameScene extends Phaser.Scene {
     const deathX = monster.sprite.x;
     const deathY = monster.sprite.y;
     const shouldSplit = monster.canSplit;
+    if (monster.isExplosive) {
+      const distToPlayer = Phaser.Math.Distance.Between(deathX, deathY, this.player.sprite.x, this.player.sprite.y);
+      if (distToPlayer <= EXPLOSION_RADIUS) {
+        this.showFloatingMessage("💥 自爆した!");
+        const explosionDefeated = this.health.damage(EXPLOSION_DAMAGE);
+        if (explosionDefeated) this.respawnAtBase();
+      }
+    }
     monster.destroy();
     if (monster.isBoss) {
       this.boss = null;
