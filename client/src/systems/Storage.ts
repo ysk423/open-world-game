@@ -18,6 +18,7 @@ const ITEM_IDS: ItemId[] = [
   "seed_tomato",
   "tomato",
   "cooked_fish",
+  "honey",
 ];
 
 type Counts = Record<ItemId, number>;
@@ -40,6 +41,7 @@ function emptyCounts(): Counts {
     seed_tomato: 0,
     tomato: 0,
     cooked_fish: 0,
+    honey: 0,
   };
 }
 

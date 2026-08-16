@@ -7,6 +7,7 @@ const FRAME_BY_TYPE: Record<BuildingType, number> = {
   fence: 0,
   well: 1,
   flower_bed: 2,
+  beehive: 2,
   signpost: 3,
   custom_sign: 3,
   storage_shed: 4,
@@ -29,6 +30,7 @@ const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
   barn: 0x8b4513,
   casino: 0xef4444,
   custom_sign: 0x60a5fa,
+  beehive: 0xfbbf24,
 };
 
 // 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)

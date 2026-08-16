@@ -214,6 +214,12 @@ const PET_ASSIST_DAMAGE_BONUS = 1;
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
 
+// マインクラフトの養蜂を参考にした蜂の巣。時間経過ではちみつが貯まるが、収穫時にまれに刺される
+const BEEHIVE_HONEY_INTERVAL_MS = 20000;
+const BEEHIVE_MAX_YIELD = 3;
+const BEEHIVE_STING_CHANCE = 0.3;
+const BEEHIVE_STING_DAMAGE = 1;
+
 // 牧場物語風の出荷箱。売却可能なアイテムを入れると、翌日(昼夜サイクルの日付が変わったタイミングで)コインになる
 const SHIPPING_BIN_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
 
@@ -234,6 +240,7 @@ const SIGNPOST_MESSAGES = [
   "水辺をタップすると釣りができる。気長に試そう。",
   "じょうろで2回以上水をあげた畑は、高品質に育って収穫量が増えるらしい。",
   "納屋の近くにいる相棒は、ミルクの生産が早くなるらしい。",
+  "蜂の巣からはちみつを収穫できるが、まれに蜂に刺されてしまうらしい。",
 ];
 
 
@@ -269,6 +276,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   seed_tomato: "🌱",
   tomato: "🍅",
   cooked_fish: "🍢",
+  honey: "🍯",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -311,6 +319,7 @@ export class GameScene extends Phaser.Scene {
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
   private flowerBedPlantedAt = new Map<Building, number>();
+  private beehiveHarvestedAt = new Map<Building, number>();
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private boss: Monster | null = null;
@@ -524,6 +533,7 @@ export class GameScene extends Phaser.Scene {
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
+        this.beehiveHarvestedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -557,6 +567,7 @@ export class GameScene extends Phaser.Scene {
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
+        this.beehiveHarvestedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -871,6 +882,9 @@ export class GameScene extends Phaser.Scene {
     }
     if (sprite.buildingType === "flower_bed") {
       this.flowerBedPlantedAt.set(sprite, Date.now());
+    }
+    if (sprite.buildingType === "beehive") {
+      this.beehiveHarvestedAt.set(sprite, Date.now());
     }
   }
 
@@ -1249,6 +1263,11 @@ export class GameScene extends Phaser.Scene {
 
   private rollCritical(): boolean {
     return Math.random() < CRIT_CHANCE;
+  }
+
+  /** マインクラフトの養蜂を参考に、蜂の巣を収穫する時にまれに刺されるかどうかの抽選 */
+  private rollBeeSting(): boolean {
+    return Math.random() < BEEHIVE_STING_CHANCE;
   }
 
   /** DQ風カジノの抽選。掛け金への倍率(0=はずれ、1=とんとん、2=当たり、5=大当たり)を返す */
@@ -1987,6 +2006,54 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 蜂の巣(時間経過ではちみつが貯まるが、収穫時にまれに刺される) ----------
+
+  private tryBeehive(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "beehive") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const harvestedAt = this.beehiveHarvestedAt.get(closest) ?? Date.now();
+    const elapsed = Date.now() - harvestedAt;
+    const yieldAmount = Math.min(BEEHIVE_MAX_YIELD, Math.floor(elapsed / BEEHIVE_HONEY_INTERVAL_MS));
+
+    if (yieldAmount <= 0) {
+      this.showFloatingMessage("🐝 まだ蜜が貯まっていない…");
+      return true;
+    }
+
+    this.beehiveHarvestedAt.set(closest, Date.now());
+    this.inventory.add("honey", yieldAmount);
+    this.stats.recordGather("honey", yieldAmount);
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "honey", yieldAmount);
+
+    if (this.rollBeeSting()) {
+      const defeated = this.health.damage(BEEHIVE_STING_DAMAGE);
+      this.showFloatingMessage("🐝 蜂に刺された!");
+      if (defeated) this.respawnAtBase();
+    }
+    return true;
+  }
+
   // ---------- 道しるべ(ヒント表示) ----------
 
   private trySignpost(point: ActionPoint): boolean {
@@ -2061,6 +2128,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryCasino(point)) return;
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
+    if (this.tryBeehive(point)) return;
     if (this.trySignpost(point)) return;
     if (this.tryCustomSign(point)) return;
     if (this.tryFarm(point)) return;
