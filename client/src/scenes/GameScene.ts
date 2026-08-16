@@ -287,6 +287,7 @@ export class GameScene extends Phaser.Scene {
   private stamina!: Stamina;
   private storage!: Storage;
   private storagePanel!: StoragePanel;
+  private enderChestButton?: HTMLButtonElement;
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
   private nextWellAllowedAt = 0;
@@ -427,6 +428,17 @@ export class GameScene extends Phaser.Scene {
     this.storagePanel = new StoragePanel(this.inventory, this.storage, {
       onDeposit: (itemId) => this.handleDeposit(itemId),
       onWithdraw: (itemId) => this.handleWithdraw(itemId),
+    });
+
+    // マインクラフト風のエンダーチェスト。作ると、倉庫のそばにいなくてもどこからでも倉庫を開けるようになる
+    this.enderChestButton = document.createElement("button");
+    this.enderChestButton.id = "ender-chest-toggle";
+    this.enderChestButton.textContent = "📦";
+    this.enderChestButton.style.display = "none";
+    this.enderChestButton.addEventListener("click", () => this.storagePanel.toggle());
+    document.body.appendChild(this.enderChestButton);
+    this.tools.onChange((owned) => {
+      if (this.enderChestButton) this.enderChestButton.style.display = owned.has("enderChest") ? "block" : "none";
     });
 
     if (!this.sound.get("bgm")) {

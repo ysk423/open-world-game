@@ -169,6 +169,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "bicycle" },
   },
   {
+    id: "ender_chest",
+    name: "エンダーチェスト(どこからでも倉庫を開ける)",
+    inputs: { stone: 5, coin: 20 },
+    effect: { type: "tool", toolId: "enderChest" },
+  },
+  {
     id: "wooden_sword",
     name: "木の剣",
     inputs: { wood: 3 },

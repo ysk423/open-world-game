@@ -50,7 +50,8 @@ button:active {
 #save-toggle,
 #data-toggle,
 #equipment-toggle,
-#stats-toggle {
+#stats-toggle,
+#ender-chest-toggle {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -60,7 +61,8 @@ button:active {
 #save-toggle:hover,
 #data-toggle:hover,
 #equipment-toggle:hover,
-#stats-toggle:hover {
+#stats-toggle:hover,
+#ender-chest-toggle:hover {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
 }
 
@@ -90,7 +92,8 @@ button:active {
 #save-toggle,
 #data-toggle,
 #equipment-toggle,
-#stats-toggle {
+#stats-toggle,
+#ender-chest-toggle {
   z-index: 6;
 }
 
@@ -112,6 +115,7 @@ button:active {
   #data-toggle,
   #equipment-toggle,
   #stats-toggle,
+  #ender-chest-toggle,
   #heal-button {
     padding: 10px 16px;
     font-size: 14px;
@@ -787,6 +791,24 @@ button:active {
 }
 
 #stats-toggle:hover {
+  background: rgba(50, 50, 50, 0.85);
+}
+
+#ender-chest-toggle {
+  position: fixed;
+  right: 12px;
+  top: 392px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  color: #fff;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#ender-chest-toggle:hover {
   background: rgba(50, 50, 50, 0.85);
 }
 
