@@ -193,6 +193,11 @@ const FLOWER_BED_MAX_YIELD = 5;
 // 牧場物語風の出荷箱。売却可能なアイテムを入れると、翌日(昼夜サイクルの日付が変わったタイミングで)コインになる
 const SHIPPING_BIN_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
 
+// 牧場物語風に、まだ起きてはいるが眠る少し前(夕暮れ/明け方)はNPCの挨拶が眠そうに変わる。
+// 完全に眠る夜(isNightの閾値0.5)より手前の、暗さが増してきた時間帯を狙った低めの閾値
+const EVENING_INTENSITY_THRESHOLD = 0.3;
+const EVENING_GREETING = "眠くなってきたわ…あくびが止まらないの。";
+
 // ドラクエ風の道しるべ。使うとゲームのコツをヒントとして教えてくれる
 const SIGNPOST_MESSAGES = [
   "ダッシュボタン(またはスペースキー)を押しながら移動するとダッシュできる。スタミナ切れに注意。",
@@ -1515,7 +1520,11 @@ export class GameScene extends Phaser.Scene {
       return true;
     }
 
-    const dialogue = quest ? quest.thanksDialogue : closest.dialogue;
+    const dialogue = quest
+      ? quest.thanksDialogue
+      : getNightIntensity(getCycleProgress(Date.now())) > EVENING_INTENSITY_THRESHOLD
+        ? EVENING_GREETING
+        : closest.dialogue;
     this.showDialogue(closest.worldX, closest.worldY, closest.npcName, dialogue);
     return true;
   }
