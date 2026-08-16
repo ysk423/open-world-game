@@ -231,13 +231,13 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: "leather_armor",
-    name: "革の鎧(被弾を15%の確率で防ぐ)",
+    name: "革の鎧(被弾を15%の確率で防ぎ、10%の確率で反撃する)",
     inputs: { herb: 3, wood: 2 },
     effect: { type: "armor", armorId: "leather_armor" },
   },
   {
     id: "iron_armor",
-    name: "鉄の鎧(被弾を30%の確率で防ぐ)",
+    name: "鉄の鎧(被弾を30%の確率で防ぎ、20%の確率で反撃する)",
     inputs: { stone: 5, wood: 2 },
     effect: { type: "armor", armorId: "iron_armor" },
   },

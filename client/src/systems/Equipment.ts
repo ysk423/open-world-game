@@ -39,6 +39,13 @@ export const ARMOR_BLOCK_CHANCE: Record<ArmorId, number> = {
   iron_armor: 0.3,
 };
 
+// マインクラフト風の「棘の鎧」エンチャントを参考に、攻撃を受けた時に一定確率でモンスターに反撃ダメージを与える
+export const ARMOR_THORNS_CHANCE: Record<ArmorId, number> = {
+  leather_armor: 0.1,
+  iron_armor: 0.2,
+};
+export const THORNS_DAMAGE = 1;
+
 const ARMOR_IDS: ArmorId[] = ["leather_armor", "iron_armor"];
 
 export type EquipmentState = {
@@ -201,6 +208,11 @@ export class Equipment {
   /** 現在装備中の防具が攻撃を防ぐ確率(未装備なら0) */
   getBlockChance(): number {
     return this.equippedArmor ? ARMOR_BLOCK_CHANCE[this.equippedArmor] : 0;
+  }
+
+  /** 現在装備中の防具が反撃ダメージを与える確率(未装備なら0) */
+  getThornsChance(): number {
+    return this.equippedArmor ? ARMOR_THORNS_CHANCE[this.equippedArmor] : 0;
   }
 
   hasKnockbackEnchant(weaponId: WeaponId | null): boolean {

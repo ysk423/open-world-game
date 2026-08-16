@@ -20,7 +20,7 @@ import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
-import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER } from "../systems/Equipment";
+import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER, THORNS_DAMAGE } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
 import { Storage } from "../systems/Storage";
@@ -1273,6 +1273,11 @@ export class GameScene extends Phaser.Scene {
     return Math.random() < BEEHIVE_STING_CHANCE;
   }
 
+  /** マインクラフトの棘の鎧を参考に、攻撃を受けた時に防具がモンスターへ反撃するかどうかの抽選 */
+  private rollThorns(): boolean {
+    return Math.random() < this.equipment.getThornsChance();
+  }
+
   /** DQ風カジノの抽選。掛け金への倍率(0=はずれ、1=とんとん、2=当たり、5=大当たり)を返す */
   private rollCasinoMultiplier(): number {
     const r = Math.random();
@@ -1374,6 +1379,12 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(200, () => {
       if (this.player.sprite.active) this.player.sprite.clearTint();
     });
+
+    if (this.rollThorns()) {
+      this.showFloatingMessage("🌵 棘の鎧が反撃した!");
+      const monsterDefeated = monster.takeDamage(this, THORNS_DAMAGE);
+      if (monsterDefeated) this.resolveMonsterDeath(monster);
+    }
 
     if ((monster.isRare || monster.isBoss) && Math.random() < POISON_CHANCE) {
       this.poisonedUntil = Math.max(this.poisonedUntil, now + POISON_DURATION_MS);
