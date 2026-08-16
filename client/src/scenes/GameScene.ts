@@ -186,6 +186,13 @@ const HEAL_AMOUNT = 2;
 // 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
 const BARN_RADIUS = 100;
 
+// マインクラフト風の看板。自分の好きな言葉を書き込める(サーバー通信を増やさず、座標をキーに
+// ローカルへ保存する個人的な内容 - 他プレイヤーには「(何も書かれていない)」と表示される)
+const CUSTOM_SIGN_TEXT_MAX_LENGTH = 30;
+function customSignStorageKey(x: number, y: number): string {
+  return `open-world-game:sign:${x}:${y}`;
+}
+
 // DQ風のカジノ。コインを賭けると確率で増減する(はずれ50%・とんとん30%・当たり15%・大当たり5%)
 const CASINO_BET_COST = 10;
 const CASINO_OUTCOMES: { chance: number; multiplier: number }[] = [
@@ -1091,6 +1098,13 @@ export class GameScene extends Phaser.Scene {
 
     const x = Math.round(this.player.sprite.x);
     const y = Math.round(this.player.sprite.y);
+
+    if (recipe.effect.type === "building" && recipe.effect.buildingType === "custom_sign") {
+      const input = window.prompt(`看板に書く言葉を入力(最大${CUSTOM_SIGN_TEXT_MAX_LENGTH}文字)`, "");
+      const text = input?.slice(0, CUSTOM_SIGN_TEXT_MAX_LENGTH).trim();
+      localStorage.setItem(customSignStorageKey(x, y), text && text.length > 0 ? text : "(何も書かれていない)");
+    }
+
     const building: PlacedBuilding = {
       id: crypto.randomUUID(),
       buildingType: recipe.effect.buildingType,
@@ -1992,6 +2006,37 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 看板(自分の好きな言葉を書き込める) ----------
+
+  private tryCustomSign(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "custom_sign") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const text =
+      localStorage.getItem(customSignStorageKey(closest.sprite.x, closest.sprite.y)) ?? "(何も書かれていない)";
+    this.showDialogue(closest.sprite.x, closest.sprite.y, "看板", text);
+    return true;
+  }
+
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
@@ -2005,6 +2050,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.trySignpost(point)) return;
+    if (this.tryCustomSign(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryBed(point)) return;
