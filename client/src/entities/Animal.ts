@@ -14,6 +14,10 @@ const FOLLOW_SPEED = 90;
 const FOLLOW_MIN_DIST = 32;
 const FOLLOW_TINT = 0xffe9a8;
 
+// ポケモンの「色違い」を参考にした、まれに出現する特別な色味の動物
+const SHINY_TINT = 0xff9de2;
+const SHINY_FOLLOW_TINT = 0xffb3ff;
+
 // 牧場物語風に、相棒になった動物は一定間隔でミルクを用意してくれる
 const PRODUCE_INTERVAL_MS = 15000;
 const PRODUCE_READY_TINT = 0xfff59d;
@@ -29,6 +33,7 @@ export class Animal {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly worldX: number;
   readonly worldY: number;
+  readonly isShiny: boolean;
   private hp = MAX_HP;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private following = false;
@@ -37,12 +42,14 @@ export class Animal {
   private level = 1;
   private collectedCount = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, isShiny = false) {
     this.worldX = x;
     this.worldY = y;
+    this.isShiny = isShiny;
     this.sprite = scene.physics.add.sprite(x, y, "animal", 0);
     this.sprite.setDepth(6);
     this.sprite.setImmovable(true);
+    if (isShiny) this.sprite.setTint(SHINY_TINT);
 
     this.scheduleWander(scene);
   }
@@ -69,7 +76,7 @@ export class Animal {
     this.wanderTimer?.remove();
     this.wanderTimer = undefined;
     this.sprite.setVelocity(0, 0);
-    this.sprite.setTint(FOLLOW_TINT);
+    this.sprite.setTint(this.isShiny ? SHINY_FOLLOW_TINT : FOLLOW_TINT);
     this.scheduleProduce(scene);
   }
 
@@ -87,7 +94,7 @@ export class Animal {
   collectProduce(scene: Phaser.Scene): { collected: boolean; leveledUp: boolean } {
     if (!this.hasProduce) return { collected: false, leveledUp: false };
     this.hasProduce = false;
-    this.sprite.setTint(FOLLOW_TINT);
+    this.sprite.setTint(this.isShiny ? SHINY_FOLLOW_TINT : FOLLOW_TINT);
 
     this.collectedCount += 1;
     let leveledUp = false;
@@ -144,7 +151,9 @@ export class Animal {
     this.hp -= amount;
     this.sprite.setTint(0xff8888);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
-      if (this.sprite.active) this.sprite.clearTint();
+      if (!this.sprite.active) return;
+      if (this.isShiny) this.sprite.setTint(SHINY_TINT);
+      else this.sprite.clearTint();
     });
     return this.isDead;
   }

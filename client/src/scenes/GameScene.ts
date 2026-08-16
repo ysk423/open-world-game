@@ -130,6 +130,10 @@ const FEED_ITEMS: ItemId[] = ["wheat", "crop"];
 const ANIMAL_FEED_COIN_REWARD = 3;
 const ANIMAL_FEED_EXP_MULTIPLIER = 2;
 
+// ポケモンの「色違い」を参考にした、まれに出現する特別な動物。餌付け報酬が増える
+const SHINY_ANIMAL_CHANCE = 0.08;
+const SHINY_ANIMAL_REWARD_MULTIPLIER = 5;
+
 // DQ/ゼルダ風の宝箱。開けた後はしばらくして別の場所に再出現する
 const CHEST_EXP = 10;
 const CHEST_MIN_COIN_REWARD = 8;
@@ -893,7 +897,8 @@ export class GameScene extends Phaser.Scene {
   // ---------- 動物 ----------
 
   private spawnAnimal(x: number, y: number): void {
-    const animal = new Animal(this, x, y);
+    const isShiny = Math.random() < SHINY_ANIMAL_CHANCE;
+    const animal = new Animal(this, x, y, isShiny);
     this.animals.push(animal);
     if (this.groundLayer) this.physics.add.collider(animal.sprite, this.groundLayer);
     if (this.obstacleLayer) this.physics.add.collider(animal.sprite, this.obstacleLayer);
@@ -1291,12 +1296,16 @@ export class GameScene extends Phaser.Scene {
       this.pet?.destroy();
       this.pet = animal;
       animal.startFollowing(this);
-      this.inventory.add("coin", ANIMAL_FEED_COIN_REWARD);
-      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "coin", ANIMAL_FEED_COIN_REWARD);
-      this.showFloatingMessage("🐾 なついて相棒になった!");
+      const rewardMultiplier = animal.isShiny ? SHINY_ANIMAL_REWARD_MULTIPLIER : 1;
+      const coinReward = ANIMAL_FEED_COIN_REWARD * rewardMultiplier;
+      this.inventory.add("coin", coinReward);
+      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "coin", coinReward);
+      this.showFloatingMessage(
+        animal.isShiny ? "✨ 色違いの動物となかよくなった!" : "🐾 なついて相棒になった!",
+      );
       this.sound.play("sfx-gather", { volume: 0.5 });
       this.scheduleAnimalRespawn();
-      this.grantExp(ANIMAL_EXP * ANIMAL_FEED_EXP_MULTIPLIER);
+      this.grantExp(ANIMAL_EXP * ANIMAL_FEED_EXP_MULTIPLIER * rewardMultiplier);
       this.stats.recordAnimalBefriended();
       return true;
     }
