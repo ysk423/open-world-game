@@ -32,6 +32,14 @@ export class Stamina {
     return this.stamina > MIN_STAMINA_TO_SPRINT;
   }
 
+  /** とくぎなど、まとまった量を即座に消費したい時に使う。足りなければ何もせずfalseを返す */
+  spend(amount: number): boolean {
+    if (this.stamina < amount) return false;
+    this.stamina -= amount;
+    this.notify();
+    return true;
+  }
+
   /** 呼び出し側(GameScene)が毎フレーム呼ぶ。sprintingならdeltaMsぶん減り、そうでなければ回復する */
   tick(deltaMs: number, sprinting: boolean): void {
     const deltaSec = deltaMs / 1000;

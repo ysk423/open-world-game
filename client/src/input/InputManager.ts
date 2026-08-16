@@ -30,10 +30,12 @@ export class InputManager {
   private shiftKey: Phaser.Input.Keyboard.Key;
   private sprintKey: Phaser.Input.Keyboard.Key;
   private teleportKey: Phaser.Input.Keyboard.Key;
+  private skillKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
   private teleportActionHandlers: ShiftActionHandler[] = [];
+  private skillActionHandlers: ShiftActionHandler[] = [];
   // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
   private touchX = 0;
   private touchY = 0;
@@ -56,10 +58,12 @@ export class InputManager {
     this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.sprintKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.teleportKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+    this.skillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
 
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
     this.teleportKey.on("down", this.handleTeleportDown, this);
+    this.skillKey.on("down", this.handleSkillDown, this);
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -87,6 +91,12 @@ export class InputManager {
     }
   }
 
+  private handleSkillDown(): void {
+    for (const handler of this.skillActionHandlers) {
+      handler();
+    }
+  }
+
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
@@ -100,6 +110,11 @@ export class InputManager {
   /** ドラクエの「ルーラ」を参考にしたTキーが押された時に呼ばれる(拠点への瞬間移動を想定) */
   onTeleportAction(handler: ShiftActionHandler): void {
     this.teleportActionHandlers.push(handler);
+  }
+
+  /** ドラクエの「とくぎ」を参考にしたFキーが押された時に呼ばれる(強力な一撃を想定) */
+  onSkillAction(handler: ShiftActionHandler): void {
+    this.skillActionHandlers.push(handler);
   }
 
   /** 仮想十字キー(TouchDPad)からの入力を反映する。x/yはそれぞれ-1〜1 */
@@ -156,8 +171,10 @@ export class InputManager {
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.off("down", this.handleShiftDown, this);
     this.teleportKey.off("down", this.handleTeleportDown, this);
+    this.skillKey.off("down", this.handleSkillDown, this);
     this.actionHandlers = [];
     this.shiftActionHandlers = [];
     this.teleportActionHandlers = [];
+    this.skillActionHandlers = [];
   }
 }

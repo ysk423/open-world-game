@@ -155,6 +155,11 @@ const INN_HEAL_COST = 5;
 const WARP_COST = 5;
 const WARP_COOLDOWN_MS = 10000;
 
+// DQ風の「とくぎ」。Fキーでスタミナを消費し、近くのモンスターに通常の何倍ものダメージを与える
+const SKILL_STAMINA_COST = 30;
+const SKILL_COOLDOWN_MS = 8000;
+const SKILL_DAMAGE_MULTIPLIER = 2;
+
 // 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
@@ -223,6 +228,7 @@ export class GameScene extends Phaser.Scene {
   private nextFishAllowedAt = 0;
   private nextWellAllowedAt = 0;
   private nextWarpAllowedAt = 0;
+  private nextSkillAllowedAt = 0;
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
   private pendingLoadSlot: number | null = null;
@@ -373,6 +379,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.inputManager.onTeleportAction(() => {
       this.handleWarp();
+    });
+    this.inputManager.onSkillAction(() => {
+      this.handleSkill();
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
@@ -1158,6 +1167,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** モンスターが倒れた時の共通処理(報酬・分裂・経験値・リスポーン)。通常攻撃・とくぎ両方から呼ばれる */
+  private resolveMonsterDeath(monster: Monster): void {
+    this.monsters = this.monsters.filter((m) => m !== monster);
+    const rewardMultiplier = monster.isBoss
+      ? BOSS_REWARD_MULTIPLIER
+      : monster.isRare
+        ? RARE_MONSTER_REWARD_MULTIPLIER
+        : monster.isMini
+          ? MINI_REWARD_MULTIPLIER
+          : 1;
+    const coinReward = Math.max(1, Math.round(2 * rewardMultiplier));
+    this.inventory.add("coin", coinReward);
+    this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", coinReward);
+    const deathX = monster.sprite.x;
+    const deathY = monster.sprite.y;
+    const shouldSplit = monster.canSplit;
+    monster.destroy();
+    if (monster.isBoss) {
+      this.boss = null;
+      this.scheduleBossRespawn();
+    } else if (!monster.isMini) {
+      this.scheduleMonsterRespawn();
+    }
+    if (shouldSplit) {
+      for (let i = 0; i < SLIME_SPLIT_COUNT; i++) {
+        const angle = Phaser.Math.Angle.Random();
+        const sx = deathX + Math.cos(angle) * SLIME_SPLIT_OFFSET;
+        const sy = deathY + Math.sin(angle) * SLIME_SPLIT_OFFSET;
+        this.spawnMonster(sx, sy, false, true);
+      }
+    }
+    this.grantExp(MONSTER_EXP * rewardMultiplier);
+    this.stats.recordMonsterDefeat(monster.isRare);
+    if (monster.isBoss) {
+      this.stats.recordBossDefeated();
+      this.showFloatingMessage("👑 ボスを倒した!");
+    } else if (monster.isRare) {
+      this.showFloatingMessage("★ レアモンスターを倒した!");
+    } else if (shouldSplit) {
+      this.showFloatingMessage("スライムが分裂した!");
+    }
+  }
+
   private tryAttack(point: ActionPoint): boolean {
     const playerX = this.player.sprite.x;
     const playerY = this.player.sprite.y;
@@ -1224,47 +1276,7 @@ export class GameScene extends Phaser.Scene {
       this.sound.play("sfx-attack", { volume: 0.5 });
       const monster = closest.obj;
       const died = monster.takeDamage(this, this.getPlayerDamage());
-      if (died) {
-        this.monsters = this.monsters.filter((m) => m !== monster);
-        const rewardMultiplier = monster.isBoss
-          ? BOSS_REWARD_MULTIPLIER
-          : monster.isRare
-            ? RARE_MONSTER_REWARD_MULTIPLIER
-            : monster.isMini
-              ? MINI_REWARD_MULTIPLIER
-              : 1;
-        const coinReward = Math.max(1, Math.round(2 * rewardMultiplier));
-        this.inventory.add("coin", coinReward);
-        this.showGatherFeedback(monster.sprite.x, monster.sprite.y, "coin", coinReward);
-        const deathX = monster.sprite.x;
-        const deathY = monster.sprite.y;
-        const shouldSplit = monster.canSplit;
-        monster.destroy();
-        if (monster.isBoss) {
-          this.boss = null;
-          this.scheduleBossRespawn();
-        } else if (!monster.isMini) {
-          this.scheduleMonsterRespawn();
-        }
-        if (shouldSplit) {
-          for (let i = 0; i < SLIME_SPLIT_COUNT; i++) {
-            const angle = Phaser.Math.Angle.Random();
-            const sx = deathX + Math.cos(angle) * SLIME_SPLIT_OFFSET;
-            const sy = deathY + Math.sin(angle) * SLIME_SPLIT_OFFSET;
-            this.spawnMonster(sx, sy, false, true);
-          }
-        }
-        this.grantExp(MONSTER_EXP * rewardMultiplier);
-        this.stats.recordMonsterDefeat(monster.isRare);
-        if (monster.isBoss) {
-          this.stats.recordBossDefeated();
-          this.showFloatingMessage("👑 ボスを倒した!");
-        } else if (monster.isRare) {
-          this.showFloatingMessage("★ レアモンスターを倒した!");
-        } else if (shouldSplit) {
-          this.showFloatingMessage("スライムが分裂した!");
-        }
-      }
+      if (died) this.resolveMonsterDeath(monster);
       return true;
     }
 
@@ -1853,6 +1865,45 @@ export class GameScene extends Phaser.Scene {
     body.reset(this.respawnPoint.x, this.respawnPoint.y);
     this.sound.play("sfx-craft", { volume: 0.5 });
     this.showFloatingMessage(`✨ ルーラで拠点へ戻った!(-${WARP_COST}💰)`);
+  }
+
+  // ---------- とくぎ(強力な一撃) ----------
+
+  private handleSkill(): void {
+    const now = this.time.now;
+    if (now < this.nextSkillAllowedAt) {
+      this.showFloatingMessage("とくぎの準備がまだ整っていない…");
+      return;
+    }
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+    let closest: Monster | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+    for (const monster of this.monsters) {
+      const dist = Phaser.Math.Distance.Between(playerX, playerY, monster.sprite.x, monster.sprite.y);
+      if (dist > ATTACK_REACH_RADIUS) continue;
+      if (dist < closestDist) {
+        closest = monster;
+        closestDist = dist;
+      }
+    }
+
+    if (!closest) {
+      this.showFloatingMessage("近くに敵がいない");
+      return;
+    }
+
+    if (!this.stamina.spend(SKILL_STAMINA_COST)) {
+      this.showFloatingMessage(`スタミナが足りない(${SKILL_STAMINA_COST}必要)`);
+      return;
+    }
+
+    this.nextSkillAllowedAt = now + SKILL_COOLDOWN_MS;
+    this.sound.play("sfx-attack", { volume: 0.6 });
+    this.showFloatingMessage("💥 とくぎ発動!");
+    const monster = closest;
+    const died = monster.takeDamage(this, this.getPlayerDamage() * SKILL_DAMAGE_MULTIPLIER);
+    if (died) this.resolveMonsterDeath(monster);
   }
 
   private tryGather(point: ActionPoint): boolean {
