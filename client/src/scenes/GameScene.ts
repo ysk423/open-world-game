@@ -1612,12 +1612,12 @@ export class GameScene extends Phaser.Scene {
     // マインクラフトのハサミを参考に、ハサミを持っていれば野生動物を倒さずに毛を刈って羊毛を集められる
     if (this.tools.has("shears")) {
       const now = this.time.now;
-      const lastSheared = this.animalShearedAt.get(animal) ?? 0;
-      if (now - lastSheared < SHEAR_COOLDOWN_MS) {
+      const nextShearAllowedAt = this.animalShearedAt.get(animal) ?? 0;
+      if (now < nextShearAllowedAt) {
         this.showFloatingMessage("🐑 まだ毛が伸びていない…");
         return true;
       }
-      this.animalShearedAt.set(animal, now);
+      this.animalShearedAt.set(animal, now + SHEAR_COOLDOWN_MS);
       this.inventory.add("wool", SHEAR_WOOL_AMOUNT);
       this.stats.recordGather("wool", SHEAR_WOOL_AMOUNT);
       this.sound.play("sfx-gather", { volume: 0.5 });
