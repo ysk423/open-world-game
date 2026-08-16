@@ -186,6 +186,15 @@ const HEAL_AMOUNT = 2;
 // 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
 const BARN_RADIUS = 100;
 
+// DQ風のカジノ。コインを賭けると確率で増減する(はずれ50%・とんとん30%・当たり15%・大当たり5%)
+const CASINO_BET_COST = 10;
+const CASINO_OUTCOMES: { chance: number; multiplier: number }[] = [
+  { chance: 0.5, multiplier: 0 },
+  { chance: 0.3, multiplier: 1 },
+  { chance: 0.15, multiplier: 2 },
+  { chance: 0.05, multiplier: 5 },
+];
+
 // DQ風の「会心の一撃」。攻撃のたびに一定確率でダメージが跳ね上がる
 const CRIT_CHANCE = 0.15;
 const CRIT_MULTIPLIER = 2;
@@ -1200,6 +1209,17 @@ export class GameScene extends Phaser.Scene {
     return Math.random() < CRIT_CHANCE;
   }
 
+  /** DQ風カジノの抽選。掛け金への倍率(0=はずれ、1=とんとん、2=当たり、5=大当たり)を返す */
+  private rollCasinoMultiplier(): number {
+    const r = Math.random();
+    let cumulative = 0;
+    for (const outcome of CASINO_OUTCOMES) {
+      cumulative += outcome.chance;
+      if (r < cumulative) return outcome.multiplier;
+    }
+    return 0;
+  }
+
   /** DQ風の会心の一撃を考慮した、実際に敵へ与える攻撃ダメージ(通常攻撃・とくぎ共通) */
   private computeAttackDamage(multiplier = 1): { damage: number; isCrit: boolean } {
     const isCrit = this.rollCritical();
@@ -1776,6 +1796,53 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- カジノ(コインを賭けて増減する) ----------
+
+  private tryCasino(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "casino") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (!this.inventory.spend({ coin: CASINO_BET_COST } as Partial<Record<ItemId, number>>)) {
+      this.showFloatingMessage(`💰が足りない(${CASINO_BET_COST}枚必要)`);
+      return true;
+    }
+
+    const multiplier = this.rollCasinoMultiplier();
+    const payout = CASINO_BET_COST * multiplier;
+    if (payout > 0) this.inventory.add("coin", payout);
+
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    if (multiplier === 0) {
+      this.showFloatingMessage("🎰 はずれ…");
+    } else if (multiplier === 1) {
+      this.showFloatingMessage("🎰 とんとんだった");
+    } else if (multiplier < 5) {
+      this.showFloatingMessage(`🎰 当たり!+${payout}💰`);
+    } else {
+      this.showFloatingMessage(`🎰 大当たり!!+${payout}💰`);
+    }
+    return true;
+  }
+
   // ---------- 出荷箱(牧場物語風。入れたアイテムは翌日コインになる) ----------
 
   private tryShippingBin(point: ActionPoint): boolean {
@@ -1905,6 +1972,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
     if (this.tryInn(point)) return;
+    if (this.tryCasino(point)) return;
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.trySignpost(point)) return;

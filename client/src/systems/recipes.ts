@@ -15,7 +15,8 @@ export type BuildingType =
   | "bed"
   | "inn"
   | "shipping_bin"
-  | "barn";
+  | "barn"
+  | "casino";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -122,6 +123,12 @@ export const RECIPES: Recipe[] = [
     name: "納屋(近くの相棒のミルク生産が早まる)",
     inputs: { wood: 4, stone: 2 },
     effect: { type: "building", buildingType: "barn" },
+  },
+  {
+    id: "casino",
+    name: "カジノ(コインを賭けて増やせるかも?)",
+    inputs: { wood: 5, stone: 3 },
+    effect: { type: "building", buildingType: "casino" },
   },
   {
     id: "axe",
