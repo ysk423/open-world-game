@@ -35,7 +35,7 @@ import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../sy
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
-import { getCycleProgress, getNightIntensity, isNight } from "../systems/DayNightCycle";
+import { getCycleProgress, getNightIntensity, isNight, CYCLE_DURATION_MS } from "../systems/DayNightCycle";
 import { isRaining } from "../systems/Weather";
 import { getSeason, SEASON_ICON, SEASON_NAME } from "../systems/Season";
 import { InventoryHud } from "../ui/InventoryHud";
@@ -186,6 +186,9 @@ const CRIT_MULTIPLIER = 2;
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
 
+// 牧場物語風の出荷箱。売却可能なアイテムを入れると、翌日(昼夜サイクルの日付が変わったタイミングで)コインになる
+const SHIPPING_BIN_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
+
 // ドラクエ風の道しるべ。使うとゲームのコツをヒントとして教えてくれる
 const SIGNPOST_MESSAGES = [
   "ダッシュボタン(またはスペースキー)を押しながら移動するとダッシュできる。スタミナ切れに注意。",
@@ -258,6 +261,8 @@ export class GameScene extends Phaser.Scene {
   private nextPoisonTickAt = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
+  private shippingBinPendingValue = 0;
+  private lastShipmentDayIndex = Math.floor(Date.now() / CYCLE_DURATION_MS);
 
   private remotePlayers = new Map<string, RemotePlayer>();
   private selfId: string | null = null;
@@ -475,6 +480,7 @@ export class GameScene extends Phaser.Scene {
         this.beds = [];
         for (const pet of this.pets) pet.destroy();
         this.pets = [];
+        this.shippingBinPendingValue = 0;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
@@ -516,6 +522,7 @@ export class GameScene extends Phaser.Scene {
             this.inventory.setCounts(data.counts);
             this.health.setHp(data.hp);
           }
+          this.shippingBinPendingValue = 0;
         }
         this.showFloatingMessage(`スロット${slot}をロードしました`);
       },
@@ -610,9 +617,17 @@ export class GameScene extends Phaser.Scene {
   // ---------- 昼夜サイクル ----------
 
   private updateDayNightCycle(): void {
-    const progress = getCycleProgress(Date.now());
+    const now = Date.now();
+    const progress = getCycleProgress(now);
     const intensity = getNightIntensity(progress);
     this.nightOverlay.setFillStyle(NIGHT_OVERLAY_COLOR, intensity * NIGHT_OVERLAY_MAX_ALPHA);
+
+    // 牧場物語風の出荷箱。日付が変わったら前日までに入れたアイテムの代金を受け取る
+    const dayIndex = Math.floor(now / CYCLE_DURATION_MS);
+    if (dayIndex !== this.lastShipmentDayIndex) {
+      this.lastShipmentDayIndex = dayIndex;
+      this.settleShipment();
+    }
 
     // 牧場物語風に、夜はNPCが眠って徘徊をやめる(setSleeping内で状態が変わらなければ何もしない)
     const night = isNight(progress);
@@ -629,6 +644,13 @@ export class GameScene extends Phaser.Scene {
       }
       this.handTorchGlow.setPosition(this.player.sprite.x, this.player.sprite.y);
     }
+  }
+
+  private settleShipment(): void {
+    if (this.shippingBinPendingValue <= 0) return;
+    this.inventory.add("coin", this.shippingBinPendingValue);
+    this.showFloatingMessage(`📦 出荷箱の代金が届いた!+${this.shippingBinPendingValue}💰`);
+    this.shippingBinPendingValue = 0;
   }
 
   // ---------- 天候(雨) ----------
@@ -1705,6 +1727,53 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 出荷箱(牧場物語風。入れたアイテムは翌日コインになる) ----------
+
+  private tryShippingBin(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "shipping_bin") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const counts = this.inventory.getCounts();
+    let addedValue = 0;
+    const spend: Partial<Record<ItemId, number>> = {};
+    for (const id of SHIPPING_BIN_ITEM_IDS) {
+      const count = counts[id] ?? 0;
+      if (count <= 0) continue;
+      spend[id] = count;
+      addedValue += getEffectiveSellPrice(id, Date.now()) * count;
+    }
+
+    if (addedValue <= 0) {
+      this.showFloatingMessage("出荷できるものがない");
+      return true;
+    }
+
+    this.inventory.spend(spend);
+    this.shippingBinPendingValue += addedValue;
+    this.sound.play("sfx-gather", { volume: 0.4 });
+    this.showFloatingMessage(`📦 出荷箱に入れた(翌日+${addedValue}💰)`);
+    return true;
+  }
+
   // ---------- 花壇(時間経過でハーブが育つ) ----------
 
   private tryFlowerBed(point: ActionPoint): boolean {
@@ -1787,6 +1856,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
     if (this.tryInn(point)) return;
+    if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.trySignpost(point)) return;
     if (this.tryFarm(point)) return;

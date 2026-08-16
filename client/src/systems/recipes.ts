@@ -13,7 +13,8 @@ export type BuildingType =
   | "bridge"
   | "torch"
   | "bed"
-  | "inn";
+  | "inn"
+  | "shipping_bin";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -108,6 +109,12 @@ export const RECIPES: Recipe[] = [
     name: "宿屋(コインを払うとHPが全回復する)",
     inputs: { wood: 4, stone: 2 },
     effect: { type: "building", buildingType: "inn" },
+  },
+  {
+    id: "shipping_bin",
+    name: "出荷箱(アイテムを入れると翌日コインになる)",
+    inputs: { wood: 3, stone: 1 },
+    effect: { type: "building", buildingType: "shipping_bin" },
   },
   {
     id: "axe",
