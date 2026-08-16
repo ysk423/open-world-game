@@ -61,6 +61,9 @@ const BRIDGE_GID = 5;
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
 
+// ドラクエ風の「世界地図」。ミニマップより大きく描画してワールド全体を見渡せるようにする
+const WORLD_MAP_SIZE = 360;
+
 // スポーン地点(縦の道の上、タイル座標。ワールド全体の座標系。
 // マップを2倍スケール(4倍面積)に拡張したのに合わせて元の(19,40)を2倍にしてある)
 const SPAWN_TILE = { x: 38, y: 80 };
@@ -358,6 +361,8 @@ export class GameScene extends Phaser.Scene {
   private shops: Shop[] = [];
   private shopPanel!: ShopPanel;
   private minimap!: Minimap;
+  private worldMap?: Minimap;
+  private worldMapToggle?: HTMLButtonElement;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private rainOverlay!: Phaser.GameObjects.Rectangle;
   private rainEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -789,6 +794,9 @@ export class GameScene extends Phaser.Scene {
     const season = getSeason(Date.now());
     const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
     this.minimap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
+    if (this.worldMap && this.worldMap.element.style.display !== "none") {
+      this.worldMap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
+    }
   }
 
   // ---------- コンパス(拠点への方角・距離を表示) ----------
@@ -844,6 +852,18 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.minimap = new Minimap(mapWidthPx, mapHeightPx);
+
+    // ドラクエ風の「世界地図」。ミニマップと同じ内容を、トグルで開く大きな全体マップとして表示する
+    this.worldMap = new Minimap(mapWidthPx, mapHeightPx, "world-map", WORLD_MAP_SIZE);
+    this.worldMap.element.style.display = "none";
+    this.worldMapToggle = document.createElement("button");
+    this.worldMapToggle.id = "world-map-toggle";
+    this.worldMapToggle.textContent = "🗺️";
+    this.worldMapToggle.addEventListener("click", () => {
+      const isOpen = this.worldMap!.element.style.display !== "none";
+      this.worldMap!.element.style.display = isOpen ? "none" : "block";
+    });
+    document.body.appendChild(this.worldMapToggle);
 
     this.physics.add.collider(this.player.sprite, groundLayer);
     this.physics.add.collider(this.player.sprite, obstacleLayer);
