@@ -178,6 +178,11 @@ const SKILL_STAMINA_COST = 30;
 const SKILL_COOLDOWN_MS = 8000;
 const SKILL_DAMAGE_MULTIPLIER = 2;
 
+// DQ風の「ホイミ」。Hキーでスタミナを消費し、自分のHPを回復する呪文
+const HEAL_STAMINA_COST = 25;
+const HEAL_COOLDOWN_MS = 5000;
+const HEAL_AMOUNT = 2;
+
 // DQ風の「会心の一撃」。攻撃のたびに一定確率でダメージが跳ね上がる
 const CRIT_CHANCE = 0.15;
 const CRIT_MULTIPLIER = 2;
@@ -267,6 +272,7 @@ export class GameScene extends Phaser.Scene {
   private nextWellAllowedAt = 0;
   private nextWarpAllowedAt = 0;
   private nextSkillAllowedAt = 0;
+  private nextHealAllowedAt = 0;
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
   private pendingLoadSlot: number | null = null;
@@ -422,6 +428,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.inputManager.onSkillAction(() => {
       this.handleSkill();
+    });
+    this.inputManager.onHealAction(() => {
+      this.handleHealSpell();
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
@@ -2104,6 +2113,33 @@ export class GameScene extends Phaser.Scene {
     if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
     const died = monster.takeDamage(this, damage + assistBonus);
     if (died) this.resolveMonsterDeath(monster);
+  }
+
+  // ---------- ホイミ(HP回復呪文) ----------
+
+  private handleHealSpell(): void {
+    const now = this.time.now;
+    if (now < this.nextHealAllowedAt) {
+      this.showFloatingMessage("詠唱がまだ整っていない…");
+      return;
+    }
+
+    const isPoisoned = this.time.now < this.poisonedUntil;
+    if (this.health.getHp() >= this.health.getMaxHp() && !isPoisoned) {
+      this.showFloatingMessage("HPは満タンだ");
+      return;
+    }
+
+    if (!this.stamina.spend(HEAL_STAMINA_COST)) {
+      this.showFloatingMessage(`スタミナが足りない(${HEAL_STAMINA_COST}必要)`);
+      return;
+    }
+
+    this.nextHealAllowedAt = now + HEAL_COOLDOWN_MS;
+    this.poisonedUntil = 0;
+    this.health.heal(HEAL_AMOUNT);
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    this.showFloatingMessage(`✨ ホイミを唱えた!(HP+${HEAL_AMOUNT})`);
   }
 
   private tryGather(point: ActionPoint): boolean {
