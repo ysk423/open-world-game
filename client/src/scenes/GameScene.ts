@@ -11,7 +11,7 @@ import { Torch, ensureTorchTextures, TORCH_GLOW_TEXTURE_KEY } from "../entities/
 import { Bed } from "../entities/Bed";
 import { Chest } from "../entities/Chest";
 import { Monster } from "../entities/Monster";
-import { Animal } from "../entities/Animal";
+import { Animal, NICKNAME_MAX_LENGTH } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
 import { Shop } from "../entities/Shop";
 import { RoomClient } from "../net/RoomClient";
@@ -1465,10 +1465,11 @@ export class GameScene extends Phaser.Scene {
           this.stats.recordGather("milk", 1);
           this.showGatherFeedback(closestPet.sprite.x, closestPet.sprite.y, "milk", 1);
           this.sound.play("sfx-gather", { volume: 0.5 });
+          const petLabel = closestPet.petNickname ?? "相棒";
           if (result.evolved) {
-            this.showFloatingMessage("✨ 相棒がしんかした!");
+            this.showFloatingMessage(`✨ ${petLabel}がしんかした!`);
           } else if (result.leveledUp) {
-            this.showFloatingMessage(`🎉 相棒がレベルアップ!(Lv.${closestPet.petLevel})`);
+            this.showFloatingMessage(`🎉 ${petLabel}がレベルアップ!(Lv.${closestPet.petLevel})`);
           }
         } else {
           this.showFloatingMessage("🐾 まだ用意中…");
@@ -1542,6 +1543,11 @@ export class GameScene extends Phaser.Scene {
       this.animals = this.animals.filter((a) => a !== animal);
       this.pets.push(animal);
       animal.startFollowing(this);
+      const nickname = window.prompt(`相棒にニックネームをつける(最大${NICKNAME_MAX_LENGTH}文字、空欄でスキップ)`, "");
+      const trimmedNickname = nickname?.slice(0, NICKNAME_MAX_LENGTH).trim();
+      if (trimmedNickname && trimmedNickname.length > 0) {
+        animal.setNickname(this, trimmedNickname);
+      }
       const rewardMultiplier = animal.isShiny ? SHINY_ANIMAL_REWARD_MULTIPLIER : 1;
       const coinReward = ANIMAL_FEED_COIN_REWARD * rewardMultiplier;
       this.inventory.add("coin", coinReward);

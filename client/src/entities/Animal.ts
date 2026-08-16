@@ -34,6 +34,9 @@ const EVOLVE_TINT = 0xffd700;
 // 牧場物語の納屋を参考に、近くに納屋があるとミルクの生産が早まる
 const BARN_SPEED_MULTIPLIER = 0.7;
 
+// ポケモン風に、なついた相棒には好きなニックネームをつけられる
+export const NICKNAME_MAX_LENGTH = 12;
+
 /** 動物。モンスターと違い接触してもプレイヤーにダメージを与えない。倒すと肉をドロップする。
  * 餌付けでなつくと相棒になり、以後はプレイヤーを追いかけるようになる */
 export class Animal {
@@ -50,6 +53,8 @@ export class Animal {
   private collectedCount = 0;
   private evolved = false;
   private nearBarn = false;
+  private nickname: string | null = null;
+  private nicknameLabel?: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, isShiny = false) {
     this.worldX = x;
@@ -81,6 +86,23 @@ export class Animal {
 
   get isEvolved(): boolean {
     return this.evolved;
+  }
+
+  get petNickname(): string | null {
+    return this.nickname;
+  }
+
+  /** ポケモン風に、相棒に好きなニックネームをつける。頭上にラベルとして表示する */
+  setNickname(scene: Phaser.Scene, name: string): void {
+    this.nickname = name;
+    if (!this.nicknameLabel) {
+      this.nicknameLabel = scene.add
+        .text(this.sprite.x, this.sprite.y - 20, name, { fontSize: "8px", color: "#ffffff" })
+        .setOrigin(0.5, 1)
+        .setDepth(6);
+    } else {
+      this.nicknameLabel.setText(name);
+    }
   }
 
   /** 追いかけている間の色味。しんか済みなら金色を優先し、それ以外は色違い/通常の色味を使う */
@@ -159,6 +181,7 @@ export class Animal {
     } else {
       this.sprite.setVelocity(0, 0);
     }
+    this.nicknameLabel?.setPosition(this.sprite.x, this.sprite.y - 20);
   }
 
   private scheduleWander(scene: Phaser.Scene): void {
@@ -202,6 +225,7 @@ export class Animal {
   destroy(): void {
     this.wanderTimer?.remove();
     this.produceTimer?.remove();
+    this.nicknameLabel?.destroy();
     this.sprite.destroy();
   }
 }
