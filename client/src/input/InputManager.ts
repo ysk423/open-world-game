@@ -35,6 +35,7 @@ export class InputManager {
   private blockKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
+  private enderPearlActionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
   private teleportActionHandlers: ShiftActionHandler[] = [];
   private skillActionHandlers: ShiftActionHandler[] = [];
@@ -65,6 +66,10 @@ export class InputManager {
     this.healKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
     this.blockKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
+    // マインクラフトのエンダーパールを参考に、右クリックでの瞬間移動を使えるようにする
+    // (ブラウザ標準の右クリックメニューが出ないようにする)
+    scene.input.mouse?.disableContextMenu();
+
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
     this.teleportKey.on("down", this.handleTeleportDown, this);
@@ -80,6 +85,12 @@ export class InputManager {
       worldX: world.x,
       worldY: world.y,
     };
+    if (pointer.rightButtonDown()) {
+      for (const handler of this.enderPearlActionHandlers) {
+        handler(point);
+      }
+      return;
+    }
     for (const handler of this.actionHandlers) {
       handler(point);
     }
@@ -112,6 +123,11 @@ export class InputManager {
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
+  }
+
+  /** マインクラフトのエンダーパールを参考にした右クリックが行われた時に呼ばれる(瞬間移動を想定) */
+  onEnderPearlAction(handler: ActionHandler): void {
+    this.enderPearlActionHandlers.push(handler);
   }
 
   /** シフトキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
@@ -196,6 +212,7 @@ export class InputManager {
     this.skillKey.off("down", this.handleSkillDown, this);
     this.healKey.off("down", this.handleHealDown, this);
     this.actionHandlers = [];
+    this.enderPearlActionHandlers = [];
     this.shiftActionHandlers = [];
     this.teleportActionHandlers = [];
     this.skillActionHandlers = [];

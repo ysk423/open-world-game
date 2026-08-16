@@ -186,6 +186,11 @@ const HEAL_AMOUNT = 2;
 // マインクラフトの盾を参考に、Bキーを押している間はスタミナと引き換えに接触ダメージを完全に防ぐ
 const SHIELD_BLOCK_STAMINA_COST = 15;
 
+// マインクラフトのエンダーパールを参考に、右クリックした地点へコインを払って瞬間移動する
+// (ルーラと違い拠点固定ではなく、見えている範囲の好きな場所へ飛べる)
+const ENDER_PEARL_COST = 5;
+const ENDER_PEARL_MAX_DISTANCE = 400;
+
 // 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
 const BARN_RADIUS = 100;
 
@@ -464,6 +469,9 @@ export class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this);
     this.inputManager.onAction((point) => {
       this.handleAction(point);
+    });
+    this.inputManager.onEnderPearlAction((point) => {
+      this.handleEnderPearl(point);
     });
     this.inputManager.onShiftAction(() => {
       this.handleShiftAction();
@@ -2342,6 +2350,34 @@ export class GameScene extends Phaser.Scene {
     body.reset(this.respawnPoint.x, this.respawnPoint.y);
     this.sound.play("sfx-craft", { volume: 0.5 });
     this.showFloatingMessage(`✨ ルーラで拠点へ戻った!(-${WARP_COST}💰)`);
+  }
+
+  // ---------- エンダーパール(右クリックした地点への瞬間移動) ----------
+
+  private handleEnderPearl(point: ActionPoint): void {
+    if (!this.tools.has("enderPearl")) return;
+
+    const dist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      point.worldX,
+      point.worldY,
+    );
+    if (dist > ENDER_PEARL_MAX_DISTANCE) {
+      this.showFloatingMessage("遠すぎて届かない…");
+      return;
+    }
+
+    if (!this.inventory.spend({ coin: ENDER_PEARL_COST } as Partial<Record<ItemId, number>>)) {
+      this.showFloatingMessage(`💰が足りない(${ENDER_PEARL_COST}枚必要)`);
+      return;
+    }
+
+    this.cameras.main.flash(150, 150, 255, 150);
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    body.reset(point.worldX, point.worldY);
+    this.sound.play("sfx-craft", { volume: 0.5 });
+    this.showFloatingMessage(`✨ エンダーパールで瞬間移動した!(-${ENDER_PEARL_COST}💰)`);
   }
 
   // ---------- とくぎ(強力な一撃) ----------

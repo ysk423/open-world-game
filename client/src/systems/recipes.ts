@@ -176,6 +176,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "bicycle" },
   },
   {
+    id: "ender_pearl",
+    name: "エンダーパール(右クリックした地点へコインを払って瞬間移動)",
+    inputs: { stone: 3, coin: 10 },
+    effect: { type: "tool", toolId: "enderPearl" },
+  },
+  {
     id: "shield",
     name: "盾(Bキーを押している間、モンスターの接触ダメージを防ぐ)",
     inputs: { wood: 3, stone: 2 },
