@@ -34,6 +34,7 @@ export class InputManager {
   private healKey: Phaser.Input.Keyboard.Key;
   private blockKey: Phaser.Input.Keyboard.Key;
   private petWaitKey: Phaser.Input.Keyboard.Key;
+  private aoeSkillKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private enderPearlActionHandlers: ActionHandler[] = [];
@@ -42,6 +43,7 @@ export class InputManager {
   private skillActionHandlers: ShiftActionHandler[] = [];
   private healActionHandlers: ShiftActionHandler[] = [];
   private petWaitActionHandlers: ShiftActionHandler[] = [];
+  private aoeSkillActionHandlers: ShiftActionHandler[] = [];
   // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
   private touchX = 0;
   private touchY = 0;
@@ -68,6 +70,7 @@ export class InputManager {
     this.healKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
     this.blockKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
     this.petWaitKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
+    this.aoeSkillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
 
     // マインクラフトのエンダーパールを参考に、右クリックでの瞬間移動を使えるようにする
     // (ブラウザ標準の右クリックメニューが出ないようにする)
@@ -79,6 +82,7 @@ export class InputManager {
     this.skillKey.on("down", this.handleSkillDown, this);
     this.healKey.on("down", this.handleHealDown, this);
     this.petWaitKey.on("down", this.handlePetWaitDown, this);
+    this.aoeSkillKey.on("down", this.handleAoeSkillDown, this);
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -130,6 +134,12 @@ export class InputManager {
     }
   }
 
+  private handleAoeSkillDown(): void {
+    for (const handler of this.aoeSkillActionHandlers) {
+      handler();
+    }
+  }
+
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
@@ -163,6 +173,11 @@ export class InputManager {
   /** ポケモンの「まて」を参考にしたVキーが押された時に呼ばれる(相棒の追従/待機切り替えを想定) */
   onPetWaitAction(handler: ShiftActionHandler): void {
     this.petWaitActionHandlers.push(handler);
+  }
+
+  /** ドラクエの「イオナズン」を参考にしたGキーが押された時に呼ばれる(周囲全体への攻撃呪文を想定) */
+  onAoeSkillAction(handler: ShiftActionHandler): void {
+    this.aoeSkillActionHandlers.push(handler);
   }
 
   /** 仮想十字キー(TouchDPad)からの入力を反映する。x/yはそれぞれ-1〜1 */
@@ -227,6 +242,7 @@ export class InputManager {
     this.skillKey.off("down", this.handleSkillDown, this);
     this.healKey.off("down", this.handleHealDown, this);
     this.petWaitKey.off("down", this.handlePetWaitDown, this);
+    this.aoeSkillKey.off("down", this.handleAoeSkillDown, this);
     this.actionHandlers = [];
     this.enderPearlActionHandlers = [];
     this.shiftActionHandlers = [];
@@ -234,5 +250,6 @@ export class InputManager {
     this.skillActionHandlers = [];
     this.healActionHandlers = [];
     this.petWaitActionHandlers = [];
+    this.aoeSkillActionHandlers = [];
   }
 }

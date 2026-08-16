@@ -181,6 +181,11 @@ const SKILL_STAMINA_COST = 30;
 const SKILL_COOLDOWN_MS = 8000;
 const SKILL_DAMAGE_MULTIPLIER = 2;
 
+// DQ風の「イオナズン」。Gキーでスタミナを消費し、周囲全体のモンスターにまとめてダメージを与える
+const AOE_SKILL_STAMINA_COST = 45;
+const AOE_SKILL_COOLDOWN_MS = 12000;
+const AOE_SKILL_RADIUS = 90;
+
 // DQ風の「ホイミ」。Hキーでスタミナを消費し、自分のHPを回復する呪文
 const HEAL_STAMINA_COST = 25;
 const HEAL_COOLDOWN_MS = 5000;
@@ -334,6 +339,7 @@ export class GameScene extends Phaser.Scene {
   private nextWellAllowedAt = 0;
   private nextWarpAllowedAt = 0;
   private nextSkillAllowedAt = 0;
+  private nextAoeSkillAllowedAt = 0;
   private nextHealAllowedAt = 0;
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
@@ -526,6 +532,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.inputManager.onPetWaitAction(() => {
       this.handlePetWaitToggle();
+    });
+    this.inputManager.onAoeSkillAction(() => {
+      this.handleAoeSkill();
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
@@ -2587,6 +2596,42 @@ export class GameScene extends Phaser.Scene {
     if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
     const died = monster.takeDamage(this, damage + assistBonus);
     if (died) this.resolveMonsterDeath(monster);
+  }
+
+  // ---------- イオナズン(周囲全体への攻撃呪文) ----------
+
+  private handleAoeSkill(): void {
+    const now = this.time.now;
+    if (now < this.nextAoeSkillAllowedAt) {
+      this.showFloatingMessage("イオナズンの詠唱がまだ整っていない…");
+      return;
+    }
+
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+    const targets = this.monsters.filter(
+      (monster) =>
+        Phaser.Math.Distance.Between(playerX, playerY, monster.sprite.x, monster.sprite.y) <= AOE_SKILL_RADIUS,
+    );
+
+    if (targets.length === 0) {
+      this.showFloatingMessage("近くに敵がいない");
+      return;
+    }
+
+    if (!this.stamina.spend(AOE_SKILL_STAMINA_COST)) {
+      this.showFloatingMessage(`スタミナが足りない(${AOE_SKILL_STAMINA_COST}必要)`);
+      return;
+    }
+
+    this.nextAoeSkillAllowedAt = now + AOE_SKILL_COOLDOWN_MS;
+    this.sound.play("sfx-attack", { volume: 0.6 });
+    this.showFloatingMessage(`💥 イオナズン発動!(${targets.length}体を攻撃)`);
+    for (const monster of targets) {
+      const { damage } = this.computeAttackDamage();
+      const died = monster.takeDamage(this, damage);
+      if (died) this.resolveMonsterDeath(monster);
+    }
   }
 
   // ---------- ホイミ(HP回復呪文) ----------
