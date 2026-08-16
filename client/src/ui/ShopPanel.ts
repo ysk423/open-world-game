@@ -11,6 +11,7 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   cooked_meat: 7,
   fish: 6,
   milk: 6,
+  tomato: 4,
 };
 
 const SELLABLE_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
@@ -38,6 +39,7 @@ export function getEffectiveSellPrice(itemId: ItemId, nowMs: number): number {
 export const SHOP_BUY_PRICES: Partial<Record<ItemId, number>> = {
   seed: 2,
   seed_wheat: 3,
+  seed_tomato: 4,
 };
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
@@ -53,11 +55,14 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   cooked_meat: "🍗",
   fish: "🐟",
   milk: "🥛",
+  seed_tomato: "🌱",
+  tomato: "🍅",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {
   seed: "たね(にんじん)",
   seed_wheat: "たね(小麦)",
+  seed_tomato: "たね(トマト)",
 };
 
 export type ShopPanelEvents = {

@@ -16,7 +16,7 @@ const FRAME_BY_STAGE: Record<FarmStage, number> = {
   ready: 2,
 };
 
-export type CropId = "crop" | "wheat";
+export type CropId = "crop" | "wheat" | "tomato";
 
 export type CropConfig = {
   seedItem: ItemId;
@@ -27,8 +27,8 @@ export type CropConfig = {
   readyTint: number;
 };
 
-// 種をまく時に持っている中から優先的に選ぶ順番(小麦の方が高く売れるので優先)
-export const CROP_PRIORITY: CropId[] = ["wheat", "crop"];
+// 種をまく時に持っている中から優先的に選ぶ順番(高く売れるものから優先)
+export const CROP_PRIORITY: CropId[] = ["wheat", "tomato", "crop"];
 
 export const CROP_CONFIG: Record<CropId, CropConfig> = {
   crop: {
@@ -44,6 +44,13 @@ export const CROP_CONFIG: Record<CropId, CropConfig> = {
     growDurationMs: 30000,
     yieldAmount: 3,
     readyTint: 0xf6e6a8,
+  },
+  tomato: {
+    seedItem: "seed_tomato",
+    cropItem: "tomato",
+    growDurationMs: 25000,
+    yieldAmount: 2,
+    readyTint: 0xff6b57,
   },
 };
 

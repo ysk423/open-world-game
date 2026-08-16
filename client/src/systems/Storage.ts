@@ -15,6 +15,8 @@ const ITEM_IDS: ItemId[] = [
   "cooked_meat",
   "fish",
   "milk",
+  "seed_tomato",
+  "tomato",
 ];
 
 type Counts = Record<ItemId, number>;
@@ -34,6 +36,8 @@ function emptyCounts(): Counts {
     cooked_meat: 0,
     fish: 0,
     milk: 0,
+    seed_tomato: 0,
+    tomato: 0,
   };
 }
 
