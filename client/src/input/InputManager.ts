@@ -29,9 +29,11 @@ export class InputManager {
   private wasd: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
   private shiftKey: Phaser.Input.Keyboard.Key;
   private sprintKey: Phaser.Input.Keyboard.Key;
+  private teleportKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
+  private teleportActionHandlers: ShiftActionHandler[] = [];
   // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
   private touchX = 0;
   private touchY = 0;
@@ -53,9 +55,11 @@ export class InputManager {
     >;
     this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.sprintKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.teleportKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
 
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
+    this.teleportKey.on("down", this.handleTeleportDown, this);
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -77,6 +81,12 @@ export class InputManager {
     }
   }
 
+  private handleTeleportDown(): void {
+    for (const handler of this.teleportActionHandlers) {
+      handler();
+    }
+  }
+
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
@@ -85,6 +95,11 @@ export class InputManager {
   /** シフトキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
   onShiftAction(handler: ShiftActionHandler): void {
     this.shiftActionHandlers.push(handler);
+  }
+
+  /** ドラクエの「ルーラ」を参考にしたTキーが押された時に呼ばれる(拠点への瞬間移動を想定) */
+  onTeleportAction(handler: ShiftActionHandler): void {
+    this.teleportActionHandlers.push(handler);
   }
 
   /** 仮想十字キー(TouchDPad)からの入力を反映する。x/yはそれぞれ-1〜1 */
@@ -140,7 +155,9 @@ export class InputManager {
   destroy(): void {
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.off("down", this.handleShiftDown, this);
+    this.teleportKey.off("down", this.handleTeleportDown, this);
     this.actionHandlers = [];
     this.shiftActionHandlers = [];
+    this.teleportActionHandlers = [];
   }
 }

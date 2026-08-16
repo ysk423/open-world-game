@@ -150,6 +150,10 @@ const WELL_COOLDOWN_MS = 5000;
 // DQ/牧場物語風の宿屋。コインを払うとHPが全回復する
 const INN_HEAL_COST = 5;
 
+// DQ風の「ルーラ」。Tキーでコインを払い、拠点(ベッド/リスポーン地点)へ瞬間移動する
+const WARP_COST = 5;
+const WARP_COOLDOWN_MS = 10000;
+
 // 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
@@ -217,6 +221,7 @@ export class GameScene extends Phaser.Scene {
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
   private nextWellAllowedAt = 0;
+  private nextWarpAllowedAt = 0;
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
   private pendingLoadSlot: number | null = null;
@@ -359,6 +364,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.inputManager.onShiftAction(() => {
       this.handleShiftAction();
+    });
+    this.inputManager.onTeleportAction(() => {
+      this.handleWarp();
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
@@ -1770,6 +1778,28 @@ export class GameScene extends Phaser.Scene {
     const worldX = this.player.sprite.x + offset.x * SHIFT_ACTION_REACH;
     const worldY = this.player.sprite.y + offset.y * SHIFT_ACTION_REACH;
     this.handleAction({ screenX: 0, screenY: 0, worldX, worldY });
+  }
+
+  // ---------- ルーラ(拠点への瞬間移動) ----------
+
+  private handleWarp(): void {
+    const now = this.time.now;
+    if (now < this.nextWarpAllowedAt) {
+      this.showFloatingMessage("詠唱がまだ整っていない…");
+      return;
+    }
+
+    if (!this.inventory.spend({ coin: WARP_COST } as Partial<Record<ItemId, number>>)) {
+      this.showFloatingMessage(`💰が足りない(${WARP_COST}枚必要)`);
+      return;
+    }
+
+    this.nextWarpAllowedAt = now + WARP_COOLDOWN_MS;
+    this.cameras.main.flash(200, 255, 255, 255);
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    body.reset(this.respawnPoint.x, this.respawnPoint.y);
+    this.sound.play("sfx-craft", { volume: 0.5 });
+    this.showFloatingMessage(`✨ ルーラで拠点へ戻った!(-${WARP_COST}💰)`);
   }
 
   private tryGather(point: ActionPoint): boolean {
