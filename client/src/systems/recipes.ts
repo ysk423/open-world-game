@@ -176,6 +176,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "bicycle" },
   },
   {
+    id: "shield",
+    name: "盾(Bキーを押している間、モンスターの接触ダメージを防ぐ)",
+    inputs: { wood: 3, stone: 2 },
+    effect: { type: "tool", toolId: "shield" },
+  },
+  {
     id: "ender_chest",
     name: "エンダーチェスト(どこからでも倉庫を開ける)",
     inputs: { stone: 5, coin: 20 },

@@ -32,6 +32,7 @@ export class InputManager {
   private teleportKey: Phaser.Input.Keyboard.Key;
   private skillKey: Phaser.Input.Keyboard.Key;
   private healKey: Phaser.Input.Keyboard.Key;
+  private blockKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
@@ -62,6 +63,7 @@ export class InputManager {
     this.teleportKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
     this.skillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.healKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
+    this.blockKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
 
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
@@ -146,6 +148,11 @@ export class InputManager {
   /** ダッシュが要求されているか(スペースキー、またはタッチのダッシュボタン) */
   isSprintRequested(): boolean {
     return this.sprintKey.isDown || this.touchSprint;
+  }
+
+  /** マインクラフトの盾を参考に、Bキーが押されている間だけ防御が要求される */
+  isBlockRequested(): boolean {
+    return this.blockKey.isDown;
   }
 
   /** 毎フレーム呼び出し、現在の移動状態を返す */

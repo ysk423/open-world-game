@@ -183,6 +183,9 @@ const HEAL_STAMINA_COST = 25;
 const HEAL_COOLDOWN_MS = 5000;
 const HEAL_AMOUNT = 2;
 
+// マインクラフトの盾を参考に、Bキーを押している間はスタミナと引き換えに接触ダメージを完全に防ぐ
+const SHIELD_BLOCK_STAMINA_COST = 15;
+
 // 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
 const BARN_RADIUS = 100;
 
@@ -1350,6 +1353,15 @@ export class GameScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < this.invulnerableUntil) return;
     this.invulnerableUntil = now + CONTACT_INVULN_MS;
+
+    if (
+      this.tools.has("shield") &&
+      this.inputManager.isBlockRequested() &&
+      this.stamina.spend(SHIELD_BLOCK_STAMINA_COST)
+    ) {
+      this.showFloatingMessage("🛡️ 盾で防いだ!");
+      return;
+    }
 
     if (Math.random() < this.equipment.getBlockChance()) {
       this.showFloatingMessage("🛡️ 防いだ!");
