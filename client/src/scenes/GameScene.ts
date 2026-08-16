@@ -186,6 +186,10 @@ const HEAL_AMOUNT = 2;
 // マインクラフトの盾を参考に、Bキーを押している間はスタミナと引き換えに接触ダメージを完全に防ぐ
 const SHIELD_BLOCK_STAMINA_COST = 15;
 
+// マインクラフトのコンパスを参考に、拠点への方角・距離を常時表示する
+// (Math.atan2の角度0=東として時計回りに8方向を並べている)
+const COMPASS_DIRECTIONS = ["東", "南東", "南", "南西", "西", "北西", "北", "北東"];
+
 // マインクラフトのエンダーパールを参考に、右クリックした地点へコインを払って瞬間移動する
 // (ルーラと違い拠点固定ではなく、見えている範囲の好きな場所へ飛べる)
 const ENDER_PEARL_COST = 5;
@@ -305,6 +309,7 @@ export class GameScene extends Phaser.Scene {
   private storage!: Storage;
   private storagePanel!: StoragePanel;
   private enderChestButton?: HTMLButtonElement;
+  private compassHud?: HTMLDivElement;
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
   private nextWellAllowedAt = 0;
@@ -457,6 +462,15 @@ export class GameScene extends Phaser.Scene {
     document.body.appendChild(this.enderChestButton);
     this.tools.onChange((owned) => {
       if (this.enderChestButton) this.enderChestButton.style.display = owned.has("enderChest") ? "block" : "none";
+    });
+
+    // マインクラフト風のコンパス。作ると、拠点(ベッド地点)への方角と距離が画面に表示され続ける
+    this.compassHud = document.createElement("div");
+    this.compassHud.id = "compass-hud";
+    this.compassHud.style.display = "none";
+    document.body.appendChild(this.compassHud);
+    this.tools.onChange((owned) => {
+      if (this.compassHud) this.compassHud.style.display = owned.has("compass") ? "block" : "none";
     });
 
     if (!this.sound.get("bgm")) {
@@ -682,6 +696,7 @@ export class GameScene extends Phaser.Scene {
     this.updateWeather();
     this.updateMinimap();
     this.updatePoison();
+    this.updateCompass();
 
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
@@ -763,6 +778,25 @@ export class GameScene extends Phaser.Scene {
     const season = getSeason(Date.now());
     const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
     this.minimap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
+  }
+
+  // ---------- コンパス(拠点への方角・距離を表示) ----------
+
+  private updateCompass(): void {
+    if (!this.compassHud || !this.tools.has("compass")) return;
+
+    const dx = this.respawnPoint.x - this.player.sprite.x;
+    const dy = this.respawnPoint.y - this.player.sprite.y;
+    const distanceInTiles = Math.round(Math.hypot(dx, dy) / TILE_SIZE);
+
+    if (distanceInTiles === 0) {
+      this.compassHud.textContent = "🧭 拠点はすぐそこ!";
+      return;
+    }
+
+    const angleDeg = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+    const index = Math.round(((angleDeg + 360) % 360) / 45) % 8;
+    this.compassHud.textContent = `🧭 拠点まで ${COMPASS_DIRECTIONS[index]} ${distanceInTiles}マス`;
   }
 
   private ensureRainDropTexture(): void {

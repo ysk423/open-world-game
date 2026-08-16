@@ -6,7 +6,8 @@ export type ToolId =
   | "handTorch"
   | "enderChest"
   | "shield"
-  | "enderPearl";
+  | "enderPearl"
+  | "compass";
 
 const TOOLS_STORAGE_KEY = "open-world-game:tools";
 const TOOL_IDS: ToolId[] = [
@@ -18,6 +19,7 @@ const TOOL_IDS: ToolId[] = [
   "enderChest",
   "shield",
   "enderPearl",
+  "compass",
 ];
 
 type Listener = (owned: ReadonlySet<ToolId>) => void;
@@ -32,7 +34,8 @@ function isToolId(value: unknown): value is ToolId {
  * つるはし→石採集量アップ、じょうろ→畑に水をあげて成長を早める、自転車→スタミナを消費せずダッシュし
  * 続けられる、手持ちのたいまつ→夜、常にプレイヤーの周囲を照らす、エンダーチェスト→どこからでも倉庫を開ける、
  * 盾→Bキーを押している間、スタミナと引き換えにモンスターの接触ダメージを完全に防ぐ、
- * エンダーパール→右クリックした地点へコインを消費して瞬間移動できる)。
+ * エンダーパール→右クリックした地点へコインを消費して瞬間移動できる、
+ * コンパス→拠点(ベッド地点)への方角と距離が画面に表示され続ける)。
  */
 export class Tools {
   private owned = new Set<ToolId>();
