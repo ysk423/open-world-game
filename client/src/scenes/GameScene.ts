@@ -164,6 +164,10 @@ const SKILL_STAMINA_COST = 30;
 const SKILL_COOLDOWN_MS = 8000;
 const SKILL_DAMAGE_MULTIPLIER = 2;
 
+// DQ風の「会心の一撃」。攻撃のたびに一定確率でダメージが跳ね上がる
+const CRIT_CHANCE = 0.15;
+const CRIT_MULTIPLIER = 2;
+
 // 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
@@ -1109,6 +1113,17 @@ export class GameScene extends Phaser.Scene {
     return this.equipment.getDamage() + this.experience.getBonusDamage();
   }
 
+  private rollCritical(): boolean {
+    return Math.random() < CRIT_CHANCE;
+  }
+
+  /** DQ風の会心の一撃を考慮した、実際に敵へ与える攻撃ダメージ(通常攻撃・とくぎ共通) */
+  private computeAttackDamage(multiplier = 1): { damage: number; isCrit: boolean } {
+    const isCrit = this.rollCritical();
+    const base = this.getPlayerDamage() * multiplier;
+    return { damage: isCrit ? base * CRIT_MULTIPLIER : base, isCrit };
+  }
+
   /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
   private grantExp(amount: number): void {
     const newLevel = this.experience.add(amount);
@@ -1283,7 +1298,9 @@ export class GameScene extends Phaser.Scene {
     if (closest.kind === "monster") {
       this.sound.play("sfx-attack", { volume: 0.5 });
       const monster = closest.obj;
-      const died = monster.takeDamage(this, this.getPlayerDamage());
+      const { damage, isCrit } = this.computeAttackDamage();
+      const died = monster.takeDamage(this, damage);
+      if (isCrit) this.showFloatingMessage("💥 会心の一撃!");
       if (died) this.resolveMonsterDeath(monster);
       return true;
     }
@@ -1314,7 +1331,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sound.play("sfx-attack", { volume: 0.5 });
-    const died = animal.takeDamage(this, this.getPlayerDamage());
+    const { damage: animalDamage, isCrit: animalIsCrit } = this.computeAttackDamage();
+    const died = animal.takeDamage(this, animalDamage);
+    if (animalIsCrit) this.showFloatingMessage("💥 会心の一撃!");
     if (died) {
       this.animals = this.animals.filter((a) => a !== animal);
       this.inventory.add("meat", 1);
@@ -1912,9 +1931,10 @@ export class GameScene extends Phaser.Scene {
 
     this.nextSkillAllowedAt = now + SKILL_COOLDOWN_MS;
     this.sound.play("sfx-attack", { volume: 0.6 });
-    this.showFloatingMessage("💥 とくぎ発動!");
     const monster = closest;
-    const died = monster.takeDamage(this, this.getPlayerDamage() * SKILL_DAMAGE_MULTIPLIER);
+    const { damage, isCrit } = this.computeAttackDamage(SKILL_DAMAGE_MULTIPLIER);
+    this.showFloatingMessage(isCrit ? "💥 とくぎ発動!さらに会心の一撃!" : "💥 とくぎ発動!");
+    const died = monster.takeDamage(this, damage);
     if (died) this.resolveMonsterDeath(monster);
   }
 
