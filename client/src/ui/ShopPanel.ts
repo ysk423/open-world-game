@@ -1,4 +1,5 @@
 import type { Inventory, ItemId } from "../systems/Inventory";
+import { CYCLE_DURATION_MS } from "../systems/DayNightCycle";
 
 export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   wood: 1,
@@ -11,6 +12,28 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   fish: 6,
   milk: 6,
 };
+
+const SELLABLE_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
+
+// 牧場物語風の「本日のおすすめ」。日替わりで1品だけ売値がアップする
+export const DAILY_SPECIAL_MULTIPLIER = 1.5;
+
+/** サーバー通信を増やさず全員で揃うよう、昼夜サイクルの1日単位でDate.now()から決定的に選ぶ */
+export function getDailySpecialItem(nowMs: number): ItemId {
+  const dayIndex = Math.floor(nowMs / CYCLE_DURATION_MS);
+  const index = ((dayIndex % SELLABLE_ITEM_IDS.length) + SELLABLE_ITEM_IDS.length) % SELLABLE_ITEM_IDS.length;
+  return SELLABLE_ITEM_IDS[index];
+}
+
+/** 本日のおすすめなら割増した売値、それ以外は通常の売値を返す。売却不可のアイテムは0 */
+export function getEffectiveSellPrice(itemId: ItemId, nowMs: number): number {
+  const base = SHOP_SELL_PRICES[itemId];
+  if (base === undefined) return 0;
+  if (itemId === getDailySpecialItem(nowMs)) {
+    return Math.round(base * DAILY_SPECIAL_MULTIPLIER);
+  }
+  return base;
+}
 
 export const SHOP_BUY_PRICES: Partial<Record<ItemId, number>> = {
   seed: 2,
@@ -103,13 +126,20 @@ export class ShopPanel {
     sellHeading.textContent = "売る";
     this.panel.appendChild(sellHeading);
 
-    for (const [id, price] of Object.entries(SHOP_SELL_PRICES) as [ItemId, number][]) {
+    const now = Date.now();
+    const specialItem = getDailySpecialItem(now);
+    for (const [id] of Object.entries(SHOP_SELL_PRICES) as [ItemId, number][]) {
       const row = document.createElement("div");
       row.className = "shop-row";
 
+      const isSpecial = id === specialItem;
+      const price = getEffectiveSellPrice(id, now);
+
       const label = document.createElement("span");
       label.className = "shop-item-label";
-      label.textContent = `${ICON_BY_ITEM[id]} ${counts[id]}個(💰${price}/個)`;
+      label.textContent = isSpecial
+        ? `⭐ ${ICON_BY_ITEM[id]} ${counts[id]}個(💰${price}/個・本日のおすすめ!)`
+        : `${ICON_BY_ITEM[id]} ${counts[id]}個(💰${price}/個)`;
       row.appendChild(label);
 
       const button = document.createElement("button");

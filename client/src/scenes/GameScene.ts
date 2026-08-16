@@ -43,7 +43,7 @@ import { SaveLoadPanel } from "../ui/SaveLoadPanel";
 import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
 import { ExperienceHud } from "../ui/ExperienceHud";
-import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES } from "../ui/ShopPanel";
+import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES, getDailySpecialItem, getEffectiveSellPrice } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
 import { ActionButton } from "../ui/ActionButton";
 import { SprintButton } from "../ui/SprintButton";
@@ -1018,11 +1018,13 @@ export class GameScene extends Phaser.Scene {
   // ---------- ショップ ----------
 
   private handleSell(itemId: ItemId): void {
-    const price = SHOP_SELL_PRICES[itemId];
-    if (!price) return;
+    if (SHOP_SELL_PRICES[itemId] === undefined) return;
+    const now = Date.now();
+    const price = getEffectiveSellPrice(itemId, now);
     if (!this.inventory.spend({ [itemId]: 1 } as Partial<Record<ItemId, number>>)) return;
     this.inventory.add("coin", price);
-    this.showFloatingMessage(`売った(+${price} 💰)`);
+    const isSpecial = itemId === getDailySpecialItem(now);
+    this.showFloatingMessage(isSpecial ? `⭐本日のおすすめ!売った(+${price} 💰)` : `売った(+${price} 💰)`);
   }
 
   private handleBuy(itemId: ItemId): void {
