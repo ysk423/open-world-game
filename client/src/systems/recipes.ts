@@ -24,7 +24,8 @@ export type RecipeEffect =
   | { type: "tool"; toolId: ToolId }
   | { type: "item"; itemId: ItemId; amount: number }
   | { type: "upgrade"; weaponId: WeaponId }
-  | { type: "armor"; armorId: ArmorId };
+  | { type: "armor"; armorId: ArmorId }
+  | { type: "enchant"; weaponId: WeaponId };
 
 export type Recipe = {
   id: string;
@@ -183,6 +184,18 @@ export const RECIPES: Recipe[] = [
     name: "石の剣を強化(+1攻撃力)",
     inputs: { stone: 4, coin: 3 },
     effect: { type: "upgrade", weaponId: "stone_sword" },
+  },
+  {
+    id: "enchant_knockback_wooden_sword",
+    name: "木の剣にノックバックのエンチャント",
+    inputs: { herb: 3, coin: 5 },
+    effect: { type: "enchant", weaponId: "wooden_sword" },
+  },
+  {
+    id: "enchant_knockback_stone_sword",
+    name: "石の剣にノックバックのエンチャント",
+    inputs: { herb: 3, coin: 5 },
+    effect: { type: "enchant", weaponId: "stone_sword" },
   },
   {
     id: "leather_armor",

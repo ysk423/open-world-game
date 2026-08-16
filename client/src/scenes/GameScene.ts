@@ -20,7 +20,7 @@ import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
-import { Equipment } from "../systems/Equipment";
+import { Equipment, KNOCKBACK_DISTANCE } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
 import { Storage } from "../systems/Storage";
@@ -390,6 +390,7 @@ export class GameScene extends Phaser.Scene {
       () => new Set(this.tools.getOwned()),
       (weaponId) => this.equipment.getUpgradeLevel(weaponId),
       () => new Set(this.equipment.getOwnedArmor()),
+      (weaponId) => this.equipment.hasKnockbackEnchant(weaponId),
       (recipe) => this.handleCraft(recipe),
     );
     new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId), (armorId) =>
@@ -1026,6 +1027,13 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "armor" && this.equipment.getOwnedArmor().includes(recipe.effect.armorId)) {
       return;
     }
+    if (
+      recipe.effect.type === "enchant" &&
+      (!this.equipment.getOwned().includes(recipe.effect.weaponId) ||
+        this.equipment.hasKnockbackEnchant(recipe.effect.weaponId))
+    ) {
+      return;
+    }
 
     if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
       this.handleCraftBridge(recipe.name, recipe.inputs);
@@ -1063,6 +1071,14 @@ export class GameScene extends Phaser.Scene {
       this.craftMenu.refresh();
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`${recipe.name}を作った!`);
+      return;
+    }
+
+    if (recipe.effect.type === "enchant") {
+      this.equipment.enchantKnockback(recipe.effect.weaponId);
+      this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage("✨ ノックバックのエンチャントを付与した!");
       return;
     }
 
@@ -1233,6 +1249,18 @@ export class GameScene extends Phaser.Scene {
       (pet) => Phaser.Math.Distance.Between(pet.sprite.x, pet.sprite.y, x, y) <= PET_ASSIST_RADIUS,
     );
     return assisting ? PET_ASSIST_DAMAGE_BONUS : 0;
+  }
+
+  /** マインクラフト風のノックバックエンチャントを付与した武器を装備していれば、モンスターを弾き飛ばす */
+  private applyKnockbackIfEnchanted(monster: Monster): void {
+    if (!this.equipment.hasKnockbackEnchant(this.equipment.getEquipped())) return;
+    const angle = Phaser.Math.Angle.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      monster.sprite.x,
+      monster.sprite.y,
+    );
+    monster.knockback(Math.cos(angle), Math.sin(angle), KNOCKBACK_DISTANCE);
   }
 
   /** (x, y)が納屋の近くかどうか。相棒のミルク生産速度に反映する */
@@ -1446,6 +1474,7 @@ export class GameScene extends Phaser.Scene {
       const monster = closest.obj;
       const { damage, isCrit } = this.computeAttackDamage();
       const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
+      this.applyKnockbackIfEnchanted(monster);
       const died = monster.takeDamage(this, damage + assistBonus);
       if (isCrit) this.showFloatingMessage("💥 会心の一撃!");
       if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
@@ -2191,6 +2220,7 @@ export class GameScene extends Phaser.Scene {
     const monster = closest;
     const { damage, isCrit } = this.computeAttackDamage(SKILL_DAMAGE_MULTIPLIER);
     const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
+    this.applyKnockbackIfEnchanted(monster);
     this.showFloatingMessage(isCrit ? "💥 とくぎ発動!さらに会心の一撃!" : "💥 とくぎ発動!");
     if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
     const died = monster.takeDamage(this, damage + assistBonus);

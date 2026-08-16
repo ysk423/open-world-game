@@ -31,6 +31,7 @@ export class CraftMenu {
   private getOwnedTools: () => ReadonlySet<ToolId>;
   private getUpgradeLevel: (weaponId: WeaponId) => number;
   private getOwnedArmor: () => ReadonlySet<ArmorId>;
+  private getHasEnchant: (weaponId: WeaponId) => boolean;
   private onCraft: (recipe: Recipe) => void;
 
   constructor(
@@ -39,6 +40,7 @@ export class CraftMenu {
     getOwnedTools: () => ReadonlySet<ToolId>,
     getUpgradeLevel: (weaponId: WeaponId) => number,
     getOwnedArmor: () => ReadonlySet<ArmorId>,
+    getHasEnchant: (weaponId: WeaponId) => boolean,
     onCraft: (recipe: Recipe) => void,
   ) {
     this.inventory = inventory;
@@ -46,6 +48,7 @@ export class CraftMenu {
     this.getOwnedTools = getOwnedTools;
     this.getUpgradeLevel = getUpgradeLevel;
     this.getOwnedArmor = getOwnedArmor;
+    this.getHasEnchant = getHasEnchant;
     this.onCraft = onCraft;
 
     this.toggleButton = document.createElement("button");
@@ -92,12 +95,17 @@ export class CraftMenu {
         (recipe.effect.type === "tool" && ownedTools.has(recipe.effect.toolId)) ||
         (recipe.effect.type === "armor" && ownedArmor.has(recipe.effect.armorId));
       const weaponNotOwnedForUpgrade =
-        recipe.effect.type === "upgrade" && !ownedWeapons.has(recipe.effect.weaponId);
+        (recipe.effect.type === "upgrade" || recipe.effect.type === "enchant") &&
+        !ownedWeapons.has(recipe.effect.weaponId);
       const atMaxUpgrade =
         recipe.effect.type === "upgrade" &&
         !weaponNotOwnedForUpgrade &&
         this.getUpgradeLevel(recipe.effect.weaponId) >= MAX_WEAPON_UPGRADE_LEVEL;
-      const blocked = alreadyOwned || weaponNotOwnedForUpgrade || atMaxUpgrade;
+      const alreadyEnchanted =
+        recipe.effect.type === "enchant" &&
+        !weaponNotOwnedForUpgrade &&
+        this.getHasEnchant(recipe.effect.weaponId);
+      const blocked = alreadyOwned || weaponNotOwnedForUpgrade || atMaxUpgrade || alreadyEnchanted;
       const canAfford = !blocked && this.inventory.canAfford(recipe.inputs);
 
       const card = document.createElement("div");
@@ -125,7 +133,9 @@ export class CraftMenu {
           ? "武器が必要"
           : atMaxUpgrade
             ? "最大まで強化済み"
-            : "作る";
+            : alreadyEnchanted
+              ? "付与済み"
+              : "作る";
       button.disabled = blocked || !canAfford;
       button.addEventListener("click", () => this.onCraft(recipe));
       card.appendChild(button);
