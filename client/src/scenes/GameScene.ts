@@ -14,7 +14,7 @@ import { Monster } from "../entities/Monster";
 import { Animal, NICKNAME_MAX_LENGTH } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
 import { Shop } from "../entities/Shop";
-import { RoomClient } from "../net/RoomClient";
+import { RoomClient, requestGameReset } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
@@ -31,6 +31,7 @@ import { Affinity, AFFINITY_MILESTONE_STEP } from "../systems/Affinity";
 import { Stats } from "../systems/Stats";
 import { StatsPanel } from "../ui/StatsPanel";
 import { ACHIEVEMENTS } from "../systems/Achievements";
+import { recordSurvivalMs, formatSurvivalTime, getBestSurvivalMs } from "../systems/SurvivalRecord";
 import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../systems/AchievementReward";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
@@ -366,12 +367,16 @@ export class GameScene extends Phaser.Scene {
   private beehiveHarvestedAt = new Map<Building, number>();
   private animalShearedAt = new Map<Animal, number>();
   private lastHotSpringDayIndex = -1;
+  private survivalStartedAt = Date.now();
+  private gameOverOverlay?: HTMLDivElement;
+  private survivalTimerHud?: HTMLDivElement;
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private boss: Monster | null = null;
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
   private pets: Animal[] = [];
+  private boxedPets: Animal[] = [];
   private petsWaiting = false;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
@@ -508,6 +513,17 @@ export class GameScene extends Phaser.Scene {
       if (this.compassHud) this.compassHud.style.display = owned.has("compass") ? "block" : "none";
     });
 
+    // 死亡=ゲームオーバーを参考に、気絶した時に生存時間と自己ベストを表示するオーバーレイ
+    this.gameOverOverlay = document.createElement("div");
+    this.gameOverOverlay.id = "game-over-overlay";
+    this.gameOverOverlay.style.display = "none";
+    document.body.appendChild(this.gameOverOverlay);
+
+    // 生存時間を常に表示し、自己ベスト更新を目指すサバイバル要素にする
+    this.survivalTimerHud = document.createElement("div");
+    this.survivalTimerHud.id = "survival-timer-hud";
+    document.body.appendChild(this.survivalTimerHud);
+
     if (!this.sound.get("bgm")) {
       this.sound.play("bgm", { loop: true, volume: 0.25 });
     }
@@ -610,6 +626,8 @@ export class GameScene extends Phaser.Scene {
         this.beds = [];
         for (const pet of this.pets) pet.destroy();
         this.pets = [];
+        for (const pet of this.boxedPets) pet.destroy();
+        this.boxedPets = [];
         this.shippingBinPendingValue = 0;
         this.lastHotSpringDayIndex = -1;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
@@ -627,6 +645,8 @@ export class GameScene extends Phaser.Scene {
         this.handTorchGlow = undefined;
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
+        this.survivalStartedAt = Date.now();
+        this.hideGameOverOverlay();
       },
       onGameLoaded: (slot, buildings) => {
         for (const building of this.buildings) {
@@ -745,6 +765,7 @@ export class GameScene extends Phaser.Scene {
     this.updateMinimap();
     this.updatePoison();
     this.updateCompass();
+    this.updateSurvivalTimer();
 
     this.sinceLastSend += delta;
     if (this.sinceLastSend >= NETWORK_TICK_MS) {
@@ -848,6 +869,16 @@ export class GameScene extends Phaser.Scene {
     const angleDeg = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
     const index = Math.round(((angleDeg + 360) % 360) / 45) % 8;
     this.compassHud.textContent = `🧭 拠点まで ${COMPASS_DIRECTIONS[index]} ${distanceInTiles}マス`;
+  }
+
+  private updateSurvivalTimer(): void {
+    if (!this.survivalTimerHud) return;
+    const survivedMs = Date.now() - this.survivalStartedAt;
+    const bestMs = getBestSurvivalMs();
+    this.survivalTimerHud.textContent =
+      bestMs > 0
+        ? `⏱️ ${formatSurvivalTime(survivedMs)}(自己ベスト ${formatSurvivalTime(bestMs)})`
+        : `⏱️ ${formatSurvivalTime(survivedMs)}`;
   }
 
   private ensureRainDropTexture(): void {
@@ -1518,7 +1549,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 気絶した時の共通処理。不死のトーテムを持っていれば消費してHP1で復活し、なければ拠点に戻る */
+  /** 気絶した時の共通処理。不死のトーテムを持っていれば消費してHP1で復活し、なければゲームオーバー */
   private handlePlayerDefeated(): void {
     if (this.inventory.spend({ totem: 1 } as Partial<Record<ItemId, number>>)) {
       this.health.heal(TOTEM_REVIVE_HP);
@@ -1528,19 +1559,43 @@ export class GameScene extends Phaser.Scene {
       this.showFloatingMessage("✨ 不死のトーテムの力で復活した!");
       return;
     }
-    this.respawnAtBase();
+    this.triggerGameOver();
   }
 
-  private respawnAtBase(): void {
-    this.cameras.main.fadeOut(200, 0, 0, 0);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-      body.reset(this.respawnPoint.x, this.respawnPoint.y);
-      this.health.reset();
-      this.poisonedUntil = 0;
-      this.cameras.main.fadeIn(200, 0, 0, 0);
-      this.showFloatingMessage("気を失った…拠点で目が覚めた");
-    });
+  /** 死亡=ゲームオーバー。生存時間を記録して表示し、共有ワールド全体をリセットする */
+  private triggerGameOver(): void {
+    const survivedMs = Date.now() - this.survivalStartedAt;
+    const { isNewBest, best } = recordSurvivalMs(survivedMs);
+    this.showGameOverOverlay(survivedMs, best, isNewBest);
+    void requestGameReset(SHARED_ROOM_ID);
+  }
+
+  private showGameOverOverlay(survivedMs: number, bestMs: number, isNewBest: boolean): void {
+    if (!this.gameOverOverlay) return;
+    this.gameOverOverlay.innerHTML = "";
+
+    const title = document.createElement("h1");
+    title.textContent = "GAME OVER";
+    this.gameOverOverlay.appendChild(title);
+
+    const survived = document.createElement("p");
+    survived.textContent = `生存時間: ${formatSurvivalTime(survivedMs)}`;
+    this.gameOverOverlay.appendChild(survived);
+
+    const bestLine = document.createElement("p");
+    bestLine.textContent = isNewBest ? `🏆 自己ベスト更新!(${formatSurvivalTime(bestMs)})` : `自己ベスト: ${formatSurvivalTime(bestMs)}`;
+    this.gameOverOverlay.appendChild(bestLine);
+
+    const note = document.createElement("p");
+    note.className = "game-over-note";
+    note.textContent = "拠点をリセットしています…";
+    this.gameOverOverlay.appendChild(note);
+
+    this.gameOverOverlay.style.display = "flex";
+  }
+
+  private hideGameOverOverlay(): void {
+    if (this.gameOverOverlay) this.gameOverOverlay.style.display = "none";
   }
 
   // ---------- 毒(状態異常) ----------
@@ -2240,6 +2295,53 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 相棒ボックス(相棒を預ける/呼び戻す) ----------
+
+  private tryPetBox(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "pet_box") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (this.pets.length > 0) {
+      const pet = this.pets.shift()!;
+      pet.box();
+      this.boxedPets.push(pet);
+      const label = pet.petNickname ?? "相棒";
+      this.showFloatingMessage(`📦 ${label}をボックスに預けた`);
+      return true;
+    }
+
+    if (this.boxedPets.length > 0) {
+      const pet = this.boxedPets.pop()!;
+      pet.release(this, closest.sprite.x, closest.sprite.y);
+      this.pets.push(pet);
+      const label = pet.petNickname ?? "相棒";
+      this.showFloatingMessage(`📦 ${label}をボックスから呼び出した`);
+      return true;
+    }
+
+    this.showFloatingMessage("ボックスは空だ");
+    return true;
+  }
+
   // ---------- 蜂の巣(時間経過ではちみつが貯まるが、収穫時にまれに刺される) ----------
 
   private tryBeehive(point: ActionPoint): boolean {
@@ -2364,6 +2466,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.tryBeehive(point)) return;
+    if (this.tryPetBox(point)) return;
     if (this.trySignpost(point)) return;
     if (this.tryCustomSign(point)) return;
     if (this.tryFarm(point)) return;

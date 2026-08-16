@@ -20,7 +20,8 @@ export type BuildingType =
   | "custom_sign"
   | "beehive"
   | "hot_spring"
-  | "scarecrow";
+  | "scarecrow"
+  | "pet_box";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -146,6 +147,12 @@ export const RECIPES: Recipe[] = [
     name: "看板(自分の好きな言葉を書き込める)",
     inputs: { wood: 2 },
     effect: { type: "building", buildingType: "custom_sign" },
+  },
+  {
+    id: "pet_box",
+    name: "相棒ボックス(相棒を預ける/呼び戻す。預ければ別の動物をなつかせられる)",
+    inputs: { wood: 3, stone: 1 },
+    effect: { type: "building", buildingType: "pet_box" },
   },
   {
     id: "scarecrow",
