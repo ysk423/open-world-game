@@ -1,11 +1,12 @@
 import Phaser from "phaser";
 
 const ICON_TEXTURE_KEY = "torch-icon";
-const GLOW_TEXTURE_KEY = "torch-glow";
+export const TORCH_GLOW_TEXTURE_KEY = "torch-glow";
+const GLOW_TEXTURE_KEY = TORCH_GLOW_TEXTURE_KEY;
 const GLOW_RADIUS = 140;
 
-/** 一度だけテクスチャを生成する(全てのたいまつで使い回す) */
-function ensureTextures(scene: Phaser.Scene): void {
+/** 一度だけテクスチャを生成する(全てのたいまつで使い回す)。手持ちのたいまつからも呼ばれる */
+export function ensureTorchTextures(scene: Phaser.Scene): void {
   if (!scene.textures.exists(ICON_TEXTURE_KEY)) {
     const g = scene.add.graphics();
     g.fillStyle(0x4a2f14, 1);
@@ -51,7 +52,7 @@ export class Torch {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.worldX = x;
     this.worldY = y;
-    ensureTextures(scene);
+    ensureTorchTextures(scene);
 
     this.glowSprite = scene.add.image(x, y, GLOW_TEXTURE_KEY);
     this.glowSprite.setBlendMode(Phaser.BlendModes.ADD);

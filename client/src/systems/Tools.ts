@@ -1,7 +1,7 @@
-export type ToolId = "axe" | "pickaxe" | "wateringCan" | "bicycle";
+export type ToolId = "axe" | "pickaxe" | "wateringCan" | "bicycle" | "handTorch";
 
 const TOOLS_STORAGE_KEY = "open-world-game:tools";
-const TOOL_IDS: ToolId[] = ["axe", "pickaxe", "wateringCan", "bicycle"];
+const TOOL_IDS: ToolId[] = ["axe", "pickaxe", "wateringCan", "bicycle", "handTorch"];
 
 type Listener = (owned: ReadonlySet<ToolId>) => void;
 
@@ -10,9 +10,10 @@ function isToolId(value: unknown): value is ToolId {
 }
 
 /**
- * マインクラフトの斧・つるはしや牧場物語のじょうろ、ポケモンの自転車を参考にした道具。武器と違って
- * 「装備」の概念はなく、一度作れば恒久的に効果を発揮する(斧→木材採集量アップ、つるはし→石採集量アップ、
- * じょうろ→畑に水をあげて成長を早める、自転車→スタミナを消費せずダッシュし続けられる)。
+ * マインクラフトの斧・つるはし・たいまつや牧場物語のじょうろ、ポケモンの自転車を参考にした道具。
+ * 武器と違って「装備」の概念はなく、一度作れば恒久的に効果を発揮する(斧→木材採集量アップ、
+ * つるはし→石採集量アップ、じょうろ→畑に水をあげて成長を早める、自転車→スタミナを消費せずダッシュし
+ * 続けられる、手持ちのたいまつ→夜、常にプレイヤーの周囲を照らす)。
  */
 export class Tools {
   private owned = new Set<ToolId>();

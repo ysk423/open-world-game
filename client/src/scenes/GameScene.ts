@@ -7,7 +7,7 @@ import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
 import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
-import { Torch } from "../entities/Torch";
+import { Torch, ensureTorchTextures, TORCH_GLOW_TEXTURE_KEY } from "../entities/Torch";
 import { Bed } from "../entities/Bed";
 import { Chest } from "../entities/Chest";
 import { Monster } from "../entities/Monster";
@@ -245,6 +245,7 @@ export class GameScene extends Phaser.Scene {
   private pet: Animal | null = null;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
+  private handTorchGlow?: Phaser.GameObjects.Image;
   private beds: Bed[] = [];
   private chests: Chest[] = [];
   private respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
@@ -447,6 +448,8 @@ export class GameScene extends Phaser.Scene {
         this.tools.reset();
         this.quests.reset();
         this.affinity.reset();
+        this.handTorchGlow?.destroy();
+        this.handTorchGlow = undefined;
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
       },
@@ -567,6 +570,16 @@ export class GameScene extends Phaser.Scene {
     const progress = getCycleProgress(Date.now());
     const intensity = getNightIntensity(progress);
     this.nightOverlay.setFillStyle(NIGHT_OVERLAY_COLOR, intensity * NIGHT_OVERLAY_MAX_ALPHA);
+
+    if (this.tools.has("handTorch")) {
+      if (!this.handTorchGlow) {
+        ensureTorchTextures(this);
+        this.handTorchGlow = this.add.image(this.player.sprite.x, this.player.sprite.y, TORCH_GLOW_TEXTURE_KEY);
+        this.handTorchGlow.setBlendMode(Phaser.BlendModes.ADD);
+        this.handTorchGlow.setDepth(16);
+      }
+      this.handTorchGlow.setPosition(this.player.sprite.x, this.player.sprite.y);
+    }
   }
 
   // ---------- 天候(雨) ----------
