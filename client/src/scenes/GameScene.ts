@@ -119,6 +119,8 @@ const ANIMAL_EXP = 4;
 // はぐれメタル/色違い風の「レアモンスター」の出現率と報酬倍率
 const RARE_MONSTER_CHANCE = 0.1;
 const RARE_MONSTER_REWARD_MULTIPLIER = 3;
+// DQ/ポケモン風に、夜はレアモンスターが出やすくなる
+const NIGHT_RARE_MONSTER_MULTIPLIER = 1.5;
 
 // マインクラフトのスライムを参考に、通常モンスターは倒すと2体の子スライムに分裂する
 const SLIME_SPLIT_COUNT = 2;
@@ -856,7 +858,10 @@ export class GameScene extends Phaser.Scene {
   // ---------- モンスター ----------
 
   private spawnMonster(x: number, y: number, isBoss = false, isMini = false): void {
-    const isRare = !isBoss && !isMini && Math.random() < RARE_MONSTER_CHANCE;
+    const rareChance = isNight(getCycleProgress(Date.now()))
+      ? RARE_MONSTER_CHANCE * NIGHT_RARE_MONSTER_MULTIPLIER
+      : RARE_MONSTER_CHANCE;
+    const isRare = !isBoss && !isMini && Math.random() < rareChance;
     const monster = new Monster(this, x, y, isRare, isBoss, isMini);
     this.monsters.push(monster);
     if (isBoss) this.boss = monster;
