@@ -27,6 +27,10 @@ const PET_LEVEL_UP_EVERY_COLLECTIONS = 3;
 const PET_MAX_LEVEL = 5;
 const PET_LEVEL_SPEED_MULTIPLIER = 0.85;
 
+// ポケモン風の「しんか」。最大レベルに達すると見た目が一回り大きく、金色に輝くようになる
+const EVOLVE_SCALE = 1.35;
+const EVOLVE_TINT = 0xffd700;
+
 /** 動物。モンスターと違い接触してもプレイヤーにダメージを与えない。倒すと肉をドロップする。
  * 餌付けでなつくと相棒になり、以後はプレイヤーを追いかけるようになる */
 export class Animal {
@@ -41,6 +45,7 @@ export class Animal {
   private hasProduce = false;
   private level = 1;
   private collectedCount = 0;
+  private evolved = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, isShiny = false) {
     this.worldX = x;
@@ -70,13 +75,23 @@ export class Animal {
     return this.level;
   }
 
+  get isEvolved(): boolean {
+    return this.evolved;
+  }
+
+  /** 追いかけている間の色味。しんか済みなら金色を優先し、それ以外は色違い/通常の色味を使う */
+  private followTint(): number {
+    if (this.evolved) return EVOLVE_TINT;
+    return this.isShiny ? SHINY_FOLLOW_TINT : FOLLOW_TINT;
+  }
+
   /** 餌付けでなついた時に呼ぶ。以後はさまよう代わりにプレイヤーを追いかけ、定期的にミルクを用意する */
   startFollowing(scene: Phaser.Scene): void {
     this.following = true;
     this.wanderTimer?.remove();
     this.wanderTimer = undefined;
     this.sprite.setVelocity(0, 0);
-    this.sprite.setTint(this.isShiny ? SHINY_FOLLOW_TINT : FOLLOW_TINT);
+    this.sprite.setTint(this.followTint());
     this.scheduleProduce(scene);
   }
 
@@ -91,20 +106,34 @@ export class Animal {
 
   /** 用意できたミルクを集める。用意ができていなければ何もせず{collected:false}を返す。
    * 集めるたびに経験を積み、一定回数ごとにレベルアップして生産速度が上がる */
-  collectProduce(scene: Phaser.Scene): { collected: boolean; leveledUp: boolean } {
-    if (!this.hasProduce) return { collected: false, leveledUp: false };
+  collectProduce(scene: Phaser.Scene): { collected: boolean; leveledUp: boolean; evolved: boolean } {
+    if (!this.hasProduce) return { collected: false, leveledUp: false, evolved: false };
     this.hasProduce = false;
-    this.sprite.setTint(this.isShiny ? SHINY_FOLLOW_TINT : FOLLOW_TINT);
 
     this.collectedCount += 1;
     let leveledUp = false;
+    let justEvolved = false;
     if (this.level < PET_MAX_LEVEL && this.collectedCount % PET_LEVEL_UP_EVERY_COLLECTIONS === 0) {
       this.level += 1;
       leveledUp = true;
+      if (this.level === PET_MAX_LEVEL) {
+        this.evolved = true;
+        justEvolved = true;
+        this.sprite.setScale(EVOLVE_SCALE);
+        scene.tweens.add({
+          targets: this.sprite,
+          scaleX: EVOLVE_SCALE * 1.2,
+          scaleY: EVOLVE_SCALE * 1.2,
+          duration: 200,
+          yoyo: true,
+          repeat: 1,
+        });
+      }
     }
+    this.sprite.setTint(this.followTint());
 
     this.scheduleProduce(scene);
-    return { collected: true, leveledUp };
+    return { collected: true, leveledUp, evolved: justEvolved };
   }
 
   /** 相棒になった後、毎フレーム呼んでプレイヤーを追いかけさせる */

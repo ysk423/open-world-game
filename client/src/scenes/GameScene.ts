@@ -1331,7 +1331,9 @@ export class GameScene extends Phaser.Scene {
           this.stats.recordGather("milk", 1);
           this.showGatherFeedback(closestPet.sprite.x, closestPet.sprite.y, "milk", 1);
           this.sound.play("sfx-gather", { volume: 0.5 });
-          if (result.leveledUp) {
+          if (result.evolved) {
+            this.showFloatingMessage("✨ 相棒がしんかした!");
+          } else if (result.leveledUp) {
             this.showFloatingMessage(`🎉 相棒がレベルアップ!(Lv.${closestPet.petLevel})`);
           }
         } else {
