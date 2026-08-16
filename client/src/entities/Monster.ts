@@ -13,9 +13,11 @@ const WANDER_DELAY_MAX_MS = 3500;
 const RARE_TINT = 0xffd700;
 export const RARE_HP_MULTIPLIER = 3;
 
-// DQ風の「フィールドボス」。常にワールドに1体だけ存在し、通常より大きく・強く・高報酬にする
+// DQ風の「フィールドボス」。常にワールドに1体だけ存在し、通常より大きく・強く・高報酬にする。
+// 倒すたびに次のボスが少しずつ強くなる(NewGame+/エンドレスモード風の難易度上昇)
 const BOSS_TINT = 0xdc2626;
 export const BOSS_HP_MULTIPLIER = 8;
+export const BOSS_TIER_HP_STEP = 0.5;
 const BOSS_SCALE = 1.7;
 
 // マインクラフトのスライムを参考に、通常の個体は倒すと一回り小さい「子スライム」に分裂する
@@ -30,20 +32,37 @@ export class Monster {
   readonly isRare: boolean;
   readonly isBoss: boolean;
   readonly isMini: boolean;
+  /** ボスを倒した累計回数。次に出現するボスの強さ・報酬に反映される(0が初回) */
+  readonly bossTier: number;
   /** 倒した時に子スライムへ分裂するかどうか(ボス・レア・分裂済みの子は分裂しない) */
   readonly canSplit: boolean;
   private hp: number;
   private wanderTimer?: Phaser.Time.TimerEvent;
   private nameLabel?: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, isRare = false, isBoss = false, isMini = false) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    isRare = false,
+    isBoss = false,
+    isMini = false,
+    bossTier = 0,
+  ) {
     this.worldX = x;
     this.worldY = y;
     this.isRare = isRare;
     this.isBoss = isBoss;
     this.isMini = isMini;
+    this.bossTier = bossTier;
     this.canSplit = !isBoss && !isRare && !isMini;
-    this.hp = isBoss ? MAX_HP * BOSS_HP_MULTIPLIER : isRare ? MAX_HP * RARE_HP_MULTIPLIER : isMini ? MINI_HP : MAX_HP;
+    this.hp = isBoss
+      ? Math.round(MAX_HP * BOSS_HP_MULTIPLIER * (1 + bossTier * BOSS_TIER_HP_STEP))
+      : isRare
+        ? MAX_HP * RARE_HP_MULTIPLIER
+        : isMini
+          ? MINI_HP
+          : MAX_HP;
     this.sprite = scene.physics.add.sprite(x, y, "monster", 0);
     this.sprite.setDepth(6);
     this.sprite.setImmovable(true);
@@ -52,8 +71,9 @@ export class Monster {
     if (baseScale !== 1) this.sprite.setScale(baseScale);
     if (isBoss) {
       this.sprite.setTint(BOSS_TINT);
+      const label = bossTier > 0 ? `👑 ボス Lv.${bossTier + 1}` : "👑 ボス";
       this.nameLabel = scene.add
-        .text(x, y - 24, "👑 ボス", { fontSize: "9px", color: "#ffffff" })
+        .text(x, y - 24, label, { fontSize: "9px", color: "#ffffff" })
         .setOrigin(0.5, 1)
         .setDepth(6);
     } else if (isRare) {

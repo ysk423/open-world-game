@@ -147,8 +147,10 @@ const FISH_COOLDOWN_MS = 1500;
 const FISH_SUCCESS_CHANCE = 0.6;
 const FISH_EXP = 4;
 
-// DQ風のフィールドボス。常に1体だけワールドに存在し、倒すと大きな報酬をもたらす
+// DQ風のフィールドボス。常に1体だけワールドに存在し、倒すと大きな報酬をもたらす。
+// 倒すたびに次のボスが強くなる分、報酬も上乗せする
 const BOSS_REWARD_MULTIPLIER = 10;
+const BOSS_TIER_REWARD_STEP = 0.5;
 const BOSS_RESPAWN_DELAY_MS = 90000;
 
 // 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
@@ -863,12 +865,12 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- モンスター ----------
 
-  private spawnMonster(x: number, y: number, isBoss = false, isMini = false): void {
+  private spawnMonster(x: number, y: number, isBoss = false, isMini = false, bossTier = 0): void {
     const rareChance = isNight(getCycleProgress(Date.now()))
       ? RARE_MONSTER_CHANCE * NIGHT_RARE_MONSTER_MULTIPLIER
       : RARE_MONSTER_CHANCE;
     const isRare = !isBoss && !isMini && Math.random() < rareChance;
-    const monster = new Monster(this, x, y, isRare, isBoss, isMini);
+    const monster = new Monster(this, x, y, isRare, isBoss, isMini, bossTier);
     this.monsters.push(monster);
     if (isBoss) this.boss = monster;
     if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
@@ -880,11 +882,11 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  private scheduleBossRespawn(): void {
+  private scheduleBossRespawn(bossTier: number): void {
     this.time.delayedCall(BOSS_RESPAWN_DELAY_MS, () => {
       const pos = this.pickRandomWalkableWorldPos();
       if (!pos) return;
-      this.spawnMonster(pos.x, pos.y, true);
+      this.spawnMonster(pos.x, pos.y, true, false, bossTier);
     });
   }
 
@@ -1211,7 +1213,7 @@ export class GameScene extends Phaser.Scene {
   private resolveMonsterDeath(monster: Monster): void {
     this.monsters = this.monsters.filter((m) => m !== monster);
     const rewardMultiplier = monster.isBoss
-      ? BOSS_REWARD_MULTIPLIER
+      ? BOSS_REWARD_MULTIPLIER * (1 + monster.bossTier * BOSS_TIER_REWARD_STEP)
       : monster.isRare
         ? RARE_MONSTER_REWARD_MULTIPLIER
         : monster.isMini
@@ -1226,7 +1228,7 @@ export class GameScene extends Phaser.Scene {
     monster.destroy();
     if (monster.isBoss) {
       this.boss = null;
-      this.scheduleBossRespawn();
+      this.scheduleBossRespawn(monster.bossTier + 1);
     } else if (!monster.isMini) {
       this.scheduleMonsterRespawn();
     }
