@@ -33,6 +33,7 @@ function emptySnapshot(): StatsSnapshot {
       cooked_fish: 0,
       honey: 0,
       iron_ingot: 0,
+      wool: 0,
     },
     monstersDefeated: 0,
     rareMonstersDefeated: 0,

@@ -182,6 +182,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "tool", toolId: "bicycle" },
   },
   {
+    id: "shears",
+    name: "ハサミ(野生動物を倒さずに毛を刈って羊毛を集められる)",
+    inputs: { stone: 2, wood: 1 },
+    effect: { type: "tool", toolId: "shears" },
+  },
+  {
     id: "compass",
     name: "コンパス(拠点への方角と距離が常に画面に表示される)",
     inputs: { iron_ingot: 1, wood: 1 },

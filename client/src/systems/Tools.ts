@@ -7,7 +7,8 @@ export type ToolId =
   | "enderChest"
   | "shield"
   | "enderPearl"
-  | "compass";
+  | "compass"
+  | "shears";
 
 const TOOLS_STORAGE_KEY = "open-world-game:tools";
 const TOOL_IDS: ToolId[] = [
@@ -20,6 +21,7 @@ const TOOL_IDS: ToolId[] = [
   "shield",
   "enderPearl",
   "compass",
+  "shears",
 ];
 
 type Listener = (owned: ReadonlySet<ToolId>) => void;
@@ -35,7 +37,8 @@ function isToolId(value: unknown): value is ToolId {
  * 続けられる、手持ちのたいまつ→夜、常にプレイヤーの周囲を照らす、エンダーチェスト→どこからでも倉庫を開ける、
  * 盾→Bキーを押している間、スタミナと引き換えにモンスターの接触ダメージを完全に防ぐ、
  * エンダーパール→右クリックした地点へコインを消費して瞬間移動できる、
- * コンパス→拠点(ベッド地点)への方角と距離が画面に表示され続ける)。
+ * コンパス→拠点(ベッド地点)への方角と距離が画面に表示され続ける、
+ * ハサミ→野生動物を倒さずに毛を刈って羊毛を集められる)。
  */
 export class Tools {
   private owned = new Set<ToolId>();

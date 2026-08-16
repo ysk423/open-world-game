@@ -190,6 +190,10 @@ const SHIELD_BLOCK_STAMINA_COST = 15;
 // (Math.atan2の角度0=東として時計回りに8方向を並べている)
 const COMPASS_DIRECTIONS = ["東", "南東", "南", "南西", "西", "北西", "北", "北東"];
 
+// マインクラフトのハサミを参考に、野生動物を倒さずに毛を刈って羊毛を集められる
+const SHEAR_COOLDOWN_MS = 15000;
+const SHEAR_WOOL_AMOUNT = 1;
+
 // マインクラフトのエンダーパールを参考に、右クリックした地点へコインを払って瞬間移動する
 // (ルーラと違い拠点固定ではなく、見えている範囲の好きな場所へ飛べる)
 const ENDER_PEARL_COST = 5;
@@ -290,6 +294,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   cooked_fish: "🍢",
   honey: "🍯",
   iron_ingot: "🔩",
+  wool: "🧶",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -334,6 +339,7 @@ export class GameScene extends Phaser.Scene {
   private buildingSprites: Building[] = [];
   private flowerBedPlantedAt = new Map<Building, number>();
   private beehiveHarvestedAt = new Map<Building, number>();
+  private animalShearedAt = new Map<Animal, number>();
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private boss: Monster | null = null;
@@ -560,6 +566,7 @@ export class GameScene extends Phaser.Scene {
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
         this.beehiveHarvestedAt.clear();
+        this.animalShearedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -594,6 +601,7 @@ export class GameScene extends Phaser.Scene {
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
         this.beehiveHarvestedAt.clear();
+        this.animalShearedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
@@ -1600,6 +1608,23 @@ export class GameScene extends Phaser.Scene {
     }
 
     const animal = closest.obj;
+
+    // マインクラフトのハサミを参考に、ハサミを持っていれば野生動物を倒さずに毛を刈って羊毛を集められる
+    if (this.tools.has("shears")) {
+      const now = this.time.now;
+      const lastSheared = this.animalShearedAt.get(animal) ?? 0;
+      if (now - lastSheared < SHEAR_COOLDOWN_MS) {
+        this.showFloatingMessage("🐑 まだ毛が伸びていない…");
+        return true;
+      }
+      this.animalShearedAt.set(animal, now);
+      this.inventory.add("wool", SHEAR_WOOL_AMOUNT);
+      this.stats.recordGather("wool", SHEAR_WOOL_AMOUNT);
+      this.sound.play("sfx-gather", { volume: 0.5 });
+      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "wool", SHEAR_WOOL_AMOUNT);
+      this.showFloatingMessage("✂️ 毛を刈った!");
+      return true;
+    }
 
     // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる。
     // ポケモン風のパーティを参考に、なついた動物はその場で消える代わりにプレイヤーについてくる
