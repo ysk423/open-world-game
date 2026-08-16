@@ -222,6 +222,28 @@ export class Animal {
     return this.isDead;
   }
 
+  /** ポケモン風のボックスを参考に、相棒を一時的にしまう(生産を止め、姿を消す) */
+  box(): void {
+    this.produceTimer?.remove();
+    this.produceTimer = undefined;
+    this.sprite.setActive(false);
+    this.sprite.setVisible(false);
+    this.nicknameLabel?.setVisible(false);
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body | null;
+    if (body) body.enable = false;
+  }
+
+  /** ボックスにしまった相棒を(x, y)に呼び戻す。レベルやニックネームは保持されたまま復帰する */
+  release(scene: Phaser.Scene, x: number, y: number): void {
+    this.sprite.setPosition(x, y);
+    this.sprite.setActive(true);
+    this.sprite.setVisible(true);
+    this.nicknameLabel?.setVisible(true);
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body | null;
+    if (body) body.enable = true;
+    this.startFollowing(scene);
+  }
+
   destroy(): void {
     this.wanderTimer?.remove();
     this.produceTimer?.remove();

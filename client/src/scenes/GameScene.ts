@@ -372,6 +372,7 @@ export class GameScene extends Phaser.Scene {
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
   private pets: Animal[] = [];
+  private boxedPets: Animal[] = [];
   private petsWaiting = false;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
@@ -610,6 +611,8 @@ export class GameScene extends Phaser.Scene {
         this.beds = [];
         for (const pet of this.pets) pet.destroy();
         this.pets = [];
+        for (const pet of this.boxedPets) pet.destroy();
+        this.boxedPets = [];
         this.shippingBinPendingValue = 0;
         this.lastHotSpringDayIndex = -1;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
@@ -2240,6 +2243,53 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 相棒ボックス(相棒を預ける/呼び戻す) ----------
+
+  private tryPetBox(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "pet_box") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    if (this.pets.length > 0) {
+      const pet = this.pets.shift()!;
+      pet.box();
+      this.boxedPets.push(pet);
+      const label = pet.petNickname ?? "相棒";
+      this.showFloatingMessage(`📦 ${label}をボックスに預けた`);
+      return true;
+    }
+
+    if (this.boxedPets.length > 0) {
+      const pet = this.boxedPets.pop()!;
+      pet.release(this, closest.sprite.x, closest.sprite.y);
+      this.pets.push(pet);
+      const label = pet.petNickname ?? "相棒";
+      this.showFloatingMessage(`📦 ${label}をボックスから呼び出した`);
+      return true;
+    }
+
+    this.showFloatingMessage("ボックスは空だ");
+    return true;
+  }
+
   // ---------- 蜂の巣(時間経過ではちみつが貯まるが、収穫時にまれに刺される) ----------
 
   private tryBeehive(point: ActionPoint): boolean {
@@ -2364,6 +2414,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.tryBeehive(point)) return;
+    if (this.tryPetBox(point)) return;
     if (this.trySignpost(point)) return;
     if (this.tryCustomSign(point)) return;
     if (this.tryFarm(point)) return;
