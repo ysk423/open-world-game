@@ -18,7 +18,8 @@ export type BuildingType =
   | "barn"
   | "casino"
   | "custom_sign"
-  | "beehive";
+  | "beehive"
+  | "hot_spring";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -138,6 +139,12 @@ export const RECIPES: Recipe[] = [
     name: "看板(自分の好きな言葉を書き込める)",
     inputs: { wood: 2 },
     effect: { type: "building", buildingType: "custom_sign" },
+  },
+  {
+    id: "hot_spring",
+    name: "温泉(1日1回、無料でHPとスタミナが全回復する)",
+    inputs: { wood: 3, stone: 3 },
+    effect: { type: "building", buildingType: "hot_spring" },
   },
   {
     id: "beehive",

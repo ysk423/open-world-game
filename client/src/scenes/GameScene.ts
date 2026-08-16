@@ -257,6 +257,7 @@ const SIGNPOST_MESSAGES = [
   "じょうろで2回以上水をあげた畑は、高品質に育って収穫量が増えるらしい。",
   "納屋の近くにいる相棒は、ミルクの生産が早くなるらしい。",
   "蜂の巣からはちみつを収穫できるが、まれに蜂に刺されてしまうらしい。",
+  "温泉は1日1回だけ、無料でHPとスタミナを全回復してくれるらしい。",
 ];
 
 
@@ -340,6 +341,7 @@ export class GameScene extends Phaser.Scene {
   private flowerBedPlantedAt = new Map<Building, number>();
   private beehiveHarvestedAt = new Map<Building, number>();
   private animalShearedAt = new Map<Animal, number>();
+  private lastHotSpringDayIndex = -1;
   private farmPlots: FarmPlot[] = [];
   private monsters: Monster[] = [];
   private boss: Monster | null = null;
@@ -576,6 +578,7 @@ export class GameScene extends Phaser.Scene {
         for (const pet of this.pets) pet.destroy();
         this.pets = [];
         this.shippingBinPendingValue = 0;
+        this.lastHotSpringDayIndex = -1;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
@@ -1972,6 +1975,46 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- 温泉(1日1回、無料でHPとスタミナが全回復する) ----------
+
+  private tryHotSpring(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "hot_spring") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > SHOP_CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > SHOP_REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const dayIndex = Math.floor(Date.now() / CYCLE_DURATION_MS);
+    if (dayIndex === this.lastHotSpringDayIndex) {
+      this.showFloatingMessage("♨️ 今日はもう入った(また明日)");
+      return true;
+    }
+
+    this.lastHotSpringDayIndex = dayIndex;
+    this.health.reset();
+    this.poisonedUntil = 0;
+    this.stamina.reset();
+    this.sound.play("sfx-gather", { volume: 0.4 });
+    this.showFloatingMessage("♨️ 温泉でHP・スタミナが全回復した!");
+    return true;
+  }
+
   // ---------- カジノ(コインを賭けて増減する) ----------
 
   private tryCasino(point: ActionPoint): boolean {
@@ -2227,6 +2270,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
     if (this.tryInn(point)) return;
+    if (this.tryHotSpring(point)) return;
     if (this.tryCasino(point)) return;
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
