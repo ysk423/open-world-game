@@ -20,7 +20,7 @@ import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
 import type { BuildingType, Recipe } from "../systems/recipes";
 import { Health } from "../systems/Health";
-import { Equipment, KNOCKBACK_DISTANCE } from "../systems/Equipment";
+import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
 import { Storage } from "../systems/Storage";
@@ -1296,6 +1296,11 @@ export class GameScene extends Phaser.Scene {
     return assisting ? PET_ASSIST_DAMAGE_BONUS : 0;
   }
 
+  /** マインクラフトの弓を参考に、弓を装備している間はモンスターへの間合いが伸びる */
+  private getMonsterAttackReachRadius(): number {
+    return this.equipment.getEquipped() === "bow" ? ATTACK_REACH_RADIUS * BOW_REACH_MULTIPLIER : ATTACK_REACH_RADIUS;
+  }
+
   /** マインクラフト風のノックバックエンチャントを付与した武器を装備していれば、モンスターを弾き飛ばす */
   private applyKnockbackIfEnchanted(monster: Monster): void {
     if (!this.equipment.hasKnockbackEnchant(this.equipment.getEquipped())) return;
@@ -1492,7 +1497,7 @@ export class GameScene extends Phaser.Scene {
       if (clickDist > ATTACK_CLICK_RADIUS) continue;
 
       const reachDist = Phaser.Math.Distance.Between(playerX, playerY, monster.sprite.x, monster.sprite.y);
-      if (reachDist > ATTACK_REACH_RADIUS) continue;
+      if (reachDist > this.getMonsterAttackReachRadius()) continue;
 
       if (clickDist < closestDist) {
         closest = { kind: "monster", obj: monster };
@@ -2330,7 +2335,7 @@ export class GameScene extends Phaser.Scene {
     let closestDist = Number.POSITIVE_INFINITY;
     for (const monster of this.monsters) {
       const dist = Phaser.Math.Distance.Between(playerX, playerY, monster.sprite.x, monster.sprite.y);
-      if (dist > ATTACK_REACH_RADIUS) continue;
+      if (dist > this.getMonsterAttackReachRadius()) continue;
       if (dist < closestDist) {
         closest = monster;
         closestDist = dist;

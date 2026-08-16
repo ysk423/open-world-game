@@ -194,6 +194,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "weapon", weaponId: "stone_sword" },
   },
   {
+    id: "bow",
+    name: "弓(モンスターに遠くから攻撃できる)",
+    inputs: { wood: 3, herb: 2 },
+    effect: { type: "weapon", weaponId: "bow" },
+  },
+  {
     id: "upgrade_wooden_sword",
     name: "木の剣を強化(+1攻撃力)",
     inputs: { wood: 2, stone: 2 },
