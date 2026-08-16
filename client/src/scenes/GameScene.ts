@@ -212,6 +212,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   milk: "🥛",
   seed_tomato: "🌱",
   tomato: "🍅",
+  cooked_fish: "🍢",
 };
 
 export class GameScene extends Phaser.Scene {

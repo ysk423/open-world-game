@@ -18,6 +18,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   milk: "🥛",
   seed_tomato: "🌱",
   tomato: "🍅",
+  cooked_fish: "🍢",
 };
 
 const GATHERABLE_ITEMS: ItemId[] = ["wood", "stone", "herb", "seed_wheat", "wheat", "fish", "milk", "tomato"];

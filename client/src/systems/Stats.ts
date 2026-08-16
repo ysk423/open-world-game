@@ -30,6 +30,7 @@ function emptySnapshot(): StatsSnapshot {
       milk: 0,
       seed_tomato: 0,
       tomato: 0,
+      cooked_fish: 0,
     },
     monstersDefeated: 0,
     rareMonstersDefeated: 0,

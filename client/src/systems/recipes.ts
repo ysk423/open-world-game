@@ -86,6 +86,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "item", itemId: "cooked_meat", amount: 1 },
   },
   {
+    id: "cooked_fish",
+    name: "焚き火で魚を焼く(売値アップ)",
+    inputs: { fish: 1 },
+    effect: { type: "item", itemId: "cooked_fish", amount: 1 },
+  },
+  {
     id: "torch",
     name: "たいまつ(夜、周囲を明るくする)",
     inputs: { wood: 2 },
