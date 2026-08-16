@@ -20,6 +20,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   honey: "🍯",
   iron_ingot: "🔩",
   wool: "🧶",
+  totem: "🗿",
 };
 const ITEM_ORDER: ItemId[] = [
   "wood",

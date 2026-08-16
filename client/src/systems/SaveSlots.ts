@@ -28,6 +28,7 @@ const ITEM_IDS: ItemId[] = [
   "honey",
   "iron_ingot",
   "wool",
+  "totem",
 ];
 
 function slotKey(slot: number): string {
@@ -67,6 +68,7 @@ export function parseCounts(raw: unknown): Record<ItemId, number> | null {
     honey: 0,
     iron_ingot: 0,
     wool: 0,
+    totem: 0,
   };
   for (const id of ITEM_IDS) {
     const value = source[id];

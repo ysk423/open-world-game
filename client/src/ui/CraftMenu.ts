@@ -23,6 +23,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   honey: "🍯",
   iron_ingot: "🔩",
   wool: "🧶",
+  totem: "🗿",
 };
 
 export class CraftMenu {

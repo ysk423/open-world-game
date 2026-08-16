@@ -106,6 +106,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "item", itemId: "iron_ingot", amount: 1 },
   },
   {
+    id: "totem",
+    name: "不死のトーテム(気絶を1回だけ防ぎHP1で復活する)",
+    inputs: { iron_ingot: 2, honey: 1 },
+    effect: { type: "item", itemId: "totem", amount: 1 },
+  },
+  {
     id: "torch",
     name: "たいまつ(夜、周囲を明るくする)",
     inputs: { wood: 2 },

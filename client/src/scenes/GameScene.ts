@@ -111,6 +111,10 @@ const PLAYER_MAX_HP = 5;
 const CONTACT_DAMAGE = 1;
 const CONTACT_INVULN_MS = 1000;
 
+// マインクラフトの不死のトーテムを参考に、持っていると気絶を1回だけ防いでHP1で復活できる
+const TOTEM_REVIVE_HP = 1;
+const TOTEM_INVULN_MS = 2000;
+
 // DQ風の状態異常「毒」。レア個体・ボスとの接触でまれに毒になり、一定時間じわじわダメージを受ける
 const POISON_CHANCE = 0.4;
 const POISON_DURATION_MS = 8000;
@@ -314,6 +318,7 @@ const ITEM_ICON: Record<ItemId, string> = {
   honey: "🍯",
   iron_ingot: "🔩",
   wool: "🧶",
+  totem: "🗿",
 };
 
 export class GameScene extends Phaser.Scene {
@@ -1509,8 +1514,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (defeated) {
-      this.respawnAtBase();
+      this.handlePlayerDefeated();
     }
+  }
+
+  /** 気絶した時の共通処理。不死のトーテムを持っていれば消費してHP1で復活し、なければ拠点に戻る */
+  private handlePlayerDefeated(): void {
+    if (this.inventory.spend({ totem: 1 } as Partial<Record<ItemId, number>>)) {
+      this.health.heal(TOTEM_REVIVE_HP);
+      this.poisonedUntil = 0;
+      this.invulnerableUntil = this.time.now + TOTEM_INVULN_MS;
+      this.cameras.main.flash(300, 255, 215, 0);
+      this.showFloatingMessage("✨ 不死のトーテムの力で復活した!");
+      return;
+    }
+    this.respawnAtBase();
   }
 
   private respawnAtBase(): void {
@@ -1537,7 +1555,7 @@ export class GameScene extends Phaser.Scene {
     this.showFloatingMessage("🤢 毒でダメージを受けた");
     if (defeated) {
       this.poisonedUntil = 0;
-      this.respawnAtBase();
+      this.handlePlayerDefeated();
     }
   }
 
@@ -1562,7 +1580,7 @@ export class GameScene extends Phaser.Scene {
       if (distToPlayer <= EXPLOSION_RADIUS) {
         this.showFloatingMessage("💥 自爆した!");
         const explosionDefeated = this.health.damage(EXPLOSION_DAMAGE);
-        if (explosionDefeated) this.respawnAtBase();
+        if (explosionDefeated) this.handlePlayerDefeated();
       }
     }
     monster.destroy();
@@ -2265,7 +2283,7 @@ export class GameScene extends Phaser.Scene {
     if (this.rollBeeSting()) {
       const defeated = this.health.damage(BEEHIVE_STING_DAMAGE);
       this.showFloatingMessage("🐝 蜂に刺された!");
-      if (defeated) this.respawnAtBase();
+      if (defeated) this.handlePlayerDefeated();
     }
     return true;
   }

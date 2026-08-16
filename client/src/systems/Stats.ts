@@ -34,6 +34,7 @@ function emptySnapshot(): StatsSnapshot {
       honey: 0,
       iron_ingot: 0,
       wool: 0,
+      totem: 0,
     },
     monstersDefeated: 0,
     rareMonstersDefeated: 0,

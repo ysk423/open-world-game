@@ -26,6 +26,7 @@ const FRAME_BY_ITEM: Record<ItemId, number> = {
   honey: 0,
   iron_ingot: 0,
   wool: 0,
+  totem: 0,
 };
 
 export class GatheringPoint {

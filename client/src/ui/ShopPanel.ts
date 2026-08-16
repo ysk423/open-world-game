@@ -65,6 +65,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   honey: "🍯",
   iron_ingot: "🔩",
   wool: "🧶",
+  totem: "🗿",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {
