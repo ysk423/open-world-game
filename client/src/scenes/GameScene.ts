@@ -138,6 +138,10 @@ const ANIMAL_FEED_EXP_MULTIPLIER = 2;
 const SHINY_ANIMAL_CHANCE = 0.08;
 const SHINY_ANIMAL_REWARD_MULTIPLIER = 5;
 
+// ポケモンのパーティを参考に、相棒は複数匹まで連れて歩ける
+const MAX_PETS = 3;
+const PET_FORMATION_RADIUS = 24;
+
 // DQ/ゼルダ風の宝箱。開けた後はしばらくして別の場所に再出現する
 const CHEST_EXP = 10;
 const CHEST_MIN_COIN_REWARD = 8;
@@ -270,7 +274,7 @@ export class GameScene extends Phaser.Scene {
   private boss: Monster | null = null;
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
-  private pet: Animal | null = null;
+  private pets: Animal[] = [];
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
   private handTorchGlow?: Phaser.GameObjects.Image;
@@ -469,8 +473,8 @@ export class GameScene extends Phaser.Scene {
         this.torches = [];
         for (const bed of this.beds) bed.destroy();
         this.beds = [];
-        this.pet?.destroy();
-        this.pet = null;
+        for (const pet of this.pets) pet.destroy();
+        this.pets = [];
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
@@ -580,7 +584,12 @@ export class GameScene extends Phaser.Scene {
     this.player.update(moveState, sprinting);
     this.stamina.tick(delta, sprinting && !hasBicycle);
     this.boss?.updateNameLabel();
-    this.pet?.followUpdate(this.player.sprite.x, this.player.sprite.y);
+    this.pets.forEach((pet, index) => {
+      const angle = (index / Math.max(1, this.pets.length)) * Math.PI * 2;
+      const targetX = this.player.sprite.x + Math.cos(angle) * PET_FORMATION_RADIUS;
+      const targetY = this.player.sprite.y + Math.sin(angle) * PET_FORMATION_RADIUS;
+      pet.followUpdate(targetX, targetY);
+    });
 
     for (const remote of this.remotePlayers.values()) {
       remote.tick();
@@ -650,8 +659,8 @@ export class GameScene extends Phaser.Scene {
     for (const monster of this.monsters) {
       points.push({ x: monster.sprite.x, y: monster.sprite.y, color: monster.isBoss ? "#dc2626" : "#f87171" });
     }
-    if (this.pet) {
-      points.push({ x: this.pet.sprite.x, y: this.pet.sprite.y, color: "#22d3ee" });
+    for (const pet of this.pets) {
+      points.push({ x: pet.sprite.x, y: pet.sprite.y, color: "#22d3ee" });
     }
     const season = getSeason(Date.now());
     const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
@@ -1280,18 +1289,28 @@ export class GameScene extends Phaser.Scene {
     const playerY = this.player.sprite.y;
 
     // 牧場物語風に、相棒(なついた動物)をクリックすると用意できたミルクを集められる
-    if (this.pet) {
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, this.pet.sprite.x, this.pet.sprite.y);
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, this.pet.sprite.x, this.pet.sprite.y);
-      if (clickDist <= ATTACK_CLICK_RADIUS && reachDist <= ATTACK_REACH_RADIUS) {
-        const result = this.pet.collectProduce(this);
+    {
+      let closestPet: Animal | null = null;
+      let closestPetDist = Number.POSITIVE_INFINITY;
+      for (const pet of this.pets) {
+        const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, pet.sprite.x, pet.sprite.y);
+        if (clickDist > ATTACK_CLICK_RADIUS) continue;
+        const reachDist = Phaser.Math.Distance.Between(playerX, playerY, pet.sprite.x, pet.sprite.y);
+        if (reachDist > ATTACK_REACH_RADIUS) continue;
+        if (clickDist < closestPetDist) {
+          closestPet = pet;
+          closestPetDist = clickDist;
+        }
+      }
+      if (closestPet) {
+        const result = closestPet.collectProduce(this);
         if (result.collected) {
           this.inventory.add("milk", 1);
           this.stats.recordGather("milk", 1);
-          this.showGatherFeedback(this.pet.sprite.x, this.pet.sprite.y, "milk", 1);
+          this.showGatherFeedback(closestPet.sprite.x, closestPet.sprite.y, "milk", 1);
           this.sound.play("sfx-gather", { volume: 0.5 });
           if (result.leveledUp) {
-            this.showFloatingMessage(`🎉 相棒がレベルアップ!(Lv.${this.pet.petLevel})`);
+            this.showFloatingMessage(`🎉 相棒がレベルアップ!(Lv.${closestPet.petLevel})`);
           }
         } else {
           this.showFloatingMessage("🐾 まだ用意中…");
@@ -1350,13 +1369,17 @@ export class GameScene extends Phaser.Scene {
     const animal = closest.obj;
 
     // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる。
-    // ポケモン風に、なついた動物はその場で消える代わりにプレイヤーについてくる相棒になる(1匹まで)
+    // ポケモン風のパーティを参考に、なついた動物はその場で消える代わりにプレイヤーについてくる
+    // 相棒になる(最大MAX_PETS匹まで)
     const feedItem = FEED_ITEMS.find((id) => this.inventory.getCounts()[id] > 0);
+    if (feedItem && this.pets.length >= MAX_PETS) {
+      this.showFloatingMessage(`🐾 相棒はもう${MAX_PETS}匹までしかなつかせられない`);
+      return true;
+    }
     if (feedItem) {
       this.inventory.spend({ [feedItem]: 1 } as Partial<Record<ItemId, number>>);
       this.animals = this.animals.filter((a) => a !== animal);
-      this.pet?.destroy();
-      this.pet = animal;
+      this.pets.push(animal);
       animal.startFollowing(this);
       const rewardMultiplier = animal.isShiny ? SHINY_ANIMAL_REWARD_MULTIPLIER : 1;
       const coinReward = ANIMAL_FEED_COIN_REWARD * rewardMultiplier;
