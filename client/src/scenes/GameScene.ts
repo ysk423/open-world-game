@@ -199,6 +199,7 @@ const SIGNPOST_MESSAGES = [
   "動物に作物をあげると、なかよくなれるかもしれない。",
   "倉庫に預けたものは、拠点をリセットしても消えないぞ。",
   "水辺をタップすると釣りができる。気長に試そう。",
+  "じょうろで2回以上水をあげた畑は、高品質に育って収穫量が増えるらしい。",
 ];
 
 
@@ -1556,6 +1557,9 @@ export class GameScene extends Phaser.Scene {
         this.stats.recordGather(harvested.itemId, harvested.amount);
         this.sound.play("sfx-gather", { volume: 0.5 });
         this.showGatherFeedback(closest.worldX, closest.worldY, harvested.itemId, harvested.amount);
+        if (harvested.highQuality) {
+          this.showFloatingMessage("🌟 高品質に育った!(収穫量+1)");
+        }
       }
       return true;
     }

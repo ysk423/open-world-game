@@ -8,6 +8,10 @@ const RAIN_GROWTH_MULTIPLIER = 0.5;
 // じょうろで手動で水をあげた時、残り時間からこの分だけ差し引く
 const WATER_BOOST_MS = 5000;
 
+// 牧場物語風に、じょうろで丹精込めて育てると「高品質」の実になり収穫量が増える
+export const QUALITY_WATER_THRESHOLD = 2;
+const QUALITY_BONUS_YIELD = 1;
+
 type FarmStage = "empty" | "growing" | "ready";
 
 const FRAME_BY_STAGE: Record<FarmStage, number> = {
@@ -66,6 +70,7 @@ export class FarmPlot {
   private stage: FarmStage = "empty";
   private plantedCrop: CropId | null = null;
   private growTimer?: Phaser.Time.TimerEvent;
+  private waterCount = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.worldX = x;
@@ -91,6 +96,7 @@ export class FarmPlot {
     if (this.stage !== "empty") return;
     this.plantedCrop = cropId;
     this.stage = "growing";
+    this.waterCount = 0;
     this.sprite.setFrame(FRAME_BY_STAGE.growing);
     this.sprite.clearTint();
     const config = CROP_CONFIG[cropId];
@@ -106,6 +112,7 @@ export class FarmPlot {
     if (this.stage !== "growing" || !this.growTimer) return false;
     const remaining = Math.max(0, this.growTimer.delay - this.growTimer.elapsed);
     this.growTimer.remove();
+    this.waterCount += 1;
     this.scheduleReady(scene, Math.max(0, remaining - WATER_BOOST_MS));
     return true;
   }
@@ -119,15 +126,18 @@ export class FarmPlot {
     });
   }
 
-  /** 収穫して空の状態に戻す。実っていなければ何もしない。何をどれだけ収穫できたかを返す */
-  harvest(): { itemId: ItemId; amount: number } | null {
+  /** 収穫して空の状態に戻す。実っていなければ何もしない。何をどれだけ収穫できたか(高品質だったか)を返す */
+  harvest(): { itemId: ItemId; amount: number; highQuality: boolean } | null {
     if (this.stage !== "ready" || !this.plantedCrop) return null;
     const config = CROP_CONFIG[this.plantedCrop];
+    const highQuality = this.waterCount >= QUALITY_WATER_THRESHOLD;
+    const amount = config.yieldAmount + (highQuality ? QUALITY_BONUS_YIELD : 0);
     this.stage = "empty";
     this.plantedCrop = null;
+    this.waterCount = 0;
     this.sprite.setFrame(FRAME_BY_STAGE.empty);
     this.sprite.clearTint();
-    return { itemId: config.cropItem, amount: config.yieldAmount };
+    return { itemId: config.cropItem, amount, highQuality };
   }
 
   destroy(): void {
