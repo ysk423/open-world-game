@@ -321,9 +321,12 @@ export class GameScene extends Phaser.Scene {
       () => new Set(this.equipment.getOwned()),
       () => new Set(this.tools.getOwned()),
       (weaponId) => this.equipment.getUpgradeLevel(weaponId),
+      () => new Set(this.equipment.getOwnedArmor()),
       (recipe) => this.handleCraft(recipe),
     );
-    new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId));
+    new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId), (armorId) =>
+      this.equipment.equipArmor(armorId),
+    );
     this.experience = new Experience();
     new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
@@ -891,6 +894,9 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "upgrade" && !this.equipment.canUpgrade(recipe.effect.weaponId)) {
       return;
     }
+    if (recipe.effect.type === "armor" && this.equipment.getOwnedArmor().includes(recipe.effect.armorId)) {
+      return;
+    }
 
     if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
       this.handleCraftBridge(recipe.name, recipe.inputs);
@@ -920,6 +926,14 @@ export class GameScene extends Phaser.Scene {
       this.craftMenu.refresh();
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`⚒️ 強化した!(Lv.${this.equipment.getUpgradeLevel(recipe.effect.weaponId)})`);
+      return;
+    }
+
+    if (recipe.effect.type === "armor") {
+      this.equipment.acquireArmor(recipe.effect.armorId);
+      this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage(`${recipe.name}を作った!`);
       return;
     }
 
@@ -1076,6 +1090,11 @@ export class GameScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < this.invulnerableUntil) return;
     this.invulnerableUntil = now + CONTACT_INVULN_MS;
+
+    if (Math.random() < this.equipment.getBlockChance()) {
+      this.showFloatingMessage("🛡️ 防いだ!");
+      return;
+    }
 
     this.sound.play("sfx-hurt", { volume: 0.5 });
     const defeated = this.health.damage(CONTACT_DAMAGE);

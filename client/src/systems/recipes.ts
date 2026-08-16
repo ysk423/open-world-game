@@ -1,5 +1,5 @@
 import type { ItemId } from "./Inventory";
-import type { WeaponId } from "./Equipment";
+import type { WeaponId, ArmorId } from "./Equipment";
 import type { ToolId } from "./Tools";
 
 export type BuildingType =
@@ -20,7 +20,8 @@ export type RecipeEffect =
   | { type: "weapon"; weaponId: WeaponId }
   | { type: "tool"; toolId: ToolId }
   | { type: "item"; itemId: ItemId; amount: number }
-  | { type: "upgrade"; weaponId: WeaponId };
+  | { type: "upgrade"; weaponId: WeaponId }
+  | { type: "armor"; armorId: ArmorId };
 
 export type Recipe = {
   id: string;
@@ -149,5 +150,17 @@ export const RECIPES: Recipe[] = [
     name: "石の剣を強化(+1攻撃力)",
     inputs: { stone: 4, coin: 3 },
     effect: { type: "upgrade", weaponId: "stone_sword" },
+  },
+  {
+    id: "leather_armor",
+    name: "革の鎧(被弾を15%の確率で防ぐ)",
+    inputs: { herb: 3, wood: 2 },
+    effect: { type: "armor", armorId: "leather_armor" },
+  },
+  {
+    id: "iron_armor",
+    name: "鉄の鎧(被弾を30%の確率で防ぐ)",
+    inputs: { stone: 5, wood: 2 },
+    effect: { type: "armor", armorId: "iron_armor" },
   },
 ];

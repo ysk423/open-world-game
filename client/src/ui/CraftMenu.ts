@@ -1,5 +1,5 @@
 import type { Inventory, ItemId } from "../systems/Inventory";
-import type { WeaponId } from "../systems/Equipment";
+import type { WeaponId, ArmorId } from "../systems/Equipment";
 import { MAX_WEAPON_UPGRADE_LEVEL } from "../systems/Equipment";
 import type { ToolId } from "../systems/Tools";
 import { RECIPES, type Recipe } from "../systems/recipes";
@@ -27,6 +27,7 @@ export class CraftMenu {
   private getOwnedWeapons: () => ReadonlySet<WeaponId>;
   private getOwnedTools: () => ReadonlySet<ToolId>;
   private getUpgradeLevel: (weaponId: WeaponId) => number;
+  private getOwnedArmor: () => ReadonlySet<ArmorId>;
   private onCraft: (recipe: Recipe) => void;
 
   constructor(
@@ -34,12 +35,14 @@ export class CraftMenu {
     getOwnedWeapons: () => ReadonlySet<WeaponId>,
     getOwnedTools: () => ReadonlySet<ToolId>,
     getUpgradeLevel: (weaponId: WeaponId) => number,
+    getOwnedArmor: () => ReadonlySet<ArmorId>,
     onCraft: (recipe: Recipe) => void,
   ) {
     this.inventory = inventory;
     this.getOwnedWeapons = getOwnedWeapons;
     this.getOwnedTools = getOwnedTools;
     this.getUpgradeLevel = getUpgradeLevel;
+    this.getOwnedArmor = getOwnedArmor;
     this.onCraft = onCraft;
 
     this.toggleButton = document.createElement("button");
@@ -73,6 +76,7 @@ export class CraftMenu {
     const counts = this.inventory.getCounts();
     const ownedWeapons = this.getOwnedWeapons();
     const ownedTools = this.getOwnedTools();
+    const ownedArmor = this.getOwnedArmor();
     this.panel.innerHTML = "";
 
     const title = document.createElement("h2");
@@ -82,7 +86,8 @@ export class CraftMenu {
     for (const recipe of RECIPES) {
       const alreadyOwned =
         (recipe.effect.type === "weapon" && ownedWeapons.has(recipe.effect.weaponId)) ||
-        (recipe.effect.type === "tool" && ownedTools.has(recipe.effect.toolId));
+        (recipe.effect.type === "tool" && ownedTools.has(recipe.effect.toolId)) ||
+        (recipe.effect.type === "armor" && ownedArmor.has(recipe.effect.armorId));
       const weaponNotOwnedForUpgrade =
         recipe.effect.type === "upgrade" && !ownedWeapons.has(recipe.effect.weaponId);
       const atMaxUpgrade =
