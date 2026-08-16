@@ -628,6 +628,12 @@ export class GameScene extends Phaser.Scene {
     for (const building of this.buildingSprites) {
       points.push({ x: building.sprite.x, y: building.sprite.y, color: "#facc15" });
     }
+    for (const monster of this.monsters) {
+      points.push({ x: monster.sprite.x, y: monster.sprite.y, color: monster.isBoss ? "#dc2626" : "#f87171" });
+    }
+    if (this.pet) {
+      points.push({ x: this.pet.sprite.x, y: this.pet.sprite.y, color: "#22d3ee" });
+    }
     const season = getSeason(Date.now());
     const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
     this.minimap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
