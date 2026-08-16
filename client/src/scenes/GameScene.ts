@@ -30,6 +30,8 @@ import { Quests, getQuestForNpc } from "../systems/Quests";
 import { Affinity, AFFINITY_MILESTONE_STEP } from "../systems/Affinity";
 import { Stats } from "../systems/Stats";
 import { StatsPanel } from "../ui/StatsPanel";
+import { ACHIEVEMENTS } from "../systems/Achievements";
+import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../systems/AchievementReward";
 import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
 import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
@@ -152,6 +154,10 @@ const FISH_EXP = 4;
 const BOSS_REWARD_MULTIPLIER = 10;
 const BOSS_TIER_REWARD_STEP = 0.5;
 const BOSS_RESPAWN_DELAY_MS = 90000;
+
+// ポケモンの図鑑コンプリート報酬を参考にした、実績を全て達成した時の一度きりのボーナス
+const ACHIEVEMENT_REWARD_COINS = 100;
+const ACHIEVEMENT_REWARD_EXP = 200;
 
 // 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
 const WELL_COOLDOWN_MS = 5000;
@@ -405,6 +411,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.setupNetworking();
+
+    this.stats.onChange(() => this.checkAchievementCompletion());
+    this.experience.onChange(() => this.checkAchievementCompletion());
   }
 
   private setupNetworking(): void {
@@ -1149,6 +1158,20 @@ export class GameScene extends Phaser.Scene {
     if (newLevel === null) return;
     this.syncMaxHpFromLevel();
     this.showFloatingMessage(`レベルアップ!Lv.${newLevel}`);
+  }
+
+  /** ポケモンの図鑑コンプリート報酬を参考に、全実績を達成したら一度だけボーナスを贈る */
+  private checkAchievementCompletion(): void {
+    if (hasClaimedAchievementReward()) return;
+    const snapshot = this.stats.getSnapshot();
+    const level = this.experience.getLevel();
+    const allUnlocked = ACHIEVEMENTS.every((achievement) => achievement.isUnlocked(snapshot, level));
+    if (!allUnlocked) return;
+
+    markAchievementRewardClaimed();
+    this.inventory.add("coin", ACHIEVEMENT_REWARD_COINS);
+    this.grantExp(ACHIEVEMENT_REWARD_EXP);
+    this.showFloatingMessage(`🏆 全実績達成!ボーナス(+${ACHIEVEMENT_REWARD_COINS}💰)を獲得!`);
   }
 
   // ---------- 戦闘 ----------
