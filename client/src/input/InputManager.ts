@@ -33,6 +33,7 @@ export class InputManager {
   private skillKey: Phaser.Input.Keyboard.Key;
   private healKey: Phaser.Input.Keyboard.Key;
   private blockKey: Phaser.Input.Keyboard.Key;
+  private petWaitKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
   private enderPearlActionHandlers: ActionHandler[] = [];
@@ -40,6 +41,7 @@ export class InputManager {
   private teleportActionHandlers: ShiftActionHandler[] = [];
   private skillActionHandlers: ShiftActionHandler[] = [];
   private healActionHandlers: ShiftActionHandler[] = [];
+  private petWaitActionHandlers: ShiftActionHandler[] = [];
   // 仮想十字キー(タッチ操作)からの入力。-1〜1の範囲でキーボードと同じ形式にしてある
   private touchX = 0;
   private touchY = 0;
@@ -65,6 +67,7 @@ export class InputManager {
     this.skillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     this.healKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
     this.blockKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B);
+    this.petWaitKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
 
     // マインクラフトのエンダーパールを参考に、右クリックでの瞬間移動を使えるようにする
     // (ブラウザ標準の右クリックメニューが出ないようにする)
@@ -75,6 +78,7 @@ export class InputManager {
     this.teleportKey.on("down", this.handleTeleportDown, this);
     this.skillKey.on("down", this.handleSkillDown, this);
     this.healKey.on("down", this.handleHealDown, this);
+    this.petWaitKey.on("down", this.handlePetWaitDown, this);
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -120,6 +124,12 @@ export class InputManager {
     }
   }
 
+  private handlePetWaitDown(): void {
+    for (const handler of this.petWaitActionHandlers) {
+      handler();
+    }
+  }
+
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
@@ -148,6 +158,11 @@ export class InputManager {
   /** ドラクエの「ホイミ」を参考にしたHキーが押された時に呼ばれる(HP回復呪文を想定) */
   onHealAction(handler: ShiftActionHandler): void {
     this.healActionHandlers.push(handler);
+  }
+
+  /** ポケモンの「まて」を参考にしたVキーが押された時に呼ばれる(相棒の追従/待機切り替えを想定) */
+  onPetWaitAction(handler: ShiftActionHandler): void {
+    this.petWaitActionHandlers.push(handler);
   }
 
   /** 仮想十字キー(TouchDPad)からの入力を反映する。x/yはそれぞれ-1〜1 */
@@ -211,11 +226,13 @@ export class InputManager {
     this.teleportKey.off("down", this.handleTeleportDown, this);
     this.skillKey.off("down", this.handleSkillDown, this);
     this.healKey.off("down", this.handleHealDown, this);
+    this.petWaitKey.off("down", this.handlePetWaitDown, this);
     this.actionHandlers = [];
     this.enderPearlActionHandlers = [];
     this.shiftActionHandlers = [];
     this.teleportActionHandlers = [];
     this.skillActionHandlers = [];
     this.healActionHandlers = [];
+    this.petWaitActionHandlers = [];
   }
 }

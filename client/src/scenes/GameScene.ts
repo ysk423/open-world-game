@@ -361,6 +361,7 @@ export class GameScene extends Phaser.Scene {
   private monsterOverlaps: Phaser.Physics.Arcade.Collider[] = [];
   private animals: Animal[] = [];
   private pets: Animal[] = [];
+  private petsWaiting = false;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
   private handTorchGlow?: Phaser.GameObjects.Image;
@@ -522,6 +523,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.inputManager.onHealAction(() => {
       this.handleHealSpell();
+    });
+    this.inputManager.onPetWaitAction(() => {
+      this.handlePetWaitToggle();
     });
     if (isTouchDevice()) {
       new TouchDPad((x, y) => this.inputManager.setTouchMove(x, y));
@@ -707,10 +711,14 @@ export class GameScene extends Phaser.Scene {
     this.stamina.tick(delta, sprinting && !hasBicycle);
     this.boss?.updateNameLabel();
     this.pets.forEach((pet, index) => {
-      const angle = (index / Math.max(1, this.pets.length)) * Math.PI * 2;
-      const targetX = this.player.sprite.x + Math.cos(angle) * PET_FORMATION_RADIUS;
-      const targetY = this.player.sprite.y + Math.sin(angle) * PET_FORMATION_RADIUS;
-      pet.followUpdate(targetX, targetY);
+      if (this.petsWaiting) {
+        pet.sprite.setVelocity(0, 0);
+      } else {
+        const angle = (index / Math.max(1, this.pets.length)) * Math.PI * 2;
+        const targetX = this.player.sprite.x + Math.cos(angle) * PET_FORMATION_RADIUS;
+        const targetY = this.player.sprite.y + Math.sin(angle) * PET_FORMATION_RADIUS;
+        pet.followUpdate(targetX, targetY);
+      }
       pet.setNearBarn(this.isNearBarn(pet.sprite.x, pet.sprite.y));
     });
 
@@ -2606,6 +2614,17 @@ export class GameScene extends Phaser.Scene {
     this.health.heal(HEAL_AMOUNT);
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.showFloatingMessage(`✨ ホイミを唱えた!(HP+${HEAL_AMOUNT})`);
+  }
+
+  // ---------- 相棒の待機/追従切り替え ----------
+
+  private handlePetWaitToggle(): void {
+    if (this.pets.length === 0) {
+      this.showFloatingMessage("相棒がいない");
+      return;
+    }
+    this.petsWaiting = !this.petsWaiting;
+    this.showFloatingMessage(this.petsWaiting ? "🐾 相棒はその場で待機する" : "🐾 相棒がついてくる");
   }
 
   private tryGather(point: ActionPoint): boolean {
