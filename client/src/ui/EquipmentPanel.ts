@@ -59,8 +59,13 @@ export class EquipmentPanel {
       const row = document.createElement("div");
       row.className = "equipment-row";
 
+      const level = state.upgradeLevels[weaponId] ?? 0;
+      const totalDamage = WEAPON_DAMAGE[weaponId] + level;
       const label = document.createElement("span");
-      label.textContent = `⚔️ ${WEAPON_NAME[weaponId]}(攻撃力${WEAPON_DAMAGE[weaponId]})`;
+      label.textContent =
+        level > 0
+          ? `⚔️ ${WEAPON_NAME[weaponId]}(攻撃力${totalDamage}, 強化Lv.${level})`
+          : `⚔️ ${WEAPON_NAME[weaponId]}(攻撃力${totalDamage})`;
       row.appendChild(label);
 
       const isEquipped = state.equipped === weaponId;

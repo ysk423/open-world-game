@@ -320,6 +320,7 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       () => new Set(this.equipment.getOwned()),
       () => new Set(this.tools.getOwned()),
+      (weaponId) => this.equipment.getUpgradeLevel(weaponId),
       (recipe) => this.handleCraft(recipe),
     );
     new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId));
@@ -887,6 +888,9 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "tool" && this.tools.has(recipe.effect.toolId)) {
       return;
     }
+    if (recipe.effect.type === "upgrade" && !this.equipment.canUpgrade(recipe.effect.weaponId)) {
+      return;
+    }
 
     if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
       this.handleCraftBridge(recipe.name, recipe.inputs);
@@ -908,6 +912,14 @@ export class GameScene extends Phaser.Scene {
       this.craftMenu.refresh();
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`${recipe.name}を作った!`);
+      return;
+    }
+
+    if (recipe.effect.type === "upgrade") {
+      this.equipment.upgrade(recipe.effect.weaponId);
+      this.craftMenu.refresh();
+      this.sound.play("sfx-craft", { volume: 0.5 });
+      this.showFloatingMessage(`⚒️ 強化した!(Lv.${this.equipment.getUpgradeLevel(recipe.effect.weaponId)})`);
       return;
     }
 

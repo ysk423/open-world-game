@@ -19,7 +19,8 @@ export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
   | { type: "weapon"; weaponId: WeaponId }
   | { type: "tool"; toolId: ToolId }
-  | { type: "item"; itemId: ItemId; amount: number };
+  | { type: "item"; itemId: ItemId; amount: number }
+  | { type: "upgrade"; weaponId: WeaponId };
 
 export type Recipe = {
   id: string;
@@ -136,5 +137,17 @@ export const RECIPES: Recipe[] = [
     name: "石の剣",
     inputs: { wood: 1, stone: 3 },
     effect: { type: "weapon", weaponId: "stone_sword" },
+  },
+  {
+    id: "upgrade_wooden_sword",
+    name: "木の剣を強化(+1攻撃力)",
+    inputs: { wood: 2, stone: 2 },
+    effect: { type: "upgrade", weaponId: "wooden_sword" },
+  },
+  {
+    id: "upgrade_stone_sword",
+    name: "石の剣を強化(+1攻撃力)",
+    inputs: { stone: 4, coin: 3 },
+    effect: { type: "upgrade", weaponId: "stone_sword" },
   },
 ];
