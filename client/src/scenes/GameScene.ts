@@ -35,6 +35,7 @@ import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../sys
 import { generateWorldContent } from "../systems/WorldContentGenerator";
 import { getCycleProgress, getNightIntensity, isNight } from "../systems/DayNightCycle";
 import { isRaining } from "../systems/Weather";
+import { getSeason, SEASON_ICON, SEASON_NAME } from "../systems/Season";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
 import { HealthHud } from "../ui/HealthHud";
@@ -607,7 +608,9 @@ export class GameScene extends Phaser.Scene {
     for (const building of this.buildingSprites) {
       points.push({ x: building.sprite.x, y: building.sprite.y, color: "#facc15" });
     }
-    this.minimap.render(this.player.sprite.x, this.player.sprite.y, points);
+    const season = getSeason(Date.now());
+    const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
+    this.minimap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
   }
 
   private ensureRainDropTexture(): void {

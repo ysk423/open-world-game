@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { ItemId } from "../systems/Inventory";
 import { isRaining } from "../systems/Weather";
+import { getSeason, SEASON_GROWTH_MULTIPLIER } from "../systems/Season";
 
 // 牧場物語を参考に、雨の日は水やりの手間が省けて育成が早まる
 const RAIN_GROWTH_MULTIPLIER = 0.5;
@@ -86,7 +87,10 @@ export class FarmPlot {
     this.sprite.setFrame(FRAME_BY_STAGE.growing);
     this.sprite.clearTint();
     const config = CROP_CONFIG[cropId];
-    const duration = isRaining(Date.now()) ? config.growDurationMs * RAIN_GROWTH_MULTIPLIER : config.growDurationMs;
+    const now = Date.now();
+    const rainMultiplier = isRaining(now) ? RAIN_GROWTH_MULTIPLIER : 1;
+    const seasonMultiplier = SEASON_GROWTH_MULTIPLIER[getSeason(now)];
+    const duration = config.growDurationMs * rainMultiplier * seasonMultiplier;
     this.scheduleReady(scene, duration);
   }
 

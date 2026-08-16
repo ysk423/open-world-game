@@ -36,11 +36,18 @@ export class Minimap {
     };
   }
 
-  render(playerX: number, playerY: number, points: readonly MinimapPoint[]): void {
+  render(playerX: number, playerY: number, points: readonly MinimapPoint[], label?: string): void {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, SIZE, SIZE);
     ctx.fillStyle = "rgba(26, 26, 26, 0.7)";
     ctx.fillRect(0, 0, SIZE, SIZE);
+
+    if (label) {
+      ctx.font = "11px sans-serif";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(label, 4, 3);
+    }
 
     for (const point of points) {
       const p = this.toMiniCoords(point.x, point.y);
