@@ -19,7 +19,8 @@ export type BuildingType =
   | "casino"
   | "custom_sign"
   | "beehive"
-  | "hot_spring";
+  | "hot_spring"
+  | "scarecrow";
 
 export type RecipeEffect =
   | { type: "building"; buildingType: BuildingType }
@@ -139,6 +140,12 @@ export const RECIPES: Recipe[] = [
     name: "看板(自分の好きな言葉を書き込める)",
     inputs: { wood: 2 },
     effect: { type: "building", buildingType: "custom_sign" },
+  },
+  {
+    id: "scarecrow",
+    name: "カカシ(近くの畑の育成が早まる)",
+    inputs: { wood: 2 },
+    effect: { type: "building", buildingType: "scarecrow" },
   },
   {
     id: "hot_spring",

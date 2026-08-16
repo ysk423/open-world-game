@@ -22,6 +22,7 @@ const FRAME_BY_TYPE: Record<BuildingType, number> = {
   barn: 4,
   casino: 4,
   hot_spring: 1,
+  scarecrow: 4,
 };
 
 // 専用フレームを持たない建物向けの色味の上書き
@@ -33,6 +34,7 @@ const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
   custom_sign: 0x60a5fa,
   beehive: 0xfbbf24,
   hot_spring: 0xf472b6,
+  scarecrow: 0xd6a25c,
 };
 
 // 通り抜けられずに衝突する建物の種類(柵は「囲い」、石は障害物として機能してほしいため)

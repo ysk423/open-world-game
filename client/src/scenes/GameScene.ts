@@ -210,6 +210,9 @@ const ENDER_PEARL_MAX_DISTANCE = 400;
 // 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
 const BARN_RADIUS = 100;
 
+// マインクラフトのカカシを参考に、近くの畑の育成を早める
+const SCARECROW_RADIUS = 80;
+
 // マインクラフト風の看板。自分の好きな言葉を書き込める(サーバー通信を増やさず、座標をキーに
 // ローカルへ保存する個人的な内容 - 他プレイヤーには「(何も書かれていない)」と表示される)
 const CUSTOM_SIGN_TEXT_MAX_LENGTH = 30;
@@ -267,6 +270,7 @@ const SIGNPOST_MESSAGES = [
   "蜂の巣からはちみつを収穫できるが、まれに蜂に刺されてしまうらしい。",
   "温泉は1日1回だけ、無料でHPとスタミナを全回復してくれるらしい。",
   "緑色のモンスターは倒すと自爆するらしい。近づきすぎないように気をつけよう。",
+  "カカシの近くで種をまくと、育つのが早まるらしい。",
 ];
 
 
@@ -1416,6 +1420,15 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  /** (x, y)がカカシの近くかどうか。畑の育成速度に反映する */
+  private isNearScarecrow(x: number, y: number): boolean {
+    return this.buildingSprites.some(
+      (building) =>
+        building.buildingType === "scarecrow" &&
+        Phaser.Math.Distance.Between(building.sprite.x, building.sprite.y, x, y) <= SCARECROW_RADIUS,
+    );
+  }
+
   /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
   private grantExp(amount: number): void {
     const newLevel = this.experience.add(amount);
@@ -1857,8 +1870,9 @@ export class GameScene extends Phaser.Scene {
       if (!this.inventory.spend({ [seedItem]: 1 } as Partial<Record<ItemId, number>>)) {
         return true;
       }
-      closest.plant(this, cropId);
-      this.showFloatingMessage("種をまいた");
+      const nearScarecrow = this.isNearScarecrow(closest.worldX, closest.worldY);
+      closest.plant(this, cropId, nearScarecrow);
+      this.showFloatingMessage(nearScarecrow ? "種をまいた(カカシの効果で育成が早まる!)" : "種をまいた");
       return true;
     }
 
