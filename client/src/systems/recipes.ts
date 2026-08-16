@@ -98,6 +98,12 @@ export const RECIPES: Recipe[] = [
     effect: { type: "item", itemId: "cooked_fish", amount: 1 },
   },
   {
+    id: "smelt_iron",
+    name: "かまどで石を精錬して鉄インゴットを作る",
+    inputs: { stone: 5 },
+    effect: { type: "item", itemId: "iron_ingot", amount: 1 },
+  },
+  {
     id: "torch",
     name: "たいまつ(夜、周囲を明るくする)",
     inputs: { wood: 2 },
@@ -210,6 +216,12 @@ export const RECIPES: Recipe[] = [
     name: "弓(モンスターに遠くから攻撃できる)",
     inputs: { wood: 3, herb: 2 },
     effect: { type: "weapon", weaponId: "bow" },
+  },
+  {
+    id: "iron_sword",
+    name: "鉄の剣(石の剣より強い)",
+    inputs: { iron_ingot: 3, wood: 1 },
+    effect: { type: "weapon", weaponId: "iron_sword" },
   },
   {
     id: "upgrade_wooden_sword",

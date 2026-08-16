@@ -24,6 +24,7 @@ const FRAME_BY_ITEM: Record<ItemId, number> = {
   tomato: 0,
   cooked_fish: 0,
   honey: 0,
+  iron_ingot: 0,
 };
 
 export class GatheringPoint {

@@ -14,7 +14,8 @@ export type ItemId =
   | "seed_tomato"
   | "tomato"
   | "cooked_fish"
-  | "honey";
+  | "honey"
+  | "iron_ingot";
 
 export const INVENTORY_STORAGE_KEY = "open-world-game:inventory";
 const ITEM_IDS: ItemId[] = [
@@ -34,6 +35,7 @@ const ITEM_IDS: ItemId[] = [
   "tomato",
   "cooked_fish",
   "honey",
+  "iron_ingot",
 ];
 
 type Counts = Record<ItemId, number>;
@@ -57,6 +59,7 @@ function emptyCounts(): Counts {
     tomato: 0,
     cooked_fish: 0,
     honey: 0,
+    iron_ingot: 0,
   };
 }
 

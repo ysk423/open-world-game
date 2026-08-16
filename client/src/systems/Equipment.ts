@@ -1,4 +1,4 @@
-export type WeaponId = "wooden_sword" | "stone_sword" | "bow";
+export type WeaponId = "wooden_sword" | "stone_sword" | "bow" | "iron_sword";
 
 const EQUIPMENT_STORAGE_KEY = "open-world-game:equipment";
 
@@ -7,18 +7,20 @@ export const WEAPON_DAMAGE: Record<"fists" | WeaponId, number> = {
   wooden_sword: 2,
   stone_sword: 3,
   bow: 2,
+  iron_sword: 4,
 };
 
 export const WEAPON_NAME: Record<WeaponId, string> = {
   wooden_sword: "木の剣",
   stone_sword: "石の剣",
   bow: "弓",
+  iron_sword: "鉄の剣",
 };
 
 // マインクラフトの弓を参考に、弓を装備している間はモンスターへの間合いが伸びる
 export const BOW_REACH_MULTIPLIER = 2;
 
-const WEAPON_IDS: WeaponId[] = ["wooden_sword", "stone_sword", "bow"];
+const WEAPON_IDS: WeaponId[] = ["wooden_sword", "stone_sword", "bow", "iron_sword"];
 
 // DQ風の鍛冶屋を参考にした武器強化。強化1回につき攻撃力+1、最大まで強化できる
 export const MAX_WEAPON_UPGRADE_LEVEL = 3;

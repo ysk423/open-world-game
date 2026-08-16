@@ -18,6 +18,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   tomato: "🍅",
   cooked_fish: "🍢",
   honey: "🍯",
+  iron_ingot: "🔩",
 };
 
 const STORABLE_ITEMS: ItemId[] = [

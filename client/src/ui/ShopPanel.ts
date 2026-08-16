@@ -14,6 +14,7 @@ export const SHOP_SELL_PRICES: Partial<Record<ItemId, number>> = {
   tomato: 4,
   cooked_fish: 9,
   honey: 8,
+  iron_ingot: 10,
 };
 
 const SELLABLE_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
@@ -61,6 +62,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
   tomato: "🍅",
   cooked_fish: "🍢",
   honey: "🍯",
+  iron_ingot: "🔩",
 };
 
 const NAME_BY_ITEM: Partial<Record<ItemId, string>> = {
