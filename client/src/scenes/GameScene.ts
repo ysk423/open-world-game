@@ -182,6 +182,10 @@ const SKILL_DAMAGE_MULTIPLIER = 2;
 const CRIT_CHANCE = 0.15;
 const CRIT_MULTIPLIER = 2;
 
+// ポケモン風に、相棒がモンスターのそばにいると攻撃に加勢して追加ダメージを与える
+const PET_ASSIST_RADIUS = 60;
+const PET_ASSIST_DAMAGE_BONUS = 1;
+
 // 花壇は時間経過でハーブが育ち、収穫できる(牧場物語のガーデン要素を参考にした放置系の収穫)
 const FLOWER_BED_HERB_INTERVAL_MS = 20000;
 const FLOWER_BED_MAX_YIELD = 5;
@@ -1184,6 +1188,14 @@ export class GameScene extends Phaser.Scene {
     return { damage: isCrit ? base * CRIT_MULTIPLIER : base, isCrit };
   }
 
+  /** 相棒(なついた動物)が(x, y)の近くにいれば、加勢による追加ダメージを返す */
+  private petAssistBonus(x: number, y: number): number {
+    const assisting = this.pets.some(
+      (pet) => Phaser.Math.Distance.Between(pet.sprite.x, pet.sprite.y, x, y) <= PET_ASSIST_RADIUS,
+    );
+    return assisting ? PET_ASSIST_DAMAGE_BONUS : 0;
+  }
+
   /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
   private grantExp(amount: number): void {
     const newLevel = this.experience.add(amount);
@@ -1385,8 +1397,10 @@ export class GameScene extends Phaser.Scene {
       this.sound.play("sfx-attack", { volume: 0.5 });
       const monster = closest.obj;
       const { damage, isCrit } = this.computeAttackDamage();
-      const died = monster.takeDamage(this, damage);
+      const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
+      const died = monster.takeDamage(this, damage + assistBonus);
       if (isCrit) this.showFloatingMessage("💥 会心の一撃!");
+      if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
       if (died) this.resolveMonsterDeath(monster);
       return true;
     }
@@ -2079,8 +2093,10 @@ export class GameScene extends Phaser.Scene {
     this.sound.play("sfx-attack", { volume: 0.6 });
     const monster = closest;
     const { damage, isCrit } = this.computeAttackDamage(SKILL_DAMAGE_MULTIPLIER);
+    const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
     this.showFloatingMessage(isCrit ? "💥 とくぎ発動!さらに会心の一撃!" : "💥 とくぎ発動!");
-    const died = monster.takeDamage(this, damage);
+    if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
+    const died = monster.takeDamage(this, damage + assistBonus);
     if (died) this.resolveMonsterDeath(monster);
   }
 
