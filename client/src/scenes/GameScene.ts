@@ -322,7 +322,8 @@ export class GameScene extends Phaser.Scene {
     this.quests = new Quests();
     this.affinity = new Affinity();
     this.stats = new Stats();
-    new StatsPanel(this.stats);
+    this.experience = new Experience();
+    new StatsPanel(this.stats, this.experience);
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
@@ -335,7 +336,6 @@ export class GameScene extends Phaser.Scene {
     new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId), (armorId) =>
       this.equipment.equipArmor(armorId),
     );
-    this.experience = new Experience();
     new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
     this.syncMaxHpFromLevel();

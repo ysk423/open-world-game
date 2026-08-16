@@ -1,5 +1,7 @@
 import type { Stats, StatsSnapshot } from "../systems/Stats";
+import type { Experience } from "../systems/Experience";
 import type { ItemId } from "../systems/Inventory";
+import { ACHIEVEMENTS } from "../systems/Achievements";
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
   wood: "🪵",
@@ -18,13 +20,17 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
 
 const GATHERABLE_ITEMS: ItemId[] = ["wood", "stone", "herb", "seed_wheat", "wheat", "fish", "milk"];
 
-/** 画面右上の「📖 図鑑」ボタンで開閉するパネル。ポケモン図鑑を参考にした生涯累計の記録を表示する */
+/** 画面右上の「📖 図鑑」ボタンで開閉するパネル。ポケモン図鑑を参考にした生涯累計の記録と実績を表示する */
 export class StatsPanel {
   private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
   private isOpen = false;
+  private experience: Experience;
+  private latestSnapshot: Readonly<StatsSnapshot> | null = null;
 
-  constructor(stats: Stats) {
+  constructor(stats: Stats, experience: Experience) {
+    this.experience = experience;
+
     this.toggleButton = document.createElement("button");
     this.toggleButton.id = "stats-toggle";
     this.toggleButton.textContent = "📖 図鑑";
@@ -36,7 +42,13 @@ export class StatsPanel {
     this.panel.style.display = "none";
     document.body.appendChild(this.panel);
 
-    stats.onChange((snapshot) => this.render(snapshot));
+    stats.onChange((snapshot) => {
+      this.latestSnapshot = snapshot;
+      this.render(snapshot);
+    });
+    experience.onChange(() => {
+      if (this.latestSnapshot) this.render(this.latestSnapshot);
+    });
   }
 
   private setOpen(open: boolean): void {
@@ -87,5 +99,20 @@ export class StatsPanel {
     giftRow.className = "stats-row";
     giftRow.textContent = `🎀 NPCへの贈り物: ${snapshot.giftsGiven}`;
     this.panel.appendChild(giftRow);
+
+    const level = this.experience.getLevel();
+    const unlockedCount = ACHIEVEMENTS.filter((a) => a.isUnlocked(snapshot, level)).length;
+
+    const achievementsTitle = document.createElement("h2");
+    achievementsTitle.textContent = `実績(${unlockedCount}/${ACHIEVEMENTS.length})`;
+    this.panel.appendChild(achievementsTitle);
+
+    for (const achievement of ACHIEVEMENTS) {
+      const unlocked = achievement.isUnlocked(snapshot, level);
+      const row = document.createElement("div");
+      row.className = unlocked ? "stats-row achievement-unlocked" : "stats-row achievement-locked";
+      row.textContent = unlocked ? `${achievement.icon} ${achievement.name}` : `🔒 ???`;
+      this.panel.appendChild(row);
+    }
   }
 }

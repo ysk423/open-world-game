@@ -816,6 +816,14 @@ button:active {
   color: #ddd;
 }
 
+.achievement-unlocked {
+  color: #ffd700;
+}
+
+.achievement-locked {
+  color: #666;
+}
+
 #shop-panel {
   position: fixed;
   top: 50%;
