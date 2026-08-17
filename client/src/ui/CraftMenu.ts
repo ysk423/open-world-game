@@ -75,6 +75,10 @@ export class CraftMenu {
     this.setOpen(false);
   }
 
+  toggle(): void {
+    this.setOpen(!this.isOpen);
+  }
+
   private setOpen(open: boolean): void {
     this.isOpen = open;
     this.panel.style.display = open ? "flex" : "none";
