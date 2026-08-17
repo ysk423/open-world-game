@@ -31,9 +31,6 @@ const PET_LEVEL_SPEED_MULTIPLIER = 0.85;
 const EVOLVE_SCALE = 1.35;
 const EVOLVE_TINT = 0xffd700;
 
-// 牧場物語の納屋を参考に、近くに納屋があるとミルクの生産が早まる
-const BARN_SPEED_MULTIPLIER = 0.7;
-
 // ポケモン風に、なついた相棒には好きなニックネームをつけられる
 export const NICKNAME_MAX_LENGTH = 12;
 
@@ -52,7 +49,6 @@ export class Animal {
   private level = 1;
   private collectedCount = 0;
   private evolved = false;
-  private nearBarn = false;
   private nickname: string | null = null;
   private nicknameLabel?: Phaser.GameObjects.Text;
 
@@ -121,16 +117,8 @@ export class Animal {
     this.scheduleProduce(scene);
   }
 
-  /** 近くに納屋があるかどうか(GameScene側から毎フレーム反映される)。生産速度に影響する */
-  setNearBarn(near: boolean): void {
-    this.nearBarn = near;
-  }
-
   private scheduleProduce(scene: Phaser.Scene): void {
-    const barnMultiplier = this.nearBarn ? BARN_SPEED_MULTIPLIER : 1;
-    const delay = Math.round(
-      PRODUCE_INTERVAL_MS * Math.pow(PET_LEVEL_SPEED_MULTIPLIER, this.level - 1) * barnMultiplier,
-    );
+    const delay = Math.round(PRODUCE_INTERVAL_MS * Math.pow(PET_LEVEL_SPEED_MULTIPLIER, this.level - 1));
     this.produceTimer = scene.time.delayedCall(delay, () => {
       if (!this.sprite.active) return;
       this.hasProduce = true;

@@ -843,19 +843,6 @@ button:active {
   color: #aaa;
 }
 
-#compass-hud {
-  position: fixed;
-  left: 12px;
-  top: 12px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  pointer-events: none;
-  z-index: 6;
-}
 
 #stats-panel {
   position: fixed;

@@ -1,28 +1,7 @@
-export type ToolId =
-  | "axe"
-  | "pickaxe"
-  | "wateringCan"
-  | "bicycle"
-  | "handTorch"
-  | "enderChest"
-  | "shield"
-  | "enderPearl"
-  | "compass"
-  | "shears";
+export type ToolId = "axe" | "pickaxe" | "wateringCan" | "bicycle" | "shield";
 
 const TOOLS_STORAGE_KEY = "open-world-game:tools";
-const TOOL_IDS: ToolId[] = [
-  "axe",
-  "pickaxe",
-  "wateringCan",
-  "bicycle",
-  "handTorch",
-  "enderChest",
-  "shield",
-  "enderPearl",
-  "compass",
-  "shears",
-];
+const TOOL_IDS: ToolId[] = ["axe", "pickaxe", "wateringCan", "bicycle", "shield"];
 
 type Listener = (owned: ReadonlySet<ToolId>) => void;
 
@@ -31,14 +10,10 @@ function isToolId(value: unknown): value is ToolId {
 }
 
 /**
- * マインクラフトの斧・つるはし・たいまつや牧場物語のじょうろ、ポケモンの自転車を参考にした道具。
+ * マインクラフトの斧・つるはしや牧場物語のじょうろ、ポケモンの自転車を参考にした道具。
  * 武器と違って「装備」の概念はなく、一度作れば恒久的に効果を発揮する(斧→木材採集量アップ、
  * つるはし→石採集量アップ、じょうろ→畑に水をあげて成長を早める、自転車→スタミナを消費せずダッシュし
- * 続けられる、手持ちのたいまつ→夜、常にプレイヤーの周囲を照らす、エンダーチェスト→どこからでも倉庫を開ける、
- * 盾→Bキーを押している間、スタミナと引き換えにモンスターの接触ダメージを完全に防ぐ、
- * エンダーパール→右クリックした地点へコインを消費して瞬間移動できる、
- * コンパス→拠点(ベッド地点)への方角と距離が画面に表示され続ける、
- * ハサミ→野生動物を倒さずに毛を刈って羊毛を集められる)。
+ * 続けられる、盾→Bキーを押している間、スタミナと引き換えにモンスターの接触ダメージを完全に防ぐ)。
  */
 export class Tools {
   private owned = new Set<ToolId>();

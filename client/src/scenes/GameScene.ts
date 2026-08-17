@@ -7,8 +7,7 @@ import { GatheringPoint } from "../entities/GatheringPoint";
 import { Building } from "../entities/Building";
 import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
-import { Torch, ensureTorchTextures, TORCH_GLOW_TEXTURE_KEY } from "../entities/Torch";
-import { Bed } from "../entities/Bed";
+import { Torch } from "../entities/Torch";
 import { Chest } from "../entities/Chest";
 import { Monster } from "../entities/Monster";
 import { Animal, NICKNAME_MAX_LENGTH } from "../entities/Animal";
@@ -22,7 +21,7 @@ import { Inventory, type ItemId } from "../systems/Inventory";
 import { BUILDING_TYPE_NAME, type BuildingType, type Recipe } from "../systems/recipes";
 import { BuildingItems } from "../systems/BuildingItems";
 import { Health } from "../systems/Health";
-import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER, THORNS_DAMAGE } from "../systems/Equipment";
+import { Equipment, BOW_REACH_MULTIPLIER, THORNS_DAMAGE } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
 import { Hunger } from "../systems/Hunger";
@@ -63,7 +62,6 @@ import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
 const ROCK_GID = 4;
-const BRIDGE_GID = 5;
 
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
@@ -198,13 +196,10 @@ const BOSS_RESPAWN_DELAY_MS = 90000;
 const ACHIEVEMENT_REWARD_COINS = 100;
 const ACHIEVEMENT_REWARD_EXP = 200;
 
-// 井戸は使うとスタミナが全回復する休憩ポイント。連打で無限回復しないようクールダウンを設ける
-const WELL_COOLDOWN_MS = 5000;
-
 // DQ/牧場物語風の宿屋。コインを払うとHPが全回復する
 const INN_HEAL_COST = 5;
 
-// DQ風の「ルーラ」。Tキーでコインを払い、拠点(ベッド/リスポーン地点)へ瞬間移動する
+// DQ風の「ルーラ」。Tキーでコインを払い、拠点(リスポーン地点)へ瞬間移動する
 const WARP_COST = 5;
 const WARP_COOLDOWN_MS = 10000;
 
@@ -231,41 +226,6 @@ const EXPLOSIVE_MONSTER_CHANCE = 0.12;
 const EXPLOSION_DAMAGE = 1;
 const EXPLOSION_RADIUS = 60;
 
-// マインクラフトのコンパスを参考に、拠点への方角・距離を常時表示する
-// (Math.atan2の角度0=東として時計回りに8方向を並べている)
-const COMPASS_DIRECTIONS = ["東", "南東", "南", "南西", "西", "北西", "北", "北東"];
-
-// マインクラフトのハサミを参考に、野生動物を倒さずに毛を刈って羊毛を集められる
-const SHEAR_COOLDOWN_MS = 15000;
-const SHEAR_WOOL_AMOUNT = 1;
-
-// マインクラフトのエンダーパールを参考に、右クリックした地点へコインを払って瞬間移動する
-// (ルーラと違い拠点固定ではなく、見えている範囲の好きな場所へ飛べる)
-const ENDER_PEARL_COST = 5;
-const ENDER_PEARL_MAX_DISTANCE = 400;
-
-// 牧場物語風の納屋。近くにいる相棒(なついた動物)のミルク生産が早まる
-const BARN_RADIUS = 100;
-
-// マインクラフトのカカシを参考に、近くの畑の育成を早める
-const SCARECROW_RADIUS = 80;
-
-// マインクラフト風の看板。自分の好きな言葉を書き込める(サーバー通信を増やさず、座標をキーに
-// ローカルへ保存する個人的な内容 - 他プレイヤーには「(何も書かれていない)」と表示される)
-const CUSTOM_SIGN_TEXT_MAX_LENGTH = 30;
-function customSignStorageKey(x: number, y: number): string {
-  return `open-world-game:sign:${x}:${y}`;
-}
-
-// DQ風のカジノ。コインを賭けると確率で増減する(はずれ50%・とんとん30%・当たり15%・大当たり5%)
-const CASINO_BET_COST = 10;
-const CASINO_OUTCOMES: { chance: number; multiplier: number }[] = [
-  { chance: 0.5, multiplier: 0 },
-  { chance: 0.3, multiplier: 1 },
-  { chance: 0.15, multiplier: 2 },
-  { chance: 0.05, multiplier: 5 },
-];
-
 // DQ風の「会心の一撃」。攻撃のたびに一定確率でダメージが跳ね上がる
 const CRIT_CHANCE = 0.15;
 const CRIT_MULTIPLIER = 2;
@@ -291,26 +251,6 @@ const SHIPPING_BIN_ITEM_IDS = Object.keys(SHOP_SELL_PRICES) as ItemId[];
 // 完全に眠る夜(isNightの閾値0.5)より手前の、暗さが増してきた時間帯を狙った低めの閾値
 const EVENING_INTENSITY_THRESHOLD = 0.3;
 const EVENING_GREETING = "眠くなってきたわ…あくびが止まらないの。";
-
-// ドラクエ風の道しるべ。使うとゲームのコツをヒントとして教えてくれる
-const SIGNPOST_MESSAGES = [
-  "ダッシュボタン(またはスペースキー)を押しながら移動するとダッシュできる。スタミナ切れに注意。",
-  "井戸に話しかけるとスタミナが全回復するぞ。",
-  "夜になるとモンスターの再出現が早まる…油断せずに。",
-  "宝箱はしばらくすると別の場所に現れる。見つけたら開けておこう。",
-  "雨の日は畑の作物がよく育つらしい。",
-  "動物に作物をあげると、なかよくなれるかもしれない。",
-  "倉庫に預けたものは、拠点をリセットしても消えないぞ。",
-  "水辺をタップすると釣りができる。気長に試そう。",
-  "じょうろで2回以上水をあげた畑は、高品質に育って収穫量が増えるらしい。",
-  "納屋の近くにいる相棒は、ミルクの生産が早くなるらしい。",
-  "蜂の巣からはちみつを収穫できるが、まれに蜂に刺されてしまうらしい。",
-  "温泉は1日1回だけ、無料でHPとスタミナを全回復してくれるらしい。",
-  "緑色のモンスターは倒すと自爆するらしい。近づきすぎないように気をつけよう。",
-  "カカシの近くで種をまくと、育つのが早まるらしい。",
-];
-
-
 
 // モンスターを倒してから再出現するまでの時間
 const MONSTER_RESPAWN_DELAY_MS = 20000;
@@ -367,10 +307,8 @@ export class GameScene extends Phaser.Scene {
   private hunger!: Hunger;
   private storage!: Storage;
   private storagePanel!: StoragePanel;
-  private compassHud?: HTMLDivElement;
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
-  private nextWellAllowedAt = 0;
   private nextWarpAllowedAt = 0;
   private nextSkillAllowedAt = 0;
   private nextAoeSkillAllowedAt = 0;
@@ -394,8 +332,6 @@ export class GameScene extends Phaser.Scene {
   private buildingSprites: Building[] = [];
   private flowerBedPlantedAt = new Map<Building, number>();
   private beehiveHarvestedAt = new Map<Building, number>();
-  private animalShearedAt = new Map<Animal, number>();
-  private lastHotSpringDayIndex = -1;
   private survivalStartedAt = Date.now();
   private gameOverOverlay?: HTMLDivElement;
   private survivalTimerHud?: HTMLDivElement;
@@ -409,8 +345,6 @@ export class GameScene extends Phaser.Scene {
   private petsWaiting = false;
   private rocks: Rock[] = [];
   private torches: Torch[] = [];
-  private handTorchGlow?: Phaser.GameObjects.Image;
-  private beds: Bed[] = [];
   private chests: Chest[] = [];
   private respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
   private npcs: Npc[] = [];
@@ -491,9 +425,7 @@ export class GameScene extends Phaser.Scene {
       this.inventory,
       () => new Set(this.equipment.getOwned()),
       () => new Set(this.tools.getOwned()),
-      (weaponId) => this.equipment.getUpgradeLevel(weaponId),
       () => new Set(this.equipment.getOwnedArmor()),
-      (weaponId) => this.equipment.hasKnockbackEnchant(weaponId),
       (recipe) => this.handleCraft(recipe),
     );
     const equipmentPanel = new EquipmentPanel(
@@ -532,8 +464,7 @@ export class GameScene extends Phaser.Scene {
       onWithdraw: (itemId) => this.handleWithdraw(itemId),
     });
 
-    // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」から
-    // 階層的に開けるようにまとめる(マインクラフトのエンダーチェストは道具を持っている時だけ表示)
+    // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」からまとめて開けるようにする
     new MenuHub([
       {
         icon: "🔨",
@@ -555,26 +486,10 @@ export class GameScene extends Phaser.Scene {
       },
       { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
       { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
-      {
-        icon: "📦",
-        label: "エンダーチェスト",
-        open: () => this.storagePanel.open(),
-        close: () => this.storagePanel.close(),
-        isVisible: () => this.tools.has("enderChest"),
-      },
       { icon: "💾", label: "セーブ/ロード", open: () => saveLoadPanel.open(), close: () => saveLoadPanel.close() },
       { icon: "🗂", label: "データ管理", open: () => dataManagementPanel.open(), close: () => dataManagementPanel.close() },
       { icon: "❓", label: "操作方法", open: () => helpPanel.open(), close: () => helpPanel.close() },
     ]);
-
-    // マインクラフト風のコンパス。作ると、拠点(ベッド地点)への方角と距離が画面に表示され続ける
-    this.compassHud = document.createElement("div");
-    this.compassHud.id = "compass-hud";
-    this.compassHud.style.display = "none";
-    document.body.appendChild(this.compassHud);
-    this.tools.onChange((owned) => {
-      if (this.compassHud) this.compassHud.style.display = owned.has("compass") ? "block" : "none";
-    });
 
     // 死亡=ゲームオーバーを参考に、気絶した時に生存時間と自己ベストを表示するオーバーレイ
     this.gameOverOverlay = document.createElement("div");
@@ -598,9 +513,6 @@ export class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this);
     this.inputManager.onAction((point) => {
       this.handleAction(point);
-    });
-    this.inputManager.onEnderPearlAction((point) => {
-      this.handleEnderPearl(point);
     });
     this.inputManager.onShiftAction(() => {
       this.handleShiftAction();
@@ -672,27 +584,20 @@ export class GameScene extends Phaser.Scene {
         this.addBuildingSprite(building);
       },
       onGameReset: () => {
-        for (const building of this.buildings) {
-          if (building.buildingType === "bridge") this.revertBridgeTile(building.x, building.y);
-        }
         this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
         this.beehiveHarvestedAt.clear();
-        this.animalShearedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
         this.torches = [];
-        for (const bed of this.beds) bed.destroy();
-        this.beds = [];
         for (const pet of this.pets) pet.destroy();
         this.pets = [];
         for (const pet of this.boxedPets) pet.destroy();
         this.boxedPets = [];
         this.shippingBinPendingValue = 0;
-        this.lastHotSpringDayIndex = -1;
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
@@ -707,29 +612,21 @@ export class GameScene extends Phaser.Scene {
         this.tools.reset();
         this.quests.reset();
         this.affinity.reset();
-        this.handTorchGlow?.destroy();
-        this.handTorchGlow = undefined;
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
         this.survivalStartedAt = Date.now();
         this.hideGameOverOverlay();
       },
       onGameLoaded: (slot, buildings) => {
-        for (const building of this.buildings) {
-          if (building.buildingType === "bridge") this.revertBridgeTile(building.x, building.y);
-        }
         this.buildings = buildings;
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
         this.flowerBedPlantedAt.clear();
         this.beehiveHarvestedAt.clear();
-        this.animalShearedAt.clear();
         for (const plot of this.farmPlots) plot.destroy();
         this.farmPlots = [];
         for (const torch of this.torches) torch.destroy();
         this.torches = [];
-        for (const bed of this.beds) bed.destroy();
-        this.beds = [];
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         for (const building of buildings) this.addBuildingSprite(building);
 
@@ -820,7 +717,6 @@ export class GameScene extends Phaser.Scene {
         const targetY = this.player.sprite.y + Math.sin(angle) * PET_FORMATION_RADIUS;
         pet.followUpdate(targetX, targetY);
       }
-      pet.setNearBarn(this.isNearBarn(pet.sprite.x, pet.sprite.y));
     });
 
     for (const remote of this.remotePlayers.values()) {
@@ -832,7 +728,6 @@ export class GameScene extends Phaser.Scene {
     this.updateMinimap();
     this.updatePoison();
     this.updateStarvation();
-    this.updateCompass();
     this.updateSurvivalTimer();
 
     this.sinceLastSend += delta;
@@ -861,16 +756,6 @@ export class GameScene extends Phaser.Scene {
     const night = isNight(progress);
     for (const npc of this.npcs) {
       npc.setSleeping(this, night);
-    }
-
-    if (this.tools.has("handTorch")) {
-      if (!this.handTorchGlow) {
-        ensureTorchTextures(this);
-        this.handTorchGlow = this.add.image(this.player.sprite.x, this.player.sprite.y, TORCH_GLOW_TEXTURE_KEY);
-        this.handTorchGlow.setBlendMode(Phaser.BlendModes.ADD);
-        this.handTorchGlow.setDepth(16);
-      }
-      this.handTorchGlow.setPosition(this.player.sprite.x, this.player.sprite.y);
     }
   }
 
@@ -919,25 +804,6 @@ export class GameScene extends Phaser.Scene {
     if (this.worldMap && this.worldMap.element.style.display !== "none") {
       this.worldMap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
     }
-  }
-
-  // ---------- コンパス(拠点への方角・距離を表示) ----------
-
-  private updateCompass(): void {
-    if (!this.compassHud || !this.tools.has("compass")) return;
-
-    const dx = this.respawnPoint.x - this.player.sprite.x;
-    const dy = this.respawnPoint.y - this.player.sprite.y;
-    const distanceInTiles = Math.round(Math.hypot(dx, dy) / TILE_SIZE);
-
-    if (distanceInTiles === 0) {
-      this.compassHud.textContent = "🧭 拠点はすぐそこ!";
-      return;
-    }
-
-    const angleDeg = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
-    const index = Math.round(((angleDeg + 360) % 360) / 45) % 8;
-    this.compassHud.textContent = `🧭 拠点まで ${COMPASS_DIRECTIONS[index]} ${distanceInTiles}マス`;
   }
 
   private updateSurvivalTimer(): void {
@@ -1074,16 +940,8 @@ export class GameScene extends Phaser.Scene {
       this.farmPlots.push(new FarmPlot(this, building.x, building.y));
       return;
     }
-    if (building.buildingType === "bridge") {
-      this.applyBridgeTile(building.x, building.y);
-      return;
-    }
     if (building.buildingType === "torch") {
       this.torches.push(new Torch(this, building.x, building.y));
-      return;
-    }
-    if (building.buildingType === "bed") {
-      this.beds.push(new Bed(this, building.x, building.y));
       return;
     }
     const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);
@@ -1097,19 +955,6 @@ export class GameScene extends Phaser.Scene {
     if (sprite.buildingType === "beehive") {
       this.beehiveHarvestedAt.set(sprite, Date.now());
     }
-  }
-
-  /** 橋はBuildingスプライトとしてではなく、水面タイルを橋タイルへ書き換えることで表現する(同じbuildings配列を使い、通行可否もタイル判定に乗る) */
-  private applyBridgeTile(worldX: number, worldY: number): void {
-    const tileX = Math.floor(worldX / TILE_SIZE);
-    const tileY = Math.floor(worldY / TILE_SIZE);
-    this.groundLayer?.putTileAt(BRIDGE_GID, tileX, tileY)?.setCollision(false);
-  }
-
-  private revertBridgeTile(worldX: number, worldY: number): void {
-    const tileX = Math.floor(worldX / TILE_SIZE);
-    const tileY = Math.floor(worldY / TILE_SIZE);
-    this.groundLayer?.putTileAt(WATER_GID, tileX, tileY)?.setCollision(true);
   }
 
   // ---------- ルームごとのランダム配置(采集ポイント・モンスター・動物・岩) ----------
@@ -1267,17 +1112,7 @@ export class GameScene extends Phaser.Scene {
     if (recipe.effect.type === "tool" && this.tools.has(recipe.effect.toolId)) {
       return;
     }
-    if (recipe.effect.type === "upgrade" && !this.equipment.canUpgrade(recipe.effect.weaponId)) {
-      return;
-    }
     if (recipe.effect.type === "armor" && this.equipment.getOwnedArmor().includes(recipe.effect.armorId)) {
-      return;
-    }
-    if (
-      recipe.effect.type === "enchant" &&
-      (!this.equipment.getOwned().includes(recipe.effect.weaponId) ||
-        this.equipment.hasKnockbackEnchant(recipe.effect.weaponId))
-    ) {
       return;
     }
 
@@ -1299,27 +1134,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (recipe.effect.type === "upgrade") {
-      this.equipment.upgrade(recipe.effect.weaponId);
-      this.craftMenu.refresh();
-      this.sound.play("sfx-craft", { volume: 0.5 });
-      this.showFloatingMessage(`⚒️ 強化した!(Lv.${this.equipment.getUpgradeLevel(recipe.effect.weaponId)})`);
-      return;
-    }
-
     if (recipe.effect.type === "armor") {
       this.equipment.acquireArmor(recipe.effect.armorId);
       this.craftMenu.refresh();
       this.sound.play("sfx-craft", { volume: 0.5 });
       this.showFloatingMessage(`${recipe.name}を作った!`);
-      return;
-    }
-
-    if (recipe.effect.type === "enchant") {
-      this.equipment.enchantKnockback(recipe.effect.weaponId);
-      this.craftMenu.refresh();
-      this.sound.play("sfx-craft", { volume: 0.5 });
-      this.showFloatingMessage("✨ ノックバックのエンチャントを付与した!");
       return;
     }
 
@@ -1340,34 +1159,8 @@ export class GameScene extends Phaser.Scene {
   // ---------- 設置(持ち物の建物アイテムをワールドに配置する) ----------
 
   private handlePlaceBuilding(buildingType: BuildingType): void {
-    if (buildingType === "bridge") {
-      const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
-      const tileX = Math.floor(this.player.sprite.x / TILE_SIZE) + offset.x;
-      const tileY = Math.floor(this.player.sprite.y / TILE_SIZE) + offset.y;
-      const tile = this.groundLayer?.getTileAt(tileX, tileY);
-      if (!tile || tile.index !== WATER_GID) {
-        this.showFloatingMessage("水面に向かって設置してください");
-        return;
-      }
-      if (!this.buildingItems.spend("bridge")) return;
-      const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
-      const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
-      this.placeBuildingAt("bridge", worldX, worldY);
-      return;
-    }
-
     const x = Math.round(this.player.sprite.x);
     const y = Math.round(this.player.sprite.y);
-
-    if (buildingType === "custom_sign") {
-      const input = window.prompt(`看板に書く言葉を入力(最大${CUSTOM_SIGN_TEXT_MAX_LENGTH}文字)`, "");
-      if (input === null) return;
-      if (!this.buildingItems.spend("custom_sign")) return;
-      const text = input.slice(0, CUSTOM_SIGN_TEXT_MAX_LENGTH).trim();
-      localStorage.setItem(customSignStorageKey(x, y), text.length > 0 ? text : "(何も書かれていない)");
-      this.placeBuildingAt("custom_sign", x, y);
-      return;
-    }
 
     if (!this.buildingItems.spend(buildingType)) return;
     this.placeBuildingAt(buildingType, x, y);
@@ -1494,17 +1287,6 @@ export class GameScene extends Phaser.Scene {
     return Math.random() < this.equipment.getThornsChance();
   }
 
-  /** DQ風カジノの抽選。掛け金への倍率(0=はずれ、1=とんとん、2=当たり、5=大当たり)を返す */
-  private rollCasinoMultiplier(): number {
-    const r = Math.random();
-    let cumulative = 0;
-    for (const outcome of CASINO_OUTCOMES) {
-      cumulative += outcome.chance;
-      if (r < cumulative) return outcome.multiplier;
-    }
-    return 0;
-  }
-
   /** DQ風の会心の一撃を考慮した、実際に敵へ与える攻撃ダメージ(通常攻撃・とくぎ共通) */
   private computeAttackDamage(multiplier = 1): { damage: number; isCrit: boolean } {
     const isCrit = this.rollCritical();
@@ -1523,36 +1305,6 @@ export class GameScene extends Phaser.Scene {
   /** マインクラフトの弓を参考に、弓を装備している間はモンスターへの間合いが伸びる */
   private getMonsterAttackReachRadius(): number {
     return this.equipment.getEquipped() === "bow" ? ATTACK_REACH_RADIUS * BOW_REACH_MULTIPLIER : ATTACK_REACH_RADIUS;
-  }
-
-  /** マインクラフト風のノックバックエンチャントを付与した武器を装備していれば、モンスターを弾き飛ばす */
-  private applyKnockbackIfEnchanted(monster: Monster): void {
-    if (!this.equipment.hasKnockbackEnchant(this.equipment.getEquipped())) return;
-    const angle = Phaser.Math.Angle.Between(
-      this.player.sprite.x,
-      this.player.sprite.y,
-      monster.sprite.x,
-      monster.sprite.y,
-    );
-    monster.knockback(Math.cos(angle), Math.sin(angle), KNOCKBACK_DISTANCE);
-  }
-
-  /** (x, y)が納屋の近くかどうか。相棒のミルク生産速度に反映する */
-  private isNearBarn(x: number, y: number): boolean {
-    return this.buildingSprites.some(
-      (building) =>
-        building.buildingType === "barn" &&
-        Phaser.Math.Distance.Between(building.sprite.x, building.sprite.y, x, y) <= BARN_RADIUS,
-    );
-  }
-
-  /** (x, y)がカカシの近くかどうか。畑の育成速度に反映する */
-  private isNearScarecrow(x: number, y: number): boolean {
-    return this.buildingSprites.some(
-      (building) =>
-        building.buildingType === "scarecrow" &&
-        Phaser.Math.Distance.Between(building.sprite.x, building.sprite.y, x, y) <= SCARECROW_RADIUS,
-    );
   }
 
   /** 経験値を加算し、レベルが上がっていればHPボーナスを反映してメッセージを出す */
@@ -1865,7 +1617,6 @@ export class GameScene extends Phaser.Scene {
       const monster = closest.obj;
       const { damage, isCrit } = this.computeAttackDamage();
       const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
-      this.applyKnockbackIfEnchanted(monster);
       const died = monster.takeDamage(this, damage + assistBonus);
       if (isCrit) this.showFloatingMessage("💥 会心の一撃!");
       if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
@@ -1874,23 +1625,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     const animal = closest.obj;
-
-    // マインクラフトのハサミを参考に、ハサミを持っていれば野生動物を倒さずに毛を刈って羊毛を集められる
-    if (this.tools.has("shears")) {
-      const now = this.time.now;
-      const nextShearAllowedAt = this.animalShearedAt.get(animal) ?? 0;
-      if (now < nextShearAllowedAt) {
-        this.showFloatingMessage("🐑 まだ毛が伸びていない…");
-        return true;
-      }
-      this.animalShearedAt.set(animal, now + SHEAR_COOLDOWN_MS);
-      this.inventory.add("wool", SHEAR_WOOL_AMOUNT);
-      this.stats.recordGather("wool", SHEAR_WOOL_AMOUNT);
-      this.sound.play("sfx-gather", { volume: 0.5 });
-      this.showGatherFeedback(animal.sprite.x, animal.sprite.y, "wool", SHEAR_WOOL_AMOUNT);
-      this.showFloatingMessage("✂️ 毛を刈った!");
-      return true;
-    }
 
     // 牧場物語を参考に、作物を持っていれば攻撃の代わりに餌をあげてなかよくなれる。
     // ポケモン風のパーティを参考に、なついた動物はその場で消える代わりにプレイヤーについてくる
@@ -2080,9 +1814,8 @@ export class GameScene extends Phaser.Scene {
       if (!this.inventory.spend({ [seedItem]: 1 } as Partial<Record<ItemId, number>>)) {
         return true;
       }
-      const nearScarecrow = this.isNearScarecrow(closest.worldX, closest.worldY);
-      closest.plant(this, cropId, nearScarecrow);
-      this.showFloatingMessage(nearScarecrow ? "種をまいた(カカシの効果で育成が早まる!)" : "種をまいた");
+      closest.plant(this, cropId);
+      this.showFloatingMessage("種をまいた");
       return true;
     }
 
@@ -2180,49 +1913,6 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  // ---------- 井戸(建物のwellを使うとスタミナが全回復する) ----------
-
-  private tryWell(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Building | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "well") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
-      if (clickDist > SHOP_CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
-      if (reachDist > SHOP_REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = building;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    if (this.stamina.getStamina() >= this.stamina.getMaxStamina()) {
-      this.showFloatingMessage("スタミナは満タンだ");
-      return true;
-    }
-
-    const now = this.time.now;
-    if (now < this.nextWellAllowedAt) {
-      this.showFloatingMessage("一休みしよう…");
-      return true;
-    }
-    this.nextWellAllowedAt = now + WELL_COOLDOWN_MS;
-
-    this.stamina.reset();
-    this.sound.play("sfx-gather", { volume: 0.4 });
-    this.showFloatingMessage("💧 スタミナが全回復した!");
-    return true;
-  }
-
   // ---------- 宿屋(コインを払うとHPが全回復する) ----------
 
   private tryInn(point: ActionPoint): boolean {
@@ -2263,93 +1953,6 @@ export class GameScene extends Phaser.Scene {
     this.poisonedUntil = 0;
     this.sound.play("sfx-gather", { volume: 0.4 });
     this.showFloatingMessage(`🛏️ HPが全回復した!(-${INN_HEAL_COST}💰)`);
-    return true;
-  }
-
-  // ---------- 温泉(1日1回、無料でHPとスタミナが全回復する) ----------
-
-  private tryHotSpring(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Building | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "hot_spring") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
-      if (clickDist > SHOP_CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
-      if (reachDist > SHOP_REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = building;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    const dayIndex = Math.floor(Date.now() / CYCLE_DURATION_MS);
-    if (dayIndex === this.lastHotSpringDayIndex) {
-      this.showFloatingMessage("♨️ 今日はもう入った(また明日)");
-      return true;
-    }
-
-    this.lastHotSpringDayIndex = dayIndex;
-    this.health.reset();
-    this.poisonedUntil = 0;
-    this.stamina.reset();
-    this.sound.play("sfx-gather", { volume: 0.4 });
-    this.showFloatingMessage("♨️ 温泉でHP・スタミナが全回復した!");
-    return true;
-  }
-
-  // ---------- カジノ(コインを賭けて増減する) ----------
-
-  private tryCasino(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Building | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "casino") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
-      if (clickDist > SHOP_CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
-      if (reachDist > SHOP_REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = building;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    if (!this.inventory.spend({ coin: CASINO_BET_COST } as Partial<Record<ItemId, number>>)) {
-      this.showFloatingMessage(`💰が足りない(${CASINO_BET_COST}枚必要)`);
-      return true;
-    }
-
-    const multiplier = this.rollCasinoMultiplier();
-    const payout = CASINO_BET_COST * multiplier;
-    if (payout > 0) this.inventory.add("coin", payout);
-
-    this.sound.play("sfx-gather", { volume: 0.5 });
-    if (multiplier === 0) {
-      this.showFloatingMessage("🎰 はずれ…");
-    } else if (multiplier === 1) {
-      this.showFloatingMessage("🎰 とんとんだった");
-    } else if (multiplier < 5) {
-      this.showFloatingMessage(`🎰 当たり!+${payout}💰`);
-    } else {
-      this.showFloatingMessage(`🎰 大当たり!!+${payout}💰`);
-    }
     return true;
   }
 
@@ -2537,68 +2140,6 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  // ---------- 道しるべ(ヒント表示) ----------
-
-  private trySignpost(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Building | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "signpost") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
-      if (clickDist > SHOP_CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
-      if (reachDist > SHOP_REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = building;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    // 同じ道しるべは常に同じヒントを示すよう、建物リスト内の位置から決定的に選ぶ
-    const index = this.buildingSprites.indexOf(closest) % SIGNPOST_MESSAGES.length;
-    this.showDialogue(closest.sprite.x, closest.sprite.y, "道しるべ", SIGNPOST_MESSAGES[index]);
-    return true;
-  }
-
-  // ---------- 看板(自分の好きな言葉を書き込める) ----------
-
-  private tryCustomSign(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Building | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "custom_sign") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
-      if (clickDist > SHOP_CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
-      if (reachDist > SHOP_REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = building;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    const text =
-      localStorage.getItem(customSignStorageKey(closest.sprite.x, closest.sprite.y)) ?? "(何も書かれていない)";
-    this.showDialogue(closest.sprite.x, closest.sprite.y, "看板", text);
-    return true;
-  }
-
   // ---------- アクション(採集・攻撃・会話など) ----------
 
   private handleAction(point: ActionPoint): void {
@@ -2607,19 +2148,13 @@ export class GameScene extends Phaser.Scene {
     if (this.tryShop(point)) return;
     if (this.tryCraftTable(point)) return;
     if (this.tryStorage(point)) return;
-    if (this.tryWell(point)) return;
     if (this.tryInn(point)) return;
-    if (this.tryHotSpring(point)) return;
-    if (this.tryCasino(point)) return;
     if (this.tryShippingBin(point)) return;
     if (this.tryFlowerBed(point)) return;
     if (this.tryBeehive(point)) return;
     if (this.tryPetBox(point)) return;
-    if (this.trySignpost(point)) return;
-    if (this.tryCustomSign(point)) return;
     if (this.tryFarm(point)) return;
     if (this.tryRock(point)) return;
-    if (this.tryBed(point)) return;
     if (this.tryChest(point)) return;
     if (this.tryFish(point)) return;
     const harvested = this.tryGather(point);
@@ -2658,36 +2193,6 @@ export class GameScene extends Phaser.Scene {
     this.stats.recordGather("stone", 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
     closest.destroy();
-    return true;
-  }
-
-  // ---------- ベッド(復帰地点の設定) ----------
-
-  private tryBed(point: ActionPoint): boolean {
-    const playerX = this.player.sprite.x;
-    const playerY = this.player.sprite.y;
-
-    let closest: Bed | null = null;
-    let closestDist = Number.POSITIVE_INFINITY;
-
-    for (const bed of this.beds) {
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, bed.worldX, bed.worldY);
-      if (clickDist > CLICK_RADIUS) continue;
-
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, bed.worldX, bed.worldY);
-      if (reachDist > REACH_RADIUS) continue;
-
-      if (clickDist < closestDist) {
-        closest = bed;
-        closestDist = clickDist;
-      }
-    }
-
-    if (!closest) return false;
-
-    this.respawnPoint = { x: closest.worldX, y: closest.worldY };
-    this.sound.play("sfx-craft", { volume: 0.4 });
-    this.showFloatingMessage("🛏 ここを復帰地点にした");
     return true;
   }
 
@@ -2796,34 +2301,6 @@ export class GameScene extends Phaser.Scene {
     this.showFloatingMessage(`✨ ルーラで拠点へ戻った!(-${WARP_COST}💰)`);
   }
 
-  // ---------- エンダーパール(右クリックした地点への瞬間移動) ----------
-
-  private handleEnderPearl(point: ActionPoint): void {
-    if (!this.tools.has("enderPearl")) return;
-
-    const dist = Phaser.Math.Distance.Between(
-      this.player.sprite.x,
-      this.player.sprite.y,
-      point.worldX,
-      point.worldY,
-    );
-    if (dist > ENDER_PEARL_MAX_DISTANCE) {
-      this.showFloatingMessage("遠すぎて届かない…");
-      return;
-    }
-
-    if (!this.inventory.spend({ coin: ENDER_PEARL_COST } as Partial<Record<ItemId, number>>)) {
-      this.showFloatingMessage(`💰が足りない(${ENDER_PEARL_COST}枚必要)`);
-      return;
-    }
-
-    this.cameras.main.flash(150, 150, 255, 150);
-    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-    body.reset(point.worldX, point.worldY);
-    this.sound.play("sfx-craft", { volume: 0.5 });
-    this.showFloatingMessage(`✨ エンダーパールで瞬間移動した!(-${ENDER_PEARL_COST}💰)`);
-  }
-
   // ---------- とくぎ(強力な一撃) ----------
 
   private handleSkill(): void {
@@ -2860,7 +2337,6 @@ export class GameScene extends Phaser.Scene {
     const monster = closest;
     const { damage, isCrit } = this.computeAttackDamage(SKILL_DAMAGE_MULTIPLIER);
     const assistBonus = this.petAssistBonus(monster.sprite.x, monster.sprite.y);
-    this.applyKnockbackIfEnchanted(monster);
     this.showFloatingMessage(isCrit ? "💥 とくぎ発動!さらに会心の一撃!" : "💥 とくぎ発動!");
     if (assistBonus > 0) this.showFloatingMessage("🐾 相棒が加勢した!");
     const died = monster.takeDamage(this, damage + assistBonus);

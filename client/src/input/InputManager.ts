@@ -37,7 +37,6 @@ export class InputManager {
   private aoeSkillKey: Phaser.Input.Keyboard.Key;
   private lastDirection: Direction = "down";
   private actionHandlers: ActionHandler[] = [];
-  private enderPearlActionHandlers: ActionHandler[] = [];
   private shiftActionHandlers: ShiftActionHandler[] = [];
   private teleportActionHandlers: ShiftActionHandler[] = [];
   private skillActionHandlers: ShiftActionHandler[] = [];
@@ -73,10 +72,6 @@ export class InputManager {
     this.petWaitKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.V);
     this.aoeSkillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
 
-    // マインクラフトのエンダーパールを参考に、右クリックでの瞬間移動を使えるようにする
-    // (ブラウザ標準の右クリックメニューが出ないようにする)
-    scene.input.mouse?.disableContextMenu();
-
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.shiftKey.on("down", this.handleShiftDown, this);
     this.teleportKey.on("down", this.handleTeleportDown, this);
@@ -87,6 +82,7 @@ export class InputManager {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (pointer.rightButtonDown()) return;
     const world = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const point: ActionPoint = {
       screenX: pointer.x,
@@ -94,12 +90,6 @@ export class InputManager {
       worldX: world.x,
       worldY: world.y,
     };
-    if (pointer.rightButtonDown()) {
-      for (const handler of this.enderPearlActionHandlers) {
-        handler(point);
-      }
-      return;
-    }
     for (const handler of this.actionHandlers) {
       handler(point);
     }
@@ -144,11 +134,6 @@ export class InputManager {
   /** マウス/トラックパッドのクリック(将来的にはタップ)でアクションが実行されたときに呼ばれる */
   onAction(handler: ActionHandler): void {
     this.actionHandlers.push(handler);
-  }
-
-  /** マインクラフトのエンダーパールを参考にした右クリックが行われた時に呼ばれる(瞬間移動を想定) */
-  onEnderPearlAction(handler: ActionHandler): void {
-    this.enderPearlActionHandlers.push(handler);
   }
 
   /** Xキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
@@ -245,7 +230,6 @@ export class InputManager {
     this.petWaitKey.off("down", this.handlePetWaitDown, this);
     this.aoeSkillKey.off("down", this.handleAoeSkillDown, this);
     this.actionHandlers = [];
-    this.enderPearlActionHandlers = [];
     this.shiftActionHandlers = [];
     this.teleportActionHandlers = [];
     this.skillActionHandlers = [];

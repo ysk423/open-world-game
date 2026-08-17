@@ -12,9 +12,6 @@ const WATER_BOOST_MS = 5000;
 export const QUALITY_WATER_THRESHOLD = 2;
 const QUALITY_BONUS_YIELD = 1;
 
-// マインクラフトのカカシを参考に、近くにカカシがあると育成が早まる
-export const SCARECROW_GROWTH_MULTIPLIER = 0.8;
-
 type FarmStage = "empty" | "growing" | "ready";
 
 const FRAME_BY_STAGE: Record<FarmStage, number> = {
@@ -94,8 +91,8 @@ export class FarmPlot {
     return this.stage === "growing";
   }
 
-  /** 種をまく。空の畑でなければ何もしない。nearScarecrowは種まき時点でカカシの近くだったかどうか */
-  plant(scene: Phaser.Scene, cropId: CropId, nearScarecrow = false): void {
+  /** 種をまく。空の畑でなければ何もしない */
+  plant(scene: Phaser.Scene, cropId: CropId): void {
     if (this.stage !== "empty") return;
     this.plantedCrop = cropId;
     this.stage = "growing";
@@ -106,8 +103,7 @@ export class FarmPlot {
     const now = Date.now();
     const rainMultiplier = isRaining(now) ? RAIN_GROWTH_MULTIPLIER : 1;
     const seasonMultiplier = SEASON_GROWTH_MULTIPLIER[getSeason(now)];
-    const scarecrowMultiplier = nearScarecrow ? SCARECROW_GROWTH_MULTIPLIER : 1;
-    const duration = config.growDurationMs * rainMultiplier * seasonMultiplier * scarecrowMultiplier;
+    const duration = config.growDurationMs * rainMultiplier * seasonMultiplier;
     this.scheduleReady(scene, duration);
   }
 
