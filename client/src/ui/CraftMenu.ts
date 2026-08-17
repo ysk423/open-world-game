@@ -27,7 +27,6 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
 };
 
 export class CraftMenu {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
   private isOpen = false;
   private inventory: Inventory;
@@ -55,12 +54,6 @@ export class CraftMenu {
     this.getHasEnchant = getHasEnchant;
     this.onCraft = onCraft;
 
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "craft-toggle";
-    this.toggleButton.textContent = "🔨 クラフト";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "craft-menu";
     this.panel.style.display = "none";
@@ -72,6 +65,14 @@ export class CraftMenu {
   /** 武器の入手など、Inventory以外の変化で表示を更新したい時に呼ぶ */
   refresh(): void {
     this.render();
+  }
+
+  open(): void {
+    this.setOpen(true);
+  }
+
+  close(): void {
+    this.setOpen(false);
   }
 
   private setOpen(open: boolean): void {

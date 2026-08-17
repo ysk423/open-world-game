@@ -1,23 +1,15 @@
 import type { ArmorId, Equipment, EquipmentState, WeaponId } from "../systems/Equipment";
 import { ARMOR_BLOCK_CHANCE, ARMOR_NAME, WEAPON_DAMAGE, WEAPON_NAME } from "../systems/Equipment";
 
-/** 画面右上の「⚔️ 装備」ボタンで開閉するパネル。所持している武器・防具の切り替えができる */
+/** メニューの「装備」から開くパネル。所持している武器・防具の切り替えができる */
 export class EquipmentPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
-  private isOpen = false;
 
   constructor(
     equipment: Equipment,
     onEquip: (weaponId: WeaponId) => void,
     onEquipArmor: (armorId: ArmorId) => void,
   ) {
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "equipment-toggle";
-    this.toggleButton.textContent = "⚔️ 装備";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "equipment-panel";
     this.panel.style.display = "none";
@@ -26,9 +18,12 @@ export class EquipmentPanel {
     equipment.onChange((state) => this.render(state, onEquip, onEquipArmor));
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    this.panel.style.display = "flex";
+  }
+
+  close(): void {
+    this.panel.style.display = "none";
   }
 
   private render(

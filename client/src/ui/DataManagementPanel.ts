@@ -12,23 +12,15 @@ function formatSavedAt(savedAt: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** 画面右上の「🗂 データ管理」ボタンで開閉するパネル。スロットのセーブデータをファイルへ書き出し/読み込みする */
+/** メニューの「データ管理」から開くパネル。スロットのセーブデータをファイルへ書き出し/読み込みする */
 export class DataManagementPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
-  private isOpen = false;
   private rows: { label: HTMLSpanElement; exportButton: HTMLButtonElement }[] = [];
   private pendingImport: ExportedSaveFile | null = null;
   private slotSelect: HTMLSelectElement;
   private importButton: HTMLButtonElement;
 
   constructor(events: DataManagementPanelEvents) {
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "data-toggle";
-    this.toggleButton.textContent = "🗂 データ管理";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "data-panel";
     this.panel.style.display = "none";
@@ -133,11 +125,12 @@ export class DataManagementPanel {
     exportButton.disabled = !data;
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    if (open) {
-      for (let slot = 1; slot <= SAVE_SLOT_COUNT; slot++) this.refreshSlot(slot);
-    }
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    for (let slot = 1; slot <= SAVE_SLOT_COUNT; slot++) this.refreshSlot(slot);
+    this.panel.style.display = "flex";
+  }
+
+  close(): void {
+    this.panel.style.display = "none";
   }
 }

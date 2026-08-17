@@ -12,20 +12,12 @@ function formatSavedAt(savedAt: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** 画面右上の「💾 セーブ/ロード」ボタンで開閉するパネル。拠点の建物(共有)と持ち物・HP(個人)をまとめてスロットに保存する */
+/** メニューの「セーブ/ロード」から開くパネル。拠点の建物(共有)と持ち物・HP(個人)をまとめてスロットに保存する */
 export class SaveLoadPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
-  private isOpen = false;
   private rows: { label: HTMLSpanElement; loadButton: HTMLButtonElement; deleteButton: HTMLButtonElement }[] = [];
 
   constructor(events: SaveLoadPanelEvents) {
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "save-toggle";
-    this.toggleButton.textContent = "💾 セーブ/ロード";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "save-panel";
     this.panel.style.display = "none";
@@ -89,8 +81,11 @@ export class SaveLoadPanel {
     deleteButton.disabled = !data;
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    this.panel.style.display = "flex";
+  }
+
+  close(): void {
+    this.panel.style.display = "none";
   }
 }

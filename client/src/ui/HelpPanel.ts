@@ -24,19 +24,11 @@ const HELP_ITEMS = [
   ["ハサミ", "作ると、野生動物をクリックした時に倒す代わりに毛を刈って🧶羊毛を集められる(時間経過で毛が伸びる)"],
 ];
 
-/** 画面右上の「?」ボタンで操作方法を一時的に表示するパネル */
+/** メニューの「操作方法」から開くパネル */
 export class HelpPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
-  private isOpen = false;
 
   constructor() {
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "help-toggle";
-    this.toggleButton.textContent = "❓ 操作方法";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
-
     this.panel = document.createElement("div");
     this.panel.id = "help-panel";
     this.panel.style.display = "none";
@@ -49,8 +41,11 @@ export class HelpPanel {
     document.body.appendChild(this.panel);
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    this.panel.style.display = "flex";
+  }
+
+  close(): void {
+    this.panel.style.display = "none";
   }
 }
