@@ -32,10 +32,6 @@ export type RoomClientEvents = {
   onRoomFull: () => void;
   onBuildingPlaced: (building: PlacedBuilding) => void;
   onGameReset: () => void;
-  onGameLoaded: (slot: number, buildings: PlacedBuilding[]) => void;
-  onLoadFailed: (slot: number) => void;
-  onExportData: (slot: number, buildings: PlacedBuilding[]) => void;
-  onExportFailed: (slot: number) => void;
 };
 
 /** 拠点ルームとのWebSocket通信をゲームロジックから隠蔽する層(partysocket/partyserverのラッパー) */
@@ -77,18 +73,6 @@ export class RoomClient {
         case "game-reset":
           events.onGameReset();
           break;
-        case "game-loaded":
-          events.onGameLoaded(message.slot, message.buildings);
-          break;
-        case "load-failed":
-          events.onLoadFailed(message.slot);
-          break;
-        case "export-data":
-          events.onExportData(message.slot, message.buildings);
-          break;
-        case "export-failed":
-          events.onExportFailed(message.slot);
-          break;
       }
     });
   }
@@ -99,26 +83,6 @@ export class RoomClient {
 
   sendCraftBuilding(buildingType: string, x: number, y: number): void {
     this.sendRaw({ type: "craft-building", buildingType, x, y });
-  }
-
-  sendSaveGame(slot: number): void {
-    this.sendRaw({ type: "save-game", slot });
-  }
-
-  sendLoadGame(slot: number): void {
-    this.sendRaw({ type: "load-game", slot });
-  }
-
-  sendDeleteGame(slot: number): void {
-    this.sendRaw({ type: "delete-game", slot });
-  }
-
-  sendExportGame(slot: number): void {
-    this.sendRaw({ type: "export-game", slot });
-  }
-
-  sendImportGame(slot: number, buildings: PlacedBuilding[]): void {
-    this.sendRaw({ type: "import-game", slot, buildings });
   }
 
   private sendRaw(message: ClientMessage): void {

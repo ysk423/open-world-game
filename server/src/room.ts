@@ -1,6 +1,6 @@
 import { Server, type Connection, type ConnectionContext } from "partyserver";
 import type { ClientMessage, PlacedBuilding, PlayerState, ServerMessage } from "./types";
-import { MAX_PLAYERS, SAVE_SLOT_COUNT } from "./types";
+import { MAX_PLAYERS } from "./types";
 
 // クライアント側GameSceneのSPAWN_TILE(38,80)・TILE_SIZE(32)と対応するワールド座標
 const SPAWN_X = 1232;
@@ -15,30 +15,6 @@ const WORLD_SEED_KEY = "world-seed";
 
 function createWorldSeed(): number {
   return Math.floor(Math.random() * 0xffffffff);
-}
-
-function saveSlotKey(slot: number): string {
-  return `save-slot-${slot}-buildings`;
-}
-
-function isValidSlot(slot: number): boolean {
-  return Number.isInteger(slot) && slot >= 1 && slot <= SAVE_SLOT_COUNT;
-}
-
-const MAX_IMPORTED_BUILDINGS = 5000;
-
-/** インポートされた建物データ(クライアントから届く未検証のJSON)の形を検証する */
-function isValidBuildingList(value: unknown): value is PlacedBuilding[] {
-  if (!Array.isArray(value) || value.length > MAX_IMPORTED_BUILDINGS) return false;
-  return value.every(
-    (b) =>
-      typeof b === "object" &&
-      b !== null &&
-      typeof (b as PlacedBuilding).id === "string" &&
-      typeof (b as PlacedBuilding).buildingType === "string" &&
-      Number.isFinite((b as PlacedBuilding).x) &&
-      Number.isFinite((b as PlacedBuilding).y),
-  );
 }
 
 export class Room extends Server {
@@ -92,16 +68,6 @@ export class Room extends Server {
       this.handleMove(connection, message);
     } else if (message.type === "craft-building") {
       this.handleCraftBuilding(connection, message);
-    } else if (message.type === "save-game") {
-      this.handleSaveGame(message.slot);
-    } else if (message.type === "load-game") {
-      this.handleLoadGame(connection, message.slot);
-    } else if (message.type === "delete-game") {
-      this.handleDeleteGame(message.slot);
-    } else if (message.type === "export-game") {
-      void this.handleExportGame(connection, message.slot);
-    } else if (message.type === "import-game") {
-      this.handleImportGame(message.slot, message.buildings);
     }
   }
 
@@ -184,51 +150,6 @@ export class Room extends Server {
     this.broadcast(
       JSON.stringify({ type: "building-placed", building } satisfies ServerMessage),
       [connection.id],
-    );
-  }
-
-  private handleSaveGame(slot: number): void {
-    if (!isValidSlot(slot)) return;
-    void this.ctx.storage.put(saveSlotKey(slot), this.buildings);
-  }
-
-  private async handleLoadGame(connection: Connection, slot: number): Promise<void> {
-    if (!isValidSlot(slot)) return;
-    const savedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(saveSlotKey(slot));
-    if (!savedBuildings) {
-      send(connection, { type: "load-failed", slot });
-      return;
-    }
-    this.applyBuildings(slot, savedBuildings);
-  }
-
-  private handleDeleteGame(slot: number): void {
-    if (!isValidSlot(slot)) return;
-    void this.ctx.storage.delete(saveSlotKey(slot));
-  }
-
-  private async handleExportGame(connection: Connection, slot: number): Promise<void> {
-    if (!isValidSlot(slot)) return;
-    const savedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(saveSlotKey(slot));
-    if (!savedBuildings) {
-      send(connection, { type: "export-failed", slot });
-      return;
-    }
-    send(connection, { type: "export-data", slot, buildings: savedBuildings });
-  }
-
-  private handleImportGame(slot: number, buildings: PlacedBuilding[]): void {
-    if (!isValidSlot(slot) || !isValidBuildingList(buildings)) return;
-    void this.ctx.storage.put(saveSlotKey(slot), buildings);
-    this.applyBuildings(slot, buildings);
-  }
-
-  /** 拠点の建物をライブのワールドへ即座に反映し、全員へ通知する(ロード/インポート共通) */
-  private applyBuildings(slot: number, buildings: PlacedBuilding[]): void {
-    this.buildings = buildings;
-    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
-    this.broadcast(
-      JSON.stringify({ type: "game-loaded", slot, buildings: this.buildings } satisfies ServerMessage),
     );
   }
 
