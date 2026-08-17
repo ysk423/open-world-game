@@ -125,6 +125,7 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
 - その他のキー割り当て: Space=ダッシュ、T=拠点へのルーラ(ワープ)、F=とくぎ、H=ホイミ(回復呪文)、B=盾(押している間ブロック)、V=ペットの追従/待機切替、G=イオナズン(範囲攻撃)。
   - `InputManager.handlePointerDown`は右クリックを早期returnで無視する(エンダーパールのテレポート機能を2026-08-17に削除した名残)。
 - タッチUI: `TouchDPad`(移動)、`ActionButton`(Xキー相当のアクション)、`SprintButton`(ダッシュ)。
+- 画面レイアウト(2026-08-18〜): `index.html`に`#hud-row`(上段)/`#app`(中段=ゲーム画面)/`#controls-row`(下段)を用意し、HUD系(`HealthHud`/`ExperienceHud`/`StaminaHud`/`HungerHud`/`InventoryHud`/`Minimap`/`MenuHub`のトグルボタン/`world-map-toggle`/生存時間HUD)は`getHudRoot()`(`client/src/ui/layoutRoots.ts`)経由で`#hud-row`へ、タッチ操作系(`TouchDPad`/`ActionButton`/`SprintButton`)は`getControlsRoot()`経由で`#controls-row`へ追加する。横持ち/デスクトップではこれらの要素は従来どおり`position:fixed`で画面端に固定されるため、どのコンテナの子であるかは見た目に影響しない。縦持ち時のみ`style.css`の`@media (orientation: portrait)`が`body`を縦方向のflexカラムにし、該当要素を`position:static`へ戻して通常フローに乗せることで、上段=HUD・中段=ゲーム画面・下段=操作ボタンの3段構成にする(以前は全要素が画面全体基準の`position:fixed`だったため、横長固定の内部解像度がFITで縮小されるとHUDがゲーム画面に重なり、操作ボタンとの間に大きな空白ができていた)。
 
 ---
 

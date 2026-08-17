@@ -965,3 +965,89 @@ button:active {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* スマホ縦持ち: 横長固定の内部解像度(768x432)をFITで縮小すると、canvasが画面上部の
+   小さな帯に収まってしまい、そこにHUD(position:fixedで左上に積んであるだけ)が重なり、
+   さらに画面下部固定の操作ボタンとの間に大きな空白ができてしまう。
+   index.htmlに用意した#hud-row(上段)/#app(中段=ゲーム画面)/#controls-row(下段)を
+   縦に並ぶflexカラムにし、各要素をposition:staticへ戻して通常フローに乗せることで
+   「上段=HUD、中段=ゲーム画面、下段=操作ボタン」の3段構成にする。
+   横持ち/デスクトップ(このメディアクエリの外)は従来どおりposition:fixedのまま変えない。 */
+@media (orientation: portrait) {
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #hud-row {
+    order: 1;
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+
+  #app {
+    order: 2;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    height: auto;
+  }
+
+  #controls-row {
+    order: 3;
+    flex: 0 0 auto;
+    position: relative;
+    width: 100%;
+    min-height: 190px;
+  }
+
+  /* HUD要素を#hud-rowの通常フローに乗せる(デスクトップ向けのposition:fixed指定を打ち消す)。
+     #world-mapは対象外(position:fixedのまま中央固定オーバーレイとして表示し続ける) */
+  #health-hud,
+  #experience-hud,
+  #stamina-hud,
+  #hunger-hud,
+  #inventory-hud,
+  #minimap,
+  #menu-toggle,
+  #world-map-toggle,
+  #survival-timer-hud {
+    position: static;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    transform: none;
+    max-width: none;
+  }
+
+  /* 操作ボタン類は#controls-row基準の絶対配置にする(デスクトップ向けの
+     画面全体基準のbottom起点指定を、コンテナ内のbottom起点に置き換える) */
+  #touch-dpad,
+  #action-button,
+  #sprint-button {
+    position: absolute;
+    top: auto;
+  }
+
+  #touch-dpad {
+    left: 12px;
+    bottom: 16px;
+  }
+
+  #action-button {
+    right: 12px;
+    bottom: 24px;
+  }
+
+  #sprint-button {
+    right: 88px;
+    bottom: 32px;
+  }
+}

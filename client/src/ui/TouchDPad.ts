@@ -1,3 +1,5 @@
+import { getControlsRoot } from "./layoutRoots";
+
 type DPadDirection = "up" | "down" | "left" | "right";
 
 const VECTOR: Record<DPadDirection, { x: number; y: number }> = {
@@ -45,7 +47,7 @@ export class TouchDPad {
     root.appendChild(makeButton("right", "▶", "dpad-right"));
     root.appendChild(makeButton("down", "▼", "dpad-down"));
 
-    document.body.appendChild(root);
+    getControlsRoot().appendChild(root);
   }
 
   private currentVector(): [number, number] {

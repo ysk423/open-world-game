@@ -1,4 +1,5 @@
 import type { Stamina } from "../systems/Stamina";
+import { getHudRoot } from "./layoutRoots";
 
 export class StaminaHud {
   private el: HTMLDivElement;
@@ -6,7 +7,7 @@ export class StaminaHud {
   constructor(stamina: Stamina) {
     this.el = document.createElement("div");
     this.el.id = "stamina-hud";
-    document.body.appendChild(this.el);
+    getHudRoot().appendChild(this.el);
 
     stamina.onChange((current, max) => this.render(current, max));
   }

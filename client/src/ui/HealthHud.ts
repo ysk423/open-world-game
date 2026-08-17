@@ -1,4 +1,5 @@
 import type { Health } from "../systems/Health";
+import { getHudRoot } from "./layoutRoots";
 
 export class HealthHud {
   private el: HTMLDivElement;
@@ -18,7 +19,7 @@ export class HealthHud {
     this.healButton.addEventListener("click", onHeal);
     this.el.appendChild(this.healButton);
 
-    document.body.appendChild(this.el);
+    getHudRoot().appendChild(this.el);
 
     health.onChange((hp, maxHp) => this.render(hp, maxHp));
   }

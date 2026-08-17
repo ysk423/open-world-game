@@ -1,3 +1,5 @@
+import { getControlsRoot } from "./layoutRoots";
+
 /** 画面右下の大きな丸ボタン。タッチ端末でクリックに相当するアクション(向いている方向への採集・攻撃・会話など)を行う */
 export class ActionButton {
   constructor(onAction: () => void) {
@@ -12,6 +14,6 @@ export class ActionButton {
     };
     button.addEventListener("pointerdown", trigger);
 
-    document.body.appendChild(button);
+    getControlsRoot().appendChild(button);
   }
 }

@@ -1,3 +1,5 @@
+import { getHudRoot } from "./layoutRoots";
+
 export type MenuHubEntry = {
   icon: string;
   label: string;
@@ -26,7 +28,7 @@ export class MenuHub {
     this.toggleButton = document.createElement("button");
     this.toggleButton.id = "menu-toggle";
     this.toggleButton.addEventListener("click", () => this.handleToggleClick());
-    document.body.appendChild(this.toggleButton);
+    getHudRoot().appendChild(this.toggleButton);
 
     this.hubPanel = document.createElement("div");
     this.hubPanel.id = "menu-hub-panel";

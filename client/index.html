@@ -22,7 +22,12 @@
       </form>
       <button id="game-reset-button" type="button">🔄 ゲームをリセット</button>
     </div>
+    <!-- スマホ縦持ち時、style.cssのportraitメディアクエリで上段(HUD)/中段(ゲーム画面)/
+         下段(操作ボタン)の3段に組み替えるための入れ物。横持ち/デスクトップでは各要素が
+         position:fixedのままなのでこれらのコンテナ自体は見た目に影響しない -->
+    <div id="hud-row"></div>
     <div id="app"></div>
+    <div id="controls-row"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

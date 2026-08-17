@@ -1,4 +1,5 @@
 import type { Hunger } from "../systems/Hunger";
+import { getHudRoot } from "./layoutRoots";
 
 export class HungerHud {
   private el: HTMLDivElement;
@@ -18,7 +19,7 @@ export class HungerHud {
     this.eatButton.addEventListener("click", onEat);
     this.el.appendChild(this.eatButton);
 
-    document.body.appendChild(this.el);
+    getHudRoot().appendChild(this.el);
 
     hunger.onChange((value, max) => this.render(value, max));
   }

@@ -1,3 +1,5 @@
+import { getControlsRoot } from "./layoutRoots";
+
 /** 画面右下の「押している間だけダッシュする」ボタン(タッチ端末向け)。キーボードのスペースキーに相当する */
 export class SprintButton {
   constructor(onChange: (active: boolean) => void) {
@@ -15,6 +17,6 @@ export class SprintButton {
     button.addEventListener("pointerleave", setActive(false));
     button.addEventListener("pointercancel", setActive(false));
 
-    document.body.appendChild(button);
+    getControlsRoot().appendChild(button);
   }
 }

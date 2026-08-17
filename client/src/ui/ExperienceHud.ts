@@ -1,4 +1,5 @@
 import type { Experience } from "../systems/Experience";
+import { getHudRoot } from "./layoutRoots";
 
 export class ExperienceHud {
   private el: HTMLDivElement;
@@ -6,7 +7,7 @@ export class ExperienceHud {
   constructor(experience: Experience) {
     this.el = document.createElement("div");
     this.el.id = "experience-hud";
-    document.body.appendChild(this.el);
+    getHudRoot().appendChild(this.el);
 
     experience.onChange((level, exp, expToNextLevel) => this.render(level, exp, expToNextLevel));
   }

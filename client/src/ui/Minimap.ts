@@ -1,3 +1,5 @@
+import { getHudRoot } from "./layoutRoots";
+
 export type MinimapPoint = { x: number; y: number; color: string };
 
 const DEFAULT_SIZE = 120;
@@ -28,7 +30,9 @@ export class Minimap {
     this.canvas.id = elementId;
     this.canvas.width = size;
     this.canvas.height = size;
-    document.body.appendChild(this.canvas);
+    // world-map(全体マップ)側はposition:fixedのままなので、hud-rowの子になっても
+    // 通常フローに参加せず中央固定オーバーレイとして表示され続ける
+    getHudRoot().appendChild(this.canvas);
 
     const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("ミニマップ用の2Dコンテキストの取得に失敗しました");

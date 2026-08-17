@@ -55,6 +55,7 @@ import { SprintButton } from "../ui/SprintButton";
 import { StaminaHud } from "../ui/StaminaHud";
 import { HungerHud } from "../ui/HungerHud";
 import { Minimap, type MinimapPoint } from "../ui/Minimap";
+import { getHudRoot } from "../ui/layoutRoots";
 import { isTouchDevice } from "../utils/device";
 
 const WATER_GID = 3;
@@ -474,7 +475,7 @@ export class GameScene extends Phaser.Scene {
     // 生存時間を常に表示し、自己ベスト更新を目指すサバイバル要素にする
     this.survivalTimerHud = document.createElement("div");
     this.survivalTimerHud.id = "survival-timer-hud";
-    document.body.appendChild(this.survivalTimerHud);
+    getHudRoot().appendChild(this.survivalTimerHud);
 
     if (!this.sound.get("bgm")) {
       this.sound.play("bgm", { loop: true, volume: 0.25 });
@@ -841,7 +842,7 @@ export class GameScene extends Phaser.Scene {
         const isOpen = this.worldMap!.element.style.display !== "none";
         this.worldMap!.element.style.display = isOpen ? "none" : "block";
       });
-      document.body.appendChild(this.worldMapToggle);
+      getHudRoot().appendChild(this.worldMapToggle);
 
       // 昼夜サイクルの暗さを表現するオーバーレイ(カメラに固定し、UI用の文字表示より下に描画する)
       this.nightOverlay = this.add
