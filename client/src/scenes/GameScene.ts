@@ -19,7 +19,8 @@ import { RoomClient, requestGameReset } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
 import { Inventory, type ItemId } from "../systems/Inventory";
-import type { BuildingType, Recipe } from "../systems/recipes";
+import { BUILDING_TYPE_NAME, type BuildingType, type Recipe } from "../systems/recipes";
+import { BuildingItems } from "../systems/BuildingItems";
 import { Health } from "../systems/Health";
 import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER, THORNS_DAMAGE } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
@@ -43,6 +44,7 @@ import { isRaining } from "../systems/Weather";
 import { getSeason, SEASON_ICON, SEASON_NAME } from "../systems/Season";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
+import { BuildingItemsPanel } from "../ui/BuildingItemsPanel";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
@@ -359,6 +361,7 @@ export class GameScene extends Phaser.Scene {
   private stats!: Stats;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
+  private buildingItems!: BuildingItems;
   private health!: Health;
   private stamina!: Stamina;
   private hunger!: Hunger;
@@ -475,6 +478,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.inventory = new Inventory();
+    this.buildingItems = new BuildingItems();
     this.equipment = new Equipment();
     this.tools = new Tools();
     this.quests = new Quests();
@@ -496,6 +500,9 @@ export class GameScene extends Phaser.Scene {
       this.equipment,
       (weaponId) => this.equipment.equip(weaponId),
       (armorId) => this.equipment.equipArmor(armorId),
+    );
+    const buildingItemsPanel = new BuildingItemsPanel(this.buildingItems, (buildingType) =>
+      this.handlePlaceBuilding(buildingType),
     );
     new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
@@ -539,6 +546,12 @@ export class GameScene extends Phaser.Scene {
           this.craftMenu.open();
         },
         close: () => this.craftMenu.close(),
+      },
+      {
+        icon: "📥",
+        label: "設置",
+        open: () => buildingItemsPanel.open(),
+        close: () => buildingItemsPanel.close(),
       },
       { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
       { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
@@ -683,6 +696,7 @@ export class GameScene extends Phaser.Scene {
         this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
         this.clearWorldContent();
         this.inventory.reset();
+        this.buildingItems.reset();
         this.experience.reset();
         this.syncMaxHpFromLevel();
         this.health.reset();
@@ -1267,11 +1281,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (recipe.effect.type === "building" && recipe.effect.buildingType === "bridge") {
-      this.handleCraftBridge(recipe.name, recipe.inputs);
-      return;
-    }
-
     if (!this.inventory.spend(recipe.inputs)) return;
 
     if (recipe.effect.type === "weapon") {
@@ -1321,56 +1330,62 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // 建物は即座にワールドへは置かず、いったん「持ち物」(BuildingItems)に入れる。
+    // 実際の配置は📥「設置」パネルからhandlePlaceBuildingで行う
+    this.buildingItems.add(recipe.effect.buildingType);
+    this.sound.play("sfx-craft", { volume: 0.5 });
+    this.showFloatingMessage(`${recipe.name}を作った!(📥「設置」から置ける)`);
+  }
+
+  // ---------- 設置(持ち物の建物アイテムをワールドに配置する) ----------
+
+  private handlePlaceBuilding(buildingType: BuildingType): void {
+    if (buildingType === "bridge") {
+      const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
+      const tileX = Math.floor(this.player.sprite.x / TILE_SIZE) + offset.x;
+      const tileY = Math.floor(this.player.sprite.y / TILE_SIZE) + offset.y;
+      const tile = this.groundLayer?.getTileAt(tileX, tileY);
+      if (!tile || tile.index !== WATER_GID) {
+        this.showFloatingMessage("水面に向かって設置してください");
+        return;
+      }
+      if (!this.buildingItems.spend("bridge")) return;
+      const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
+      const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
+      this.placeBuildingAt("bridge", worldX, worldY);
+      return;
+    }
+
     const x = Math.round(this.player.sprite.x);
     const y = Math.round(this.player.sprite.y);
 
-    if (recipe.effect.type === "building" && recipe.effect.buildingType === "custom_sign") {
+    if (buildingType === "custom_sign") {
       const input = window.prompt(`看板に書く言葉を入力(最大${CUSTOM_SIGN_TEXT_MAX_LENGTH}文字)`, "");
-      const text = input?.slice(0, CUSTOM_SIGN_TEXT_MAX_LENGTH).trim();
-      localStorage.setItem(customSignStorageKey(x, y), text && text.length > 0 ? text : "(何も書かれていない)");
+      if (input === null) return;
+      if (!this.buildingItems.spend("custom_sign")) return;
+      const text = input.slice(0, CUSTOM_SIGN_TEXT_MAX_LENGTH).trim();
+      localStorage.setItem(customSignStorageKey(x, y), text.length > 0 ? text : "(何も書かれていない)");
+      this.placeBuildingAt("custom_sign", x, y);
+      return;
     }
 
+    if (!this.buildingItems.spend(buildingType)) return;
+    this.placeBuildingAt(buildingType, x, y);
+  }
+
+  private placeBuildingAt(buildingType: BuildingType, x: number, y: number): void {
     const building: PlacedBuilding = {
       id: crypto.randomUUID(),
-      buildingType: recipe.effect.buildingType,
+      buildingType,
       x,
       y,
     };
     this.buildings.push(building);
     this.addBuildingSprite(building);
-    this.roomClient.sendCraftBuilding(recipe.effect.buildingType, x, y);
+    this.roomClient.sendCraftBuilding(buildingType, x, y);
 
     this.sound.play("sfx-craft", { volume: 0.5 });
-    this.showFloatingMessage(`${recipe.name}を作った!`);
-  }
-
-  /** 橋は建物としてではなく、向いている方向の水面タイルを橋タイルに書き換える形で設置する */
-  private handleCraftBridge(name: string, inputs: Partial<Record<ItemId, number>>): void {
-    const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
-    const tileX = Math.floor(this.player.sprite.x / TILE_SIZE) + offset.x;
-    const tileY = Math.floor(this.player.sprite.y / TILE_SIZE) + offset.y;
-    const tile = this.groundLayer?.getTileAt(tileX, tileY);
-    if (!tile || tile.index !== WATER_GID) {
-      this.showFloatingMessage("水面に向かって橋をかけてください");
-      return;
-    }
-
-    if (!this.inventory.spend(inputs)) return;
-
-    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
-    const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
-    const building: PlacedBuilding = {
-      id: crypto.randomUUID(),
-      buildingType: "bridge",
-      x: worldX,
-      y: worldY,
-    };
-    this.buildings.push(building);
-    this.addBuildingSprite(building);
-    this.roomClient.sendCraftBuilding("bridge", worldX, worldY);
-
-    this.sound.play("sfx-craft", { volume: 0.5 });
-    this.showFloatingMessage(`${name}を作った!`);
+    this.showFloatingMessage(`${BUILDING_TYPE_NAME[buildingType]}を設置した!`);
   }
 
   private showFloatingMessage(message: string): void {

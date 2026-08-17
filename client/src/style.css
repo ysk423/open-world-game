@@ -56,6 +56,7 @@ button:active {
 
 #menu-hub-panel,
 #craft-menu,
+#building-items-panel,
 #help-panel,
 #save-panel,
 #data-panel,
@@ -83,6 +84,7 @@ button:active {
 
 #menu-hub-panel,
 #craft-menu,
+#building-items-panel,
 #help-panel,
 #save-panel,
 #data-panel,
@@ -564,9 +566,26 @@ button:active {
   font-family: system-ui, sans-serif;
 }
 
-#craft-menu h2 {
+#craft-menu h2,
+#building-items-panel h2 {
   margin: 0 0 4px;
   font-size: 14px;
+}
+
+#building-items-panel {
+  position: fixed;
+  right: 12px;
+  top: 50px;
+  width: 260px;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  font-family: system-ui, sans-serif;
 }
 
 .recipe-card {

@@ -41,6 +41,31 @@ export type Recipe = {
   effect: RecipeEffect;
 };
 
+/** 建物の表示名。BuildingItems/BuildingItemsPanelでの表示にも使う */
+export const BUILDING_TYPE_NAME: Record<BuildingType, string> = {
+  fence: "柵",
+  well: "井戸",
+  flower_bed: "花壇",
+  signpost: "道しるべ",
+  storage_shed: "倉庫",
+  farm_plot: "畑",
+  rock: "石",
+  bridge: "橋",
+  torch: "たいまつ",
+  bed: "ベッド",
+  inn: "宿屋",
+  shipping_bin: "出荷箱",
+  barn: "納屋",
+  casino: "カジノ",
+  custom_sign: "看板",
+  beehive: "蜂の巣",
+  hot_spring: "温泉",
+  scarecrow: "カカシ",
+  pet_box: "相棒ボックス",
+};
+
+export const BUILDING_TYPES: BuildingType[] = Object.keys(BUILDING_TYPE_NAME) as BuildingType[];
+
 export const RECIPES: Recipe[] = [
   {
     id: "fence",
