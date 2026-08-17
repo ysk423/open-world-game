@@ -167,6 +167,12 @@ $boot = @(90, 62, 40)
 $belt = @(70, 46, 28)
 
 function DrawFrame($gfx, $ox, $oy, $facing, $step) {
+    # Shift the whole character down a few px within its frame so the hat's dome
+    # (drawn above the head, at oy-4) never goes negative for the "down" row, which
+    # sits at oy=0 with no bitmap space above it -- without this, that top sliver gets
+    # silently clipped by GDI+ and the hat renders squashed/flat instead of domed.
+    $oy = $oy + 4
+
     # Chunky "big head" DQ-ish proportions, shaded for volume and grounded with a soft shadow.
     DrawGroundShadow $gfx ($ox+16) ($oy+50) 18 5
 
