@@ -82,14 +82,19 @@ npm run typecheck   # tsc --noEmit による型チェックのみ
 
 初回は `npx wrangler login` でCloudflareアカウントにログインしておく。
 
-```bash
-# サーバーをデプロイ(Cloudflare Workers)
-cd server
-npm run deploy   # = wrangler deploy
-```
+### クライアント(Pages) — mainへのpushで自動デプロイ
 
-デプロイ後に表示されるWorkerのURL(例: `https://open-world-game-server.<subdomain>.workers.dev`)を、
-クライアントのビルド時に環境変数 `VITE_ROOM_SERVER_HOST` として渡す(スキームなし、ホスト名のみ)。
+Cloudflare Pagesダッシュボードで `open-world-game` プロジェクトをGitHubリポジトリ(`ysk423/open-world-game`)に
+連携済み。設定内容:
+
+- ルートディレクトリ: `client`
+- ビルドコマンド: `npm install && npm run build`
+- ビルド出力ディレクトリ: `dist`
+- 環境変数(Production): `VITE_ROOM_SERVER_HOST=open-world-game-server.ysk-ino-123.workers.dev`
+
+`main` にpushすると自動でビルド・デプロイされるため、通常は手動デプロイ不要。
+
+手動でデプロイしたい場合(緊急時など):
 
 ```bash
 cd client
@@ -98,6 +103,16 @@ npx wrangler pages deploy dist --project-name=open-world-game
 ```
 
 指定しない場合、`VITE_ROOM_SERVER_HOST` は `localhost:8787` にフォールバックする(ローカル開発用)。
+
+### サーバー(Workers) — 手動デプロイ
+
+サーバー側はGit連携しておらず、コード変更時は手動デプロイが必要。
+
+```bash
+cd server
+npm run deploy   # = wrangler deploy
+```
+
 サーバー側を再デプロイしてもWorkerのURLは変わらないため、通常クライアントの環境変数を毎回変える必要はない。
 
 ## 操作方法
