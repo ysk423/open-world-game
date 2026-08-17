@@ -1598,12 +1598,11 @@ export class GameScene extends Phaser.Scene {
     this.triggerGameOver();
   }
 
-  /** 死亡=ゲームオーバー。生存時間を記録して表示し、共有ワールド全体をリセットする */
+  /** 死亡=ゲームオーバー。生存時間を記録して表示する。ワールドのリセットはプレイヤーの操作を待ってから行う */
   private triggerGameOver(): void {
     const survivedMs = Date.now() - this.survivalStartedAt;
     const { isNewBest, best } = recordSurvivalMs(survivedMs);
     this.showGameOverOverlay(survivedMs, best, isNewBest);
-    void requestGameReset(SHARED_ROOM_ID);
   }
 
   private showGameOverOverlay(survivedMs: number, bestMs: number, isNewBest: boolean): void {
@@ -1624,10 +1623,27 @@ export class GameScene extends Phaser.Scene {
 
     const note = document.createElement("p");
     note.className = "game-over-note";
-    note.textContent = "拠点をリセットしています…";
+    note.textContent = "「次のゲームへ」を押すと拠点(ワールド全体)がリセットされます";
     this.gameOverOverlay.appendChild(note);
 
+    const continueButton = document.createElement("button");
+    continueButton.id = "game-over-continue";
+    continueButton.textContent = "▶ 次のゲームへ";
+    continueButton.addEventListener("click", () => void this.handleGameOverContinue(continueButton, note));
+    this.gameOverOverlay.appendChild(continueButton);
+
     this.gameOverOverlay.style.display = "flex";
+  }
+
+  private async handleGameOverContinue(button: HTMLButtonElement, note: HTMLParagraphElement): Promise<void> {
+    button.disabled = true;
+    note.textContent = "拠点をリセットしています…";
+    try {
+      await requestGameReset(SHARED_ROOM_ID);
+    } catch {
+      note.textContent = "リセットに失敗しました。通信状況を確認してもう一度お試しください";
+      button.disabled = false;
+    }
   }
 
   private hideGameOverOverlay(): void {
