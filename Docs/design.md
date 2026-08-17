@@ -67,27 +67,29 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
 ```
 /client
   /src
-    /entities   Animal.ts Bed.ts Building.ts Chest.ts CraftTable.ts FarmPlot.ts
+    /entities   Animal.ts Building.ts Chest.ts CraftTable.ts FarmPlot.ts
                 GatheringPoint.ts Monster.ts Npc.ts Player.ts RemotePlayer.ts Rock.ts
                 Shop.ts Torch.ts
     /input      InputManager.ts        # キーボード/マウス/タッチ入力の抽象化層
     /net        RoomClient.ts joinInfo.ts types.ts   # WebSocket通信・状態同期
-    /scenes     GameScene.ts           # 唯一のPhaserシーン(約3000行)
-    /systems    AchievementReward.ts Achievements.ts Affinity.ts DayNightCycle.ts
-                Equipment.ts Experience.ts Health.ts Hunger.ts
+    /scenes     GameScene.ts           # 唯一のPhaserシーン(約2400行)
+    /systems    AchievementReward.ts Achievements.ts Affinity.ts BuildingItems.ts
+                DayNightCycle.ts Equipment.ts Experience.ts Health.ts Hunger.ts
                 Inventory.ts Quests.ts Season.ts Stamina.ts Stats.ts
                 Storage.ts SurvivalRecord.ts Tools.ts Weather.ts
-                WorldContentGenerator.ts recipes.ts
-    /ui         ActionButton.ts CraftMenu.ts EquipmentPanel.ts
+                WorldContentGenerator.ts WorldMapGenerator.ts recipes.ts
+    /ui         ActionButton.ts BuildingItemsPanel.ts CraftMenu.ts EquipmentPanel.ts
                 ExperienceHud.ts HealthHud.ts HelpPanel.ts HungerHud.ts InventoryHud.ts
                 MenuHub.ts Minimap.ts ShopPanel.ts SprintButton.ts
                 StaminaHud.ts StatsPanel.ts StoragePanel.ts TouchDPad.ts
     /utils      device.ts
     main.ts     style.css
   /public
-    /maps       world.json            # 160x120タイル(32px)の連続ワールドマップ(仮データ)
     /assets     タイルセット・スプライトシート(仮素材) /audio 合成音源(仮)
-  /scripts      仮素材・仮マップ・仮音声を生成するワンショットスクリプト
+                # マップ地形(池の位置など)は静的ファイルを持たず、WorldMapGenerator.tsが
+                # ワールドシードから実行時に生成する(2026-08-17、旧/maps/world.jsonと
+                # その生成スクリプトgenerate-world.mjsは削除)
+  /scripts      仮素材・仮音声を生成するワンショットスクリプト
   vite.config.ts
 
 /server
@@ -143,13 +145,14 @@ TypeScriptコード側の変更ではなく、`client/scripts/generate-placehold
 
 - `Inventory`: アイテムID19種、個数のみを保持するシンプルな構造。`localStorage`キー`open-world-game:inventory`に永続化(プレイヤー単位・ブラウザ単位)。`add`/`spend`/`canAfford`/`reset`を提供。
 - `recipes.ts`: 24種類のレシピを`building`/`weapon`/`tool`/`item`/`armor`のいずれかの効果タイプで定義(詳細は spec.md)。`upgrade`/`enchant`タイプは2026-08-17に削除。
-- クラフトは`CraftTable`(拠点に最初から1台設置。座標はスポーン地点からの固定オフセット)に近づいた状態でのみ実行できる。マップ上のクラフト台をクリック/Xキーで`CraftMenu.toggle()`が呼ばれてメニューが開閉する(`GameScene.tryCraftTable`)ほか、画面右上の🔨メニューボタンからも開けるが、こちらもクラフト台への近接判定(`isNearCraftTable`)を通らないと「クラフト台に近づいてください」というフィードバックのみを出し、メニューは開かない。
+- クラフトは`CraftTable`(拠点に最初から1台設置。座標はワールドシードごとにスポーン地点周辺でランダムに決まる。§8参照)に近づいた状態でのみ実行できる。マップ上のクラフト台をクリック/Xキーで`CraftMenu.toggle()`が呼ばれてメニューが開閉する(`GameScene.tryCraftTable`)。クラフトメニューを開く導線はこのクラフト台への近接操作のみで、「☰ メニュー」には含まれない(2026-08-17、メニュー内の🔨クラフト項目は「クラフト台に近づかないと結局開けない」ため冗長として削除)。
+- 建物(`effect.type === "building"`)のクラフトは、他のレシピ(道具・武器・防具・アイテム)と異なり**即座にワールドへは配置されない**。`handleCraft`はクラフトした建物を`BuildingItems`(建物種別ごとの所持数だけを`localStorage`に保持するクラスで、`Inventory`と同じCountsパターンだが別の名前空間)に加算するのみで止まる(`GameScene.handleCraft`)。実際にマップへ配置するには、「☰ メニュー」→「📥 設置」から開く`BuildingItemsPanel`で持っている建物アイテムを選び「設置」ボタンを押す(`GameScene.handlePlaceBuilding`)必要があり、その時点のプレイヤーの現在地に配置され、サーバーへ`craft-building`メッセージが送られる(「作る→アイテム化→設置」の2段階、コミット`ad127a0`)。
 - `Health`: HP管理のみを担当し、ゲームオーバー処理自体は持たない。`damage()`はHPが0になった瞬間のみ`true`を返し、以降の分岐(復活/ゲームオーバー)は呼び出し側(`GameScene`)に委ねる設計。
 - ゲームオーバー〜再開フロー(`GameScene.handlePlayerDefeated`等):
   1. HPが0になると、まず「トーテム」所持で1HP復活を試みる。
   2. 復活できない場合は`triggerGameOver()`でフルスクリーンのゲームオーバー演出(生存時間・自己ベストを表示)を出し、「▶ 次のゲームへ」ボタン以外の操作を受け付けない状態にする。
   3. ボタン押下でサーバーへHTTPのリセットリクエストを送信し、サーバーが`game-reset`をブロードキャストするまでオーバーレイは消えない(=拠点/ワールド全体は自動リセットされない。プレイヤーの明示操作を待つ)。
-  4. `game-reset`受信で建物・インベントリ・HP・ワールドコンテンツ・リスポーン地点をすべて初期化し、再接続する。
+  4. `game-reset`受信で建物・インベントリ・所持している未設置の建物アイテム(`BuildingItems`)・HP・ワールドコンテンツ・リスポーン地点をすべて初期化し、再接続する。
 - リスポーン地点(`respawnPoint`): 常にスポーン地点固定(ベッドで更新する仕組みは2026-08-17に削除)。ワープ(Tキー)はこの地点へ移動する。
 - そのほかのシステム: `Achievements`/`AchievementReward`(実績と報酬)、`Affinity`(NPC親密度・簡易版)、`DayNightCycle`(昼夜)、`Equipment`(武器/防具切替)、`Experience`/`Stats`(レベル・経験値)、`Hunger`/`Stamina`(満腹度・スタミナ)、`Quests`、`Season`/`Weather`(季節・天候)、`Storage`(倉庫(storage_shed)に話しかけて開く預け入れ用ストレージ。旧エンダーチェスト機能の削除後、`storage_shed`に統合)、`SurvivalRecord`(生存時間の記録)、`WorldContentGenerator`(後述)。セーブスロット機能(`SaveSlots`/`ExportImport`)は2026-08-17に削除。
 
@@ -157,8 +160,21 @@ TypeScriptコード側の変更ではなく、`client/scripts/generate-placehold
 
 ## 8. マップ・ワールド生成
 
-- マップは`client/public/maps/world.json`の**単一の連続マップ**(160x120タイル、1タイル32px、総サイズ5120x3840px、4レイヤー: ground/obstacles/npcs/shops)。当初仕様にあった「チャンク単位で徐々に開放」という設計は採用しておらず、フェーズ0〜5完了時点で既に開放要素なしの自由探索マップになっている。
-- 採集ポイント・モンスター・動物・岩・宝箱などの「ワールドコンテンツ」はマップJSONに焼き込まれておらず、サーバーが発行する`worldSeed`を種にした決定的な擬似乱数(mulberry32、`WorldContentGenerator.ts`)によってクライアント側で実行時に配置される。ルーム作成時・リセット時に新しいシードが発行されるため、リセットのたびに(決定的だが)異なる配置になる。
+マップは**単一の連続マップ**(160x120タイル、1タイル32px、総サイズ5120x3840px、4レイヤー: ground/obstacles/npcs/shops)。当初仕様にあった「チャンク単位で徐々に開放」という設計は採用しておらず、フェーズ0〜5完了時点で既に開放要素なしの自由探索マップになっている。
+
+### 地形(池)・ショップ・クラフト台の配置(2026-08-17〜、実行時生成)
+
+- 当初は`client/public/maps/world.json`という静的なTiled JSONファイルを`preload()`で読み込んでいたが、ゲームリセットのたびに池の位置やショップ・クラフト台の場所も変えたいという要望を受け、**地形そのものを`worldSeed`から実行時に生成する方式に変更した**。静的ファイルとその生成スクリプト(`client/scripts/generate-world.mjs`)は削除済み。
+- `client/src/systems/WorldMapGenerator.ts`の`generateWorldMap(seed)`が、`client/scripts/generate-world.mjs`で行っていたマップ組み立てロジック(4つの領域(home/north/east/northeast)をタイル単位で組み立てて1枚のワールドに合成する処理)をクライアント側に移植し、`WorldContentGenerator.ts`と同じ決定的な擬似乱数(mulberry32、`seed`を共有元にした別インスタンス)で以下を毎回揺らす。
+  - 各領域の池(水たまり)の中心位置・半径・波打ち具合(`fillOrganicWater`)
+  - ホーム領域(スポーン地点を含む拠点エリア)内でのショップの設置タイル
+  - ホーム領域内でのクラフト台(`CraftTable`)の設置タイル
+- 一方で、**道(縦横のPATHタイル)・領域間の境界壁(`addBorderWalls`)・NPCの位置・スポーン地点(`SPAWN_TILE = (38,80)`、サーバー側`SPAWN_X/SPAWN_Y`と一致させる必要があるため固定)は骨格として変更しない**。池・ショップ・クラフト台の候補地はスポーン地点や道からの距離条件・水判定つきの探索(`pickRandomGrassTile`)で選ぶため、生成結果が到達不能になることはない。
+- 生成した結果はTiled JSON形式のオブジェクトとして`this.cache.tilemap.add("world", { format: Phaser.Tilemaps.Formats.TILED_JSON, data })`でPhaserのタイルマップキャッシュに直接注入し、`this.make.tilemap({ key: "world" })`で読み込む(ファイル読み込みを介さない点以外はTiled JSON形式のまま)。
+- 生成・構築のタイミングはサーバーから`worldSeed`を受け取る`onInit`(`GameScene.rebuildWorld(worldSeed)`)。**初回参加時だけでなく、ゲームリセット後の再接続でも`onInit`は再度発火するため、リセットのたびに地形・ショップ・クラフト台の位置も変わる**。カメラ追従・ミニマップ・昼夜/天候オーバーレイなど「地形が変わっても作り直す必要がないもの」は`worldChromeInitialized`フラグで初回のみ構築し、2回目以降は地形(タイルレイヤー・コライダー・NPC・ショップ・クラフト台)だけを破棄して再構築する。
+  - `worldSeed`が届くまで地形は存在しないため、`create()`で`#world-loading-overlay`(「ワールドを生成中...」)を表示し、`rebuildWorld`完了時に取り除く。またこのタイミング以前は`GameScene.update()`が地形依存のフィールド(`nightOverlay`等)へアクセスして例外を起こさないよう、`worldChromeInitialized`が立つまで`update()`全体を早期returnする。
+  - プレイヤー・モンスター・動物と地面/障害物レイヤーとの間の全コライダーは`worldColliders`配列にまとめて記録し、地形再構築の直前にすべて`destroy()`してから新しいレイヤーを作る(破棄済みレイヤーを参照する古いコライダーが残らないようにするため)。
+- 採集ポイント・モンスター・動物・岩・宝箱などの「ワールドコンテンツ」は引き続きマップJSONに焼き込まれておらず、`worldSeed`を種にした決定的な擬似乱数(`WorldContentGenerator.ts`)によってクライアント側で実行時に配置される(この部分の仕組み自体は変更なし)。
 
 ---
 
@@ -174,12 +190,12 @@ type PlayerState = {
   x: number;
   y: number;
   direction: "up" | "down" | "left" | "right";
-  animState: "idle" | "walk";
+  animState: "idle" | "walk" | "attack";
 };
 
 // 拠点に配置された建物(サーバーが永続化)
 type PlacedBuilding = {
-  buildingId: string;
+  id: string;
   buildingType: string;   // recipes.ts の BuildingType
   x: number;
   y: number;
@@ -189,25 +205,22 @@ type PlacedBuilding = {
 type ClientMessage =
   | { type: "join"; name: string }
   | { type: "move"; x: number; y: number; direction: Direction; animState: AnimState }
-  | { type: "craft-building"; building: PlacedBuilding }
-  | { type: "save-game"; slot: number }
-  | { type: "load-game"; slot: number }
-  | { type: "delete-save"; slot: number }
-  | { type: "export-game" }
-  | { type: "import-game"; data: unknown };
+  | { type: "craft-building"; buildingType: string; x: number; y: number };
 
 // サーバー → クライアント
 type ServerMessage =
-  | { type: "init"; ... }
-  | { type: "player-joined" | "player-moved" | "player-left"; ... }
+  | { type: "init"; selfId: string; players: PlayerState[]; buildings: PlacedBuilding[]; worldSeed: number }
+  | { type: "player-joined"; player: PlayerState }
+  | { type: "player-moved"; id: string; x: number; y: number; direction: Direction; animState: AnimState }
+  | { type: "player-left"; id: string }
   | { type: "room-full" }
   | { type: "building-placed"; building: PlacedBuilding }
-  | { type: "game-reset"; worldSeed: number }
-  | { type: "game-loaded" | "load-failed" | "export-data" | "export-failed"; ... };
+  | { type: "game-reset" }; // worldSeedは含まない。再接続後のinitで新シードを受け取る
 
 const MAX_PLAYERS = 4;
-const SAVE_SLOT_COUNT = 3;
 ```
+
+セーブ/ロード・エクスポート/インポート関連のメッセージ型(`save-game`/`load-game`/`export-game`等)は2026-08-17の機能削除で撤去済み。
 
 **インベントリ・HP・満腹度・スタミナ・実績・装備・クエスト等はサーバーに存在しない**。すべてクライアントの`localStorage`に個人単位で保持され、ネットワーク同期されない(プレイヤーごとの見た目・所持品は他プレイヤーの画面には反映されない)。サーバーが同期・永続化するのは「プレイヤーのリアルタイム位置」と「拠点に設置された建物」のみ。
 

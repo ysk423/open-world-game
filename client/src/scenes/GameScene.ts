@@ -36,6 +36,7 @@ import { ACHIEVEMENTS } from "../systems/Achievements";
 import { recordSurvivalMs, formatSurvivalTime, getBestSurvivalMs } from "../systems/SurvivalRecord";
 import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../systems/AchievementReward";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
+import { generateWorldMap } from "../systems/WorldMapGenerator";
 import { getCycleProgress, getNightIntensity, isNight, CYCLE_DURATION_MS } from "../systems/DayNightCycle";
 import { isRaining } from "../systems/Weather";
 import { getSeason, SEASON_ICON, SEASON_NAME } from "../systems/Season";
@@ -70,10 +71,6 @@ const WORLD_MAP_SIZE = 360;
 const SPAWN_TILE = { x: 38, y: 80 };
 const SPAWN_X = SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2;
 const SPAWN_Y = SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
-
-// クラフト台は拠点(スポーン地点)のすぐそばに最初から設置しておく
-const CRAFT_TABLE_X = SPAWN_X + TILE_SIZE * 2;
-const CRAFT_TABLE_Y = SPAWN_Y + TILE_SIZE;
 
 // 位置同期を送る間隔(ms)。低頻度・高頻度どちらにも寄せすぎない程度の値
 const NETWORK_TICK_MS = 80;
@@ -320,7 +317,11 @@ export class GameScene extends Phaser.Scene {
 
   private groundLayer?: Phaser.Tilemaps.TilemapLayer;
   private obstacleLayer?: Phaser.Tilemaps.TilemapLayer;
+  private worldColliders: Phaser.Physics.Arcade.Collider[] = [];
   private walkableTiles: { x: number; y: number }[] = [];
+  // カメラ・ミニマップなど「地形が変わっても作り直さないもの」は初回のrebuildWorldでのみ構築する
+  private worldChromeInitialized = false;
+  private worldLoadingOverlay?: HTMLDivElement;
 
   private gatheringPoints: GatheringPoint[] = [];
   private buildingSprites: Building[] = [];
@@ -368,7 +369,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.tilemapTiledJSON("world", "maps/world.json");
+    // ワールド地形(地面/障害物レイヤーとショップ配置)はワールドシードを受け取ってから
+    // WorldMapGenerator.generateWorldMap()で実行時に生成するため、静的JSONは読み込まない
     this.load.image("tiles", "assets/tileset.png");
     this.load.spritesheet("player", "assets/player.png", {
       frameWidth: 32,
@@ -450,19 +452,8 @@ export class GameScene extends Phaser.Scene {
     });
 
     // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」からまとめて開けるようにする
+    // クラフトはクラフト台をクリック/Xキーで開く専用の導線があるため、メニューには含めない
     new MenuHub([
-      {
-        icon: "🔨",
-        label: "クラフト",
-        open: () => {
-          if (!this.isNearCraftTable()) {
-            this.showFloatingMessage("🔨 クラフト台に近づいてください");
-            return;
-          }
-          this.craftMenu.open();
-        },
-        close: () => this.craftMenu.close(),
-      },
       {
         icon: "📥",
         label: "設置",
@@ -491,7 +482,11 @@ export class GameScene extends Phaser.Scene {
 
     this.player = new Player(this, SPAWN_X, SPAWN_Y);
 
-    this.buildWorld();
+    // 地形(池の位置など)はサーバーから届くワールドシードが必要なため、接続完了(onInit)まで表示を待つ
+    this.worldLoadingOverlay = document.createElement("div");
+    this.worldLoadingOverlay.id = "world-loading-overlay";
+    this.worldLoadingOverlay.textContent = "ワールドを生成中...";
+    document.body.appendChild(this.worldLoadingOverlay);
 
     this.inputManager = new InputManager(this);
     this.inputManager.onAction((point) => {
@@ -531,6 +526,8 @@ export class GameScene extends Phaser.Scene {
     const { name } = getJoinInfo();
     this.roomClient = new RoomClient(SHARED_ROOM_ID, name, {
       onInit: (selfId, players, buildings, worldSeed) => {
+        this.rebuildWorld(worldSeed);
+
         this.selfId = selfId;
         for (const player of players) {
           if (player.id === selfId) continue;
@@ -614,6 +611,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // 地形(ワールドシード依存)はサーバーへの接続完了(onInit)後にrebuildWorldで構築されるため、
+    // それまではプレイヤー操作やHUD更新を行わない
+    if (!this.worldChromeInitialized) return;
+
     const moveState = this.inputManager.getMoveState();
     // ポケモンの自転車を参考に、所持していればスタミナを気にせずダッシュし続けられる
     const hasBicycle = this.tools.has("bicycle");
@@ -742,7 +743,28 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- ワールド構築 ----------
 
-  private buildWorld(): void {
+  /**
+   * ワールドシードから地形(池の位置・大きさ)とショップ・クラフト台の配置を生成してマップを構築する。
+   * サーバーから新しいワールドシードが届くたび(初回参加時、およびゲームリセット後の再接続時)に
+   * 呼び出され、そのつど地形・ショップ・クラフト台の位置が変わる。
+   * カメラ・ミニマップ・昼夜/天候オーバーレイなど「地形が変わっても作り直す必要がないもの」は
+   * worldChromeInitializedで初回のみ構築する。
+   */
+  private rebuildWorld(worldSeed: number): void {
+    for (const collider of this.worldColliders) collider.destroy();
+    this.worldColliders = [];
+    this.groundLayer?.destroy();
+    this.obstacleLayer?.destroy();
+    for (const npc of this.npcs) npc.destroy();
+    this.npcs = [];
+    for (const shop of this.shops) shop.destroy();
+    this.shops = [];
+    this.craftTable?.destroy();
+
+    const generated = generateWorldMap(worldSeed);
+    this.cache.tilemap.remove("world");
+    this.cache.tilemap.add("world", { format: Phaser.Tilemaps.Formats.TILED_JSON, data: generated.tiledJson });
+
     const map = this.make.tilemap({ key: "world" });
     const tileset = map.addTilesetImage("tileset", "tiles");
     if (!tileset) {
@@ -759,56 +781,8 @@ export class GameScene extends Phaser.Scene {
     this.groundLayer = groundLayer;
     this.obstacleLayer = obstacleLayer;
 
-    const mapWidthPx = map.widthInPixels;
-    const mapHeightPx = map.heightInPixels;
-    this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
-    this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
-    this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
-    this.minimap = new Minimap(mapWidthPx, mapHeightPx);
-
-    // ドラクエ風の「世界地図」。ミニマップと同じ内容を、トグルで開く大きな全体マップとして表示する
-    this.worldMap = new Minimap(mapWidthPx, mapHeightPx, "world-map", WORLD_MAP_SIZE);
-    this.worldMap.element.style.display = "none";
-    this.worldMapToggle = document.createElement("button");
-    this.worldMapToggle.id = "world-map-toggle";
-    this.worldMapToggle.textContent = "🗺️";
-    this.worldMapToggle.addEventListener("click", () => {
-      const isOpen = this.worldMap!.element.style.display !== "none";
-      this.worldMap!.element.style.display = isOpen ? "none" : "block";
-    });
-    document.body.appendChild(this.worldMapToggle);
-
-    this.physics.add.collider(this.player.sprite, groundLayer);
-    this.physics.add.collider(this.player.sprite, obstacleLayer);
-
-    // 昼夜サイクルの暗さを表現するオーバーレイ(カメラに固定し、UI用の文字表示より下に描画する)
-    this.nightOverlay = this.add
-      .rectangle(0, 0, this.scale.width, this.scale.height, NIGHT_OVERLAY_COLOR, 0)
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(15);
-
-    // 天候(雨)の暗さオーバーレイと雨粒パーティクル(どちらもカメラに固定)
-    this.rainOverlay = this.add
-      .rectangle(0, 0, this.scale.width, this.scale.height, RAIN_OVERLAY_COLOR, 0)
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(14);
-    this.ensureRainDropTexture();
-    this.rainEmitter = this.add
-      .particles(0, 0, "rain-drop", {
-        x: { min: 0, max: this.scale.width },
-        y: -10,
-        lifespan: 700,
-        speedY: { min: 260, max: 340 },
-        speedX: { min: -20, max: -10 },
-        alpha: { start: 0.6, end: 0.2 },
-        quantity: 2,
-        frequency: 40,
-        emitting: false,
-      })
-      .setScrollFactor(0)
-      .setDepth(14);
+    this.worldColliders.push(this.physics.add.collider(this.player.sprite, groundLayer));
+    this.worldColliders.push(this.physics.add.collider(this.player.sprite, obstacleLayer));
 
     // モンスターの再出現先を選ぶための、歩行可能なタイル座標一覧(水・岩以外)
     this.walkableTiles = [];
@@ -843,11 +817,64 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    this.craftTable = new CraftTable(this, CRAFT_TABLE_X, CRAFT_TABLE_Y);
+    const craftTableX = generated.craftTableTile.x * TILE_SIZE + TILE_SIZE / 2;
+    const craftTableY = generated.craftTableTile.y * TILE_SIZE + TILE_SIZE / 2;
+    this.craftTable = new CraftTable(this, craftTableX, craftTableY);
 
-    for (const building of this.buildings) {
-      this.addBuildingSprite(building);
+    if (!this.worldChromeInitialized) {
+      this.worldChromeInitialized = true;
+
+      const mapWidthPx = map.widthInPixels;
+      const mapHeightPx = map.heightInPixels;
+      this.physics.world.setBounds(0, 0, mapWidthPx, mapHeightPx);
+      this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
+      this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+      this.minimap = new Minimap(mapWidthPx, mapHeightPx);
+
+      // ドラクエ風の「世界地図」。ミニマップと同じ内容を、トグルで開く大きな全体マップとして表示する
+      this.worldMap = new Minimap(mapWidthPx, mapHeightPx, "world-map", WORLD_MAP_SIZE);
+      this.worldMap.element.style.display = "none";
+      this.worldMapToggle = document.createElement("button");
+      this.worldMapToggle.id = "world-map-toggle";
+      this.worldMapToggle.textContent = "🗺️";
+      this.worldMapToggle.addEventListener("click", () => {
+        const isOpen = this.worldMap!.element.style.display !== "none";
+        this.worldMap!.element.style.display = isOpen ? "none" : "block";
+      });
+      document.body.appendChild(this.worldMapToggle);
+
+      // 昼夜サイクルの暗さを表現するオーバーレイ(カメラに固定し、UI用の文字表示より下に描画する)
+      this.nightOverlay = this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, NIGHT_OVERLAY_COLOR, 0)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(15);
+
+      // 天候(雨)の暗さオーバーレイと雨粒パーティクル(どちらもカメラに固定)
+      this.rainOverlay = this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, RAIN_OVERLAY_COLOR, 0)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(14);
+      this.ensureRainDropTexture();
+      this.rainEmitter = this.add
+        .particles(0, 0, "rain-drop", {
+          x: { min: 0, max: this.scale.width },
+          y: -10,
+          lifespan: 700,
+          speedY: { min: 260, max: 340 },
+          speedX: { min: -20, max: -10 },
+          alpha: { start: 0.6, end: 0.2 },
+          quantity: 2,
+          frequency: 40,
+          emitting: false,
+        })
+        .setScrollFactor(0)
+        .setDepth(14);
     }
+
+    this.worldLoadingOverlay?.remove();
+    this.worldLoadingOverlay = undefined;
   }
 
   private addBuildingSprite(building: PlacedBuilding): void {
@@ -953,8 +980,8 @@ export class GameScene extends Phaser.Scene {
     const monster = new Monster(this, x, y, isRare, isBoss, isMini, bossTier, isExplosive);
     this.monsters.push(monster);
     if (isBoss) this.boss = monster;
-    if (this.groundLayer) this.physics.add.collider(monster.sprite, this.groundLayer);
-    if (this.obstacleLayer) this.physics.add.collider(monster.sprite, this.obstacleLayer);
+    if (this.groundLayer) this.worldColliders.push(this.physics.add.collider(monster.sprite, this.groundLayer));
+    if (this.obstacleLayer) this.worldColliders.push(this.physics.add.collider(monster.sprite, this.obstacleLayer));
     this.monsterOverlaps.push(
       this.physics.add.overlap(this.player.sprite, monster.sprite, () => {
         this.handleMonsterContact(monster);
@@ -1006,8 +1033,8 @@ export class GameScene extends Phaser.Scene {
     const isShiny = Math.random() < SHINY_ANIMAL_CHANCE;
     const animal = new Animal(this, x, y, isShiny);
     this.animals.push(animal);
-    if (this.groundLayer) this.physics.add.collider(animal.sprite, this.groundLayer);
-    if (this.obstacleLayer) this.physics.add.collider(animal.sprite, this.obstacleLayer);
+    if (this.groundLayer) this.worldColliders.push(this.physics.add.collider(animal.sprite, this.groundLayer));
+    if (this.obstacleLayer) this.worldColliders.push(this.physics.add.collider(animal.sprite, this.obstacleLayer));
   }
 
   private scheduleAnimalRespawn(): void {

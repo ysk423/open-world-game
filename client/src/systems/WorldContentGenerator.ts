@@ -25,7 +25,7 @@ const MIN_SPACING_PX = 56;
 const MAX_ATTEMPTS_PER_ITEM = 40;
 
 /** 決定的な擬似乱数生成器(mulberry32)。同じシードなら常に同じ並びの乱数を返す */
-function createRandom(seed: number): () => number {
+export function createRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6d2b79f5) | 0;
