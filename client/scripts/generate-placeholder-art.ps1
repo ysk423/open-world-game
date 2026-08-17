@@ -459,4 +459,24 @@ $g10.Dispose()
 $rsheet.Save((Join-Path $assetsDir "rock-object.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 $rsheet.Dispose()
 
-Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png, $assetsDir\animal.png, $assetsDir\shop.png, $assetsDir\rock-object.png"
+# ---------- craft table (32x32 x 1: a wooden workbench with a hammer on top) ----------
+$ctsheet = New-Object System.Drawing.Bitmap $tileSize, $tileSize
+$g11 = [System.Drawing.Graphics]::FromImage($ctsheet)
+$g11.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+$g11.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
+
+DrawGroundShadow $g11 16 30 26 3
+FillRectShaded $g11 3 8 4 20 96 62 36
+FillRectShaded $g11 25 8 4 20 96 62 36
+FillRectShaded $g11 2 6 28 9 168 116 74
+Fill $g11 2 6 28 3 190 138 92
+FillRectShaded $g11 6 16 8 3 150 100 62
+FillRectShaded $g11 18 16 8 3 150 100 62
+FillRectShaded $g11 13 2 6 8 90 90 96
+FillRectShaded $g11 9 0 14 4 150 150 158
+
+$g11.Dispose()
+$ctsheet.Save((Join-Path $assetsDir "craft-table.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$ctsheet.Dispose()
+
+Write-Output "written: $assetsDir\tileset.png, $assetsDir\player.png, $assetsDir\gathering.png, $assetsDir\buildings.png, $assetsDir\monster.png, $assetsDir\npc.png, $assetsDir\farm.png, $assetsDir\animal.png, $assetsDir\shop.png, $assetsDir\rock-object.png, $assetsDir\craft-table.png"

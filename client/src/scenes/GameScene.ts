@@ -14,6 +14,7 @@ import { Monster } from "../entities/Monster";
 import { Animal, NICKNAME_MAX_LENGTH } from "../entities/Animal";
 import { Npc } from "../entities/Npc";
 import { Shop } from "../entities/Shop";
+import { CraftTable } from "../entities/CraftTable";
 import { RoomClient, requestGameReset } from "../net/RoomClient";
 import type { AnimState, PlacedBuilding, PlayerState } from "../net/types";
 import { getJoinInfo, SHARED_ROOM_ID } from "../net/joinInfo";
@@ -73,6 +74,10 @@ const WORLD_MAP_SIZE = 360;
 const SPAWN_TILE = { x: 38, y: 80 };
 const SPAWN_X = SPAWN_TILE.x * TILE_SIZE + TILE_SIZE / 2;
 const SPAWN_Y = SPAWN_TILE.y * TILE_SIZE + TILE_SIZE / 2;
+
+// クラフト台は拠点(スポーン地点)のすぐそばに最初から設置しておく
+const CRAFT_TABLE_X = SPAWN_X + TILE_SIZE * 2;
+const CRAFT_TABLE_Y = SPAWN_Y + TILE_SIZE;
 
 // 位置同期を送る間隔(ms)。低頻度・高頻度どちらにも寄せすぎない程度の値
 const NETWORK_TICK_MS = 80;
@@ -407,6 +412,7 @@ export class GameScene extends Phaser.Scene {
   private respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
   private npcs: Npc[] = [];
   private shops: Shop[] = [];
+  private craftTable!: CraftTable;
   private shopPanel!: ShopPanel;
   private minimap!: Minimap;
   private worldMap?: Minimap;
@@ -452,6 +458,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image("monster", "assets/monster.png");
     this.load.image("animal", "assets/animal.png");
     this.load.image("shop", "assets/shop.png");
+    this.load.image("craft-table", "assets/craft-table.png");
     this.load.image("rock-object", "assets/rock-object.png");
     this.load.spritesheet("npc", "assets/npc.png", {
       frameWidth: 32,
@@ -521,7 +528,18 @@ export class GameScene extends Phaser.Scene {
     // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」から
     // 階層的に開けるようにまとめる(マインクラフトのエンダーチェストは道具を持っている時だけ表示)
     new MenuHub([
-      { icon: "🔨", label: "クラフト", open: () => this.craftMenu.open(), close: () => this.craftMenu.close() },
+      {
+        icon: "🔨",
+        label: "クラフト",
+        open: () => {
+          if (!this.isNearCraftTable()) {
+            this.showFloatingMessage("🔨 クラフト台に近づいてください");
+            return;
+          }
+          this.craftMenu.open();
+        },
+        close: () => this.craftMenu.close(),
+      },
       { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
       { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
       {
@@ -868,6 +886,7 @@ export class GameScene extends Phaser.Scene {
     for (const shop of this.shops) {
       points.push({ x: shop.worldX, y: shop.worldY, color: "#4ade80" });
     }
+    points.push({ x: this.craftTable.worldX, y: this.craftTable.worldY, color: "#f97316" });
     for (const npc of this.npcs) {
       points.push({ x: npc.worldX, y: npc.worldY, color: "#60a5fa" });
     }
@@ -1029,6 +1048,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    this.craftTable = new CraftTable(this, CRAFT_TABLE_X, CRAFT_TABLE_Y);
+
     for (const building of this.buildings) {
       this.addBuildingSprite(building);
     }
@@ -1083,6 +1104,7 @@ export class GameScene extends Phaser.Scene {
   private placeWorldContent(seed: number): void {
     const avoidPoints: { x: number; y: number }[] = [
       { x: SPAWN_X, y: SPAWN_Y },
+      { x: this.craftTable.worldX, y: this.craftTable.worldY },
       ...this.npcs.map((npc) => ({ x: npc.worldX, y: npc.worldY })),
       ...this.shops.map((shop) => ({ x: shop.worldX, y: shop.worldY })),
     ];
@@ -2087,6 +2109,33 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  // ---------- クラフト台(拠点に最初から設置されている。近づいてクラフトメニューを開く) ----------
+
+  private tryCraftTable(point: ActionPoint): boolean {
+    const clickDist = Phaser.Math.Distance.Between(
+      point.worldX,
+      point.worldY,
+      this.craftTable.worldX,
+      this.craftTable.worldY,
+    );
+    if (clickDist > SHOP_CLICK_RADIUS) return false;
+
+    if (!this.isNearCraftTable()) return false;
+
+    this.craftMenu.toggle();
+    return true;
+  }
+
+  private isNearCraftTable(): boolean {
+    const reachDist = Phaser.Math.Distance.Between(
+      this.player.sprite.x,
+      this.player.sprite.y,
+      this.craftTable.worldX,
+      this.craftTable.worldY,
+    );
+    return reachDist <= SHOP_REACH_RADIUS;
+  }
+
   // ---------- 倉庫(建物のstorage_shedに話しかけると開く) ----------
 
   private tryStorage(point: ActionPoint): boolean {
@@ -2541,6 +2590,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryAttack(point)) return;
     if (this.tryTalk(point)) return;
     if (this.tryShop(point)) return;
+    if (this.tryCraftTable(point)) return;
     if (this.tryStorage(point)) return;
     if (this.tryWell(point)) return;
     if (this.tryInn(point)) return;
