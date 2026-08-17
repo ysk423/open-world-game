@@ -58,8 +58,6 @@ button:active {
 #craft-menu,
 #building-items-panel,
 #help-panel,
-#save-panel,
-#data-panel,
 #equipment-panel,
 #stats-panel,
 #shop-panel {
@@ -86,8 +84,6 @@ button:active {
 #craft-menu,
 #building-items-panel,
 #help-panel,
-#save-panel,
-#data-panel,
 #equipment-panel,
 #stats-panel,
 #shop-panel {
@@ -105,7 +101,6 @@ button:active {
   }
 
   .recipe-card button:not(.recipe-info-button),
-  .save-slot-row button,
   .equipment-row button,
   .shop-row button {
     padding: 8px 12px;
@@ -492,8 +487,8 @@ button:active {
   background: #5cb872;
 }
 
-/* 右側に並んでいたトグルボタン(クラフト・装備・図鑑・操作方法・セーブ/ロード・データ管理・
-   エンダーチェスト)は、スマホでの占有面積を減らすため単一の「☰ メニュー」に統合した。
+/* 右側に並んでいたトグルボタン(クラフト・装備・図鑑・操作方法・エンダーチェスト)は、
+   スマホでの占有面積を減らすため単一の「☰ メニュー」に統合した。
    個別パネルは同時に1つしか開かないため、同じ位置(#menu-hub-panelと同じ座標)から表示する */
 #menu-toggle {
   position: fixed;
@@ -691,103 +686,6 @@ button:active {
   color: #ddd;
 }
 
-#save-panel {
-  position: fixed;
-  right: 12px;
-  top: 50px;
-  width: 260px;
-  max-height: min(300px, 45vh);
-  overflow-y: auto;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 8px;
-  background: rgba(26, 26, 26, 0.92);
-  color: #fff;
-  font-family: system-ui, sans-serif;
-}
-
-#save-panel h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.save-slot-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.save-slot-label {
-  flex: 1;
-  color: #ddd;
-}
-
-.save-slot-row button {
-  padding: 5px 8px;
-  border: none;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
-  color: #fff;
-  font-size: 11px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.save-slot-row button:disabled {
-  background: #555;
-  color: #999;
-  cursor: not-allowed;
-}
-
-.save-slot-row button.save-delete-button {
-  background: #8a3a3a;
-}
-
-.save-slot-row button.save-delete-button:hover:not(:disabled) {
-  background: #a84848;
-}
-
-#data-panel {
-  position: fixed;
-  right: 12px;
-  top: 50px;
-  width: 280px;
-  max-height: min(320px, 55vh);
-  overflow-y: auto;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 8px;
-  background: rgba(26, 26, 26, 0.92);
-  color: #fff;
-  font-family: system-ui, sans-serif;
-}
-
-#data-panel h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-#data-panel h3 {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #ccc;
-}
-
-#data-panel input[type="file"] {
-  font-size: 11px;
-  color: #ddd;
-}
-
-#data-panel select {
-  padding: 4px 6px;
-  border-radius: 4px;
-  border: none;
-  font-size: 11px;
-}
 
 #equipment-panel {
   position: fixed;

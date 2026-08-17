@@ -5,7 +5,7 @@ export const TORCH_GLOW_TEXTURE_KEY = "torch-glow";
 const GLOW_TEXTURE_KEY = TORCH_GLOW_TEXTURE_KEY;
 const GLOW_RADIUS = 140;
 
-/** 一度だけテクスチャを生成する(全てのたいまつで使い回す)。手持ちのたいまつからも呼ばれる */
+/** 一度だけテクスチャを生成する */
 export function ensureTorchTextures(scene: Phaser.Scene): void {
   if (!scene.textures.exists(ICON_TEXTURE_KEY)) {
     const g = scene.add.graphics();

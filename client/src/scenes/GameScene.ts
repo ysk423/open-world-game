@@ -35,8 +35,6 @@ import { StatsPanel } from "../ui/StatsPanel";
 import { ACHIEVEMENTS } from "../systems/Achievements";
 import { recordSurvivalMs, formatSurvivalTime, getBestSurvivalMs } from "../systems/SurvivalRecord";
 import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../systems/AchievementReward";
-import { saveSlot, loadSlot, deleteSlot } from "../systems/SaveSlots";
-import { buildExportFile, downloadJsonFile, type ExportedSaveFile } from "../systems/ExportImport";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
 import { getCycleProgress, getNightIntensity, isNight, CYCLE_DURATION_MS } from "../systems/DayNightCycle";
 import { isRaining } from "../systems/Weather";
@@ -46,8 +44,6 @@ import { CraftMenu } from "../ui/CraftMenu";
 import { BuildingItemsPanel } from "../ui/BuildingItemsPanel";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
-import { SaveLoadPanel } from "../ui/SaveLoadPanel";
-import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
 import { MenuHub } from "../ui/MenuHub";
 import { ExperienceHud } from "../ui/ExperienceHud";
@@ -316,8 +312,6 @@ export class GameScene extends Phaser.Scene {
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
   private nextStarvationDamageAt = 0;
-  private pendingLoadSlot: number | null = null;
-  private pendingExportSlot: number | null = null;
   private shippingBinPendingValue = 0;
   private lastShipmentDayIndex = Math.floor(Date.now() / CYCLE_DURATION_MS);
 
@@ -445,15 +439,6 @@ export class GameScene extends Phaser.Scene {
     this.hunger = new Hunger();
     new HungerHud(this.hunger, () => this.handleEat());
     const helpPanel = new HelpPanel();
-    const saveLoadPanel = new SaveLoadPanel({
-      onSave: (slot) => this.handleSave(slot),
-      onLoad: (slot) => this.handleLoad(slot),
-      onDelete: (slot) => this.handleDelete(slot),
-    });
-    const dataManagementPanel = new DataManagementPanel({
-      onExport: (slot) => this.handleExport(slot),
-      onImport: (slot, data) => this.handleImport(slot, data),
-    });
     this.shopPanel = new ShopPanel(this.inventory, {
       onSell: (itemId) => this.handleSell(itemId),
       onBuy: (itemId) => this.handleBuy(itemId),
@@ -486,8 +471,6 @@ export class GameScene extends Phaser.Scene {
       },
       { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
       { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
-      { icon: "💾", label: "セーブ/ロード", open: () => saveLoadPanel.open(), close: () => saveLoadPanel.close() },
-      { icon: "🗂", label: "データ管理", open: () => dataManagementPanel.open(), close: () => dataManagementPanel.close() },
       { icon: "❓", label: "操作方法", open: () => helpPanel.open(), close: () => helpPanel.close() },
     ]);
 
@@ -584,6 +567,11 @@ export class GameScene extends Phaser.Scene {
         this.addBuildingSprite(building);
       },
       onGameReset: () => {
+        // リセット時にサーバーは全員の接続を切って入り直させるが、他プレイヤーの
+        // 「退出」通知は再接続と競合して届かないことがあるため、表示中の他プレイヤーの
+        // スプライトはここで確実に破棄しておく(再接続後にonPlayerJoinedで作り直される)
+        for (const remote of this.remotePlayers.values()) remote.destroy();
+        this.remotePlayers.clear();
         this.buildings = [];
         for (const building of this.buildingSprites) building.destroy();
         this.buildingSprites = [];
@@ -617,80 +605,7 @@ export class GameScene extends Phaser.Scene {
         this.survivalStartedAt = Date.now();
         this.hideGameOverOverlay();
       },
-      onGameLoaded: (slot, buildings) => {
-        this.buildings = buildings;
-        for (const building of this.buildingSprites) building.destroy();
-        this.buildingSprites = [];
-        this.flowerBedPlantedAt.clear();
-        this.beehiveHarvestedAt.clear();
-        for (const plot of this.farmPlots) plot.destroy();
-        this.farmPlots = [];
-        for (const torch of this.torches) torch.destroy();
-        this.torches = [];
-        this.respawnPoint = { x: SPAWN_X, y: SPAWN_Y };
-        for (const building of buildings) this.addBuildingSprite(building);
-
-        // 自分が要求したロードの場合のみ、個人の持ち物・HPも復元する(他プレイヤーの分は変えない)
-        if (this.pendingLoadSlot === slot) {
-          this.pendingLoadSlot = null;
-          const data = loadSlot(slot);
-          if (data) {
-            this.inventory.setCounts(data.counts);
-            this.health.setHp(data.hp);
-          }
-          this.shippingBinPendingValue = 0;
-        }
-        this.showFloatingMessage(`スロット${slot}をロードしました`);
-      },
-      onLoadFailed: (slot) => {
-        this.pendingLoadSlot = null;
-        this.showFloatingMessage(`スロット${slot}は空です`);
-      },
-      onExportData: (slot, buildings) => {
-        if (this.pendingExportSlot !== slot) return;
-        this.pendingExportSlot = null;
-        const local = loadSlot(slot);
-        if (!local) return;
-        const file = buildExportFile(slot, local.counts, local.hp, buildings);
-        downloadJsonFile(`open-world-game-slot${slot}.json`, file);
-        this.showFloatingMessage(`スロット${slot}をエクスポートしました`);
-      },
-      onExportFailed: (slot) => {
-        this.pendingExportSlot = null;
-        this.showFloatingMessage(`スロット${slot}は空です`);
-      },
     });
-  }
-
-  // ---------- セーブ/ロード ----------
-
-  private handleSave(slot: number): void {
-    saveSlot(slot, this.inventory.getCounts(), this.health.getHp());
-    this.roomClient.sendSaveGame(slot);
-    this.showFloatingMessage(`スロット${slot}にセーブしました`);
-  }
-
-  private handleDelete(slot: number): void {
-    deleteSlot(slot);
-    this.roomClient.sendDeleteGame(slot);
-    this.showFloatingMessage(`スロット${slot}を削除しました`);
-  }
-
-  private handleLoad(slot: number): void {
-    this.pendingLoadSlot = slot;
-    this.roomClient.sendLoadGame(slot);
-  }
-
-  private handleExport(slot: number): void {
-    if (!loadSlot(slot)) return;
-    this.pendingExportSlot = slot;
-    this.roomClient.sendExportGame(slot);
-  }
-
-  private handleImport(slot: number, data: ExportedSaveFile): void {
-    saveSlot(slot, data.counts, data.hp);
-    this.pendingLoadSlot = slot;
-    this.roomClient.sendImportGame(slot, data.buildings);
   }
 
   private addRemotePlayer(player: PlayerState): void {
