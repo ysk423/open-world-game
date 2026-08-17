@@ -46,6 +46,7 @@ import { HelpPanel } from "../ui/HelpPanel";
 import { SaveLoadPanel } from "../ui/SaveLoadPanel";
 import { DataManagementPanel } from "../ui/DataManagementPanel";
 import { EquipmentPanel } from "../ui/EquipmentPanel";
+import { MenuHub } from "../ui/MenuHub";
 import { ExperienceHud } from "../ui/ExperienceHud";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES, getDailySpecialItem, getEffectiveSellPrice } from "../ui/ShopPanel";
 import { TouchDPad } from "../ui/TouchDPad";
@@ -338,7 +339,6 @@ export class GameScene extends Phaser.Scene {
   private stamina!: Stamina;
   private storage!: Storage;
   private storagePanel!: StoragePanel;
-  private enderChestButton?: HTMLButtonElement;
   private compassHud?: HTMLDivElement;
   private invulnerableUntil = 0;
   private nextFishAllowedAt = 0;
@@ -453,7 +453,7 @@ export class GameScene extends Phaser.Scene {
     this.affinity = new Affinity();
     this.stats = new Stats();
     this.experience = new Experience();
-    new StatsPanel(this.stats, this.experience);
+    const statsPanel = new StatsPanel(this.stats, this.experience);
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
@@ -464,8 +464,10 @@ export class GameScene extends Phaser.Scene {
       (weaponId) => this.equipment.hasKnockbackEnchant(weaponId),
       (recipe) => this.handleCraft(recipe),
     );
-    new EquipmentPanel(this.equipment, (weaponId) => this.equipment.equip(weaponId), (armorId) =>
-      this.equipment.equipArmor(armorId),
+    const equipmentPanel = new EquipmentPanel(
+      this.equipment,
+      (weaponId) => this.equipment.equip(weaponId),
+      (armorId) => this.equipment.equipArmor(armorId),
     );
     new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
@@ -473,13 +475,13 @@ export class GameScene extends Phaser.Scene {
     new HealthHud(this.health, () => this.handleHeal());
     this.stamina = new Stamina();
     new StaminaHud(this.stamina);
-    new HelpPanel();
-    new SaveLoadPanel({
+    const helpPanel = new HelpPanel();
+    const saveLoadPanel = new SaveLoadPanel({
       onSave: (slot) => this.handleSave(slot),
       onLoad: (slot) => this.handleLoad(slot),
       onDelete: (slot) => this.handleDelete(slot),
     });
-    new DataManagementPanel({
+    const dataManagementPanel = new DataManagementPanel({
       onExport: (slot) => this.handleExport(slot),
       onImport: (slot, data) => this.handleImport(slot, data),
     });
@@ -493,16 +495,23 @@ export class GameScene extends Phaser.Scene {
       onWithdraw: (itemId) => this.handleWithdraw(itemId),
     });
 
-    // マインクラフト風のエンダーチェスト。作ると、倉庫のそばにいなくてもどこからでも倉庫を開けるようになる
-    this.enderChestButton = document.createElement("button");
-    this.enderChestButton.id = "ender-chest-toggle";
-    this.enderChestButton.textContent = "📦";
-    this.enderChestButton.style.display = "none";
-    this.enderChestButton.addEventListener("click", () => this.storagePanel.toggle());
-    document.body.appendChild(this.enderChestButton);
-    this.tools.onChange((owned) => {
-      if (this.enderChestButton) this.enderChestButton.style.display = owned.has("enderChest") ? "block" : "none";
-    });
+    // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」から
+    // 階層的に開けるようにまとめる(マインクラフトのエンダーチェストは道具を持っている時だけ表示)
+    new MenuHub([
+      { icon: "🔨", label: "クラフト", open: () => this.craftMenu.open(), close: () => this.craftMenu.close() },
+      { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
+      { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
+      {
+        icon: "📦",
+        label: "エンダーチェスト",
+        open: () => this.storagePanel.open(),
+        close: () => this.storagePanel.close(),
+        isVisible: () => this.tools.has("enderChest"),
+      },
+      { icon: "💾", label: "セーブ/ロード", open: () => saveLoadPanel.open(), close: () => saveLoadPanel.close() },
+      { icon: "🗂", label: "データ管理", open: () => dataManagementPanel.open(), close: () => dataManagementPanel.close() },
+      { icon: "❓", label: "操作方法", open: () => helpPanel.open(), close: () => helpPanel.close() },
+    ]);
 
     // マインクラフト風のコンパス。作ると、拠点(ベッド地点)への方角と距離が画面に表示され続ける
     this.compassHud = document.createElement("div");

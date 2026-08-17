@@ -27,22 +27,14 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
 
 const GATHERABLE_ITEMS: ItemId[] = ["wood", "stone", "herb", "seed_wheat", "wheat", "fish", "milk", "tomato"];
 
-/** 画面右上の「📖 図鑑」ボタンで開閉するパネル。ポケモン図鑑を参考にした生涯累計の記録と実績を表示する */
+/** メニューの「図鑑」から開くパネル。ポケモン図鑑を参考にした生涯累計の記録と実績を表示する */
 export class StatsPanel {
-  private toggleButton: HTMLButtonElement;
   private panel: HTMLDivElement;
-  private isOpen = false;
   private experience: Experience;
   private latestSnapshot: Readonly<StatsSnapshot> | null = null;
 
   constructor(stats: Stats, experience: Experience) {
     this.experience = experience;
-
-    this.toggleButton = document.createElement("button");
-    this.toggleButton.id = "stats-toggle";
-    this.toggleButton.textContent = "📖 図鑑";
-    this.toggleButton.addEventListener("click", () => this.setOpen(!this.isOpen));
-    document.body.appendChild(this.toggleButton);
 
     this.panel = document.createElement("div");
     this.panel.id = "stats-panel";
@@ -58,9 +50,12 @@ export class StatsPanel {
     });
   }
 
-  private setOpen(open: boolean): void {
-    this.isOpen = open;
-    this.panel.style.display = open ? "flex" : "none";
+  open(): void {
+    this.panel.style.display = "flex";
+  }
+
+  close(): void {
+    this.panel.style.display = "none";
   }
 
   private render(snapshot: Readonly<StatsSnapshot>): void {

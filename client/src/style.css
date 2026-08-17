@@ -45,27 +45,16 @@ button:active {
 }
 
 /* トグルボタン群・パネル群・HUD群に共通の縁取り/影を足して、フラットな見た目から一段立体的にする */
-#craft-toggle,
-#help-toggle,
-#save-toggle,
-#data-toggle,
-#equipment-toggle,
-#stats-toggle,
-#ender-chest-toggle {
+#menu-toggle {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-#craft-toggle:hover,
-#help-toggle:hover,
-#save-toggle:hover,
-#data-toggle:hover,
-#equipment-toggle:hover,
-#stats-toggle:hover,
-#ender-chest-toggle:hover {
+#menu-toggle:hover {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
 }
 
+#menu-hub-panel,
 #craft-menu,
 #help-panel,
 #save-panel,
@@ -87,16 +76,11 @@ button:active {
 
 /* パネルを開閉するトグルボタンは、DOM順に関わらず常にパネルより手前でタップできるようにする
    (パネルの中身が伸びて別のトグルボタンと画面上で重なることがあるため) */
-#craft-toggle,
-#help-toggle,
-#save-toggle,
-#data-toggle,
-#equipment-toggle,
-#stats-toggle,
-#ender-chest-toggle {
+#menu-toggle {
   z-index: 6;
 }
 
+#menu-hub-panel,
 #craft-menu,
 #help-panel,
 #save-panel,
@@ -109,13 +93,8 @@ button:active {
 
 /* タッチ操作の端末では指で狙いにくいので、ボタン類を一回り大きくする */
 @media (pointer: coarse) {
-  #craft-toggle,
-  #help-toggle,
-  #save-toggle,
-  #data-toggle,
-  #equipment-toggle,
-  #stats-toggle,
-  #ender-chest-toggle,
+  #menu-toggle,
+  .menu-hub-entry,
   #heal-button {
     padding: 10px 16px;
     font-size: 14px;
@@ -469,28 +448,68 @@ button:active {
   background: #5cb872;
 }
 
-#craft-toggle {
+/* 右側に並んでいたトグルボタン(クラフト・装備・図鑑・操作方法・セーブ/ロード・データ管理・
+   エンダーチェスト)は、スマホでの占有面積を減らすため単一の「☰ メニュー」に統合した。
+   個別パネルは同時に1つしか開かないため、同じ位置(#menu-hub-panelと同じ座標)から表示する */
+#menu-toggle {
   position: fixed;
   right: 12px;
-  bottom: 12px;
-  padding: 8px 14px;
+  top: 12px;
+  padding: 6px 12px;
   border: none;
   border-radius: 6px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-family: system-ui, sans-serif;
   cursor: pointer;
 }
 
-#craft-toggle:hover {
+#menu-toggle:hover {
   background: #6f9be8;
+}
+
+#menu-hub-panel {
+  position: fixed;
+  right: 12px;
+  top: 50px;
+  width: 220px;
+  max-height: min(400px, 65vh);
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+#menu-hub-panel h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.menu-hub-entry {
+  padding: 10px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  font-family: system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-hub-entry:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 #craft-menu {
   position: fixed;
   right: 12px;
-  bottom: 56px;
+  top: 50px;
   width: 220px;
   max-height: min(300px, 45vh);
   overflow-y: auto;
@@ -545,24 +564,6 @@ button:active {
   cursor: not-allowed;
 }
 
-#help-toggle {
-  position: fixed;
-  right: 12px;
-  top: 12px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#help-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
 #help-panel {
   position: fixed;
   right: 12px;
@@ -601,28 +602,10 @@ button:active {
   color: #ddd;
 }
 
-#save-toggle {
-  position: fixed;
-  right: 12px;
-  top: 88px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#save-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
 #save-panel {
   position: fixed;
   right: 12px;
-  top: 126px;
+  top: 50px;
   width: 260px;
   max-height: min(300px, 45vh);
   overflow-y: auto;
@@ -678,28 +661,10 @@ button:active {
   background: #a84848;
 }
 
-#data-toggle {
-  position: fixed;
-  right: 12px;
-  top: 164px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#data-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
 #data-panel {
   position: fixed;
   right: 12px;
-  top: 202px;
+  top: 50px;
   width: 280px;
   max-height: min(320px, 55vh);
   overflow-y: auto;
@@ -735,28 +700,10 @@ button:active {
   font-size: 11px;
 }
 
-#equipment-toggle {
-  position: fixed;
-  right: 12px;
-  top: 240px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#equipment-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
 #equipment-panel {
   position: fixed;
   right: 12px;
-  top: 278px;
+  top: 50px;
   width: 260px;
   max-height: min(300px, 45vh);
   overflow-y: auto;
@@ -807,42 +754,6 @@ button:active {
   color: #aaa;
 }
 
-#stats-toggle {
-  position: fixed;
-  right: 12px;
-  top: 316px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#stats-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
-#ender-chest-toggle {
-  position: fixed;
-  right: 12px;
-  top: 392px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(26, 26, 26, 0.7);
-  color: #fff;
-  font-size: 13px;
-  font-family: system-ui, sans-serif;
-  cursor: pointer;
-}
-
-#ender-chest-toggle:hover {
-  background: rgba(50, 50, 50, 0.85);
-}
-
 #compass-hud {
   position: fixed;
   left: 12px;
@@ -860,7 +771,7 @@ button:active {
 #stats-panel {
   position: fixed;
   right: 12px;
-  top: 354px;
+  top: 50px;
   width: 260px;
   max-height: min(300px, 45vh);
   overflow-y: auto;
