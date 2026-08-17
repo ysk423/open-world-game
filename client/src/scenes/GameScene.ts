@@ -102,7 +102,7 @@ const FARM_REACH_RADIUS = REACH_RADIUS;
 const SHOP_CLICK_RADIUS = CLICK_RADIUS;
 const SHOP_REACH_RADIUS = REACH_RADIUS;
 
-// シフトキーでアクションする時、向いている方向のこの距離先を対象点にする
+// Xキーでアクションする時、向いている方向のこの距離先を対象点にする
 const SHIFT_ACTION_REACH = 40;
 const SHIFT_ACTION_OFFSET: Record<Direction, { x: number; y: number }> = {
   up: { x: 0, y: -1 },
@@ -2701,7 +2701,7 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  /** シフトキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */
+  /** Xキーでのアクション。向いている方向の少し先を対象点にして、クリックと同じ判定を使う */
   private handleShiftAction(): void {
     const offset = SHIFT_ACTION_OFFSET[this.player.currentDirection];
     const worldX = this.player.sprite.x + offset.x * SHIFT_ACTION_REACH;

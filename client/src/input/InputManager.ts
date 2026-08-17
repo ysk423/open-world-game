@@ -63,7 +63,8 @@ export class InputManager {
       "W" | "A" | "S" | "D",
       Phaser.Input.Keyboard.Key
     >;
-    this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    // Shiftキー単体はOSの固定キー機能やIMEに横取りされ、ブラウザまで届かないことがあるためXキーを使う
+    this.shiftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
     this.sprintKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.teleportKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
     this.skillKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
@@ -150,7 +151,7 @@ export class InputManager {
     this.enderPearlActionHandlers.push(handler);
   }
 
-  /** シフトキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
+  /** Xキーが押された時に呼ばれる(向いている方向へアクションを行う想定) */
   onShiftAction(handler: ShiftActionHandler): void {
     this.shiftActionHandlers.push(handler);
   }
