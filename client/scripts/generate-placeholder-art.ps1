@@ -193,8 +193,8 @@ function DrawFrame($gfx, $ox, $oy, $facing, $step) {
 
     # head (bigger, rounder, shaded for volume)
     FillOvalShaded $gfx ($ox+6) ($oy+3) 20 17 $skin[0] $skin[1] $skin[2]
-    # hat (wider brim to match the bigger head)
-    FillOvalShaded $gfx ($ox+4) ($oy-1) 24 10 $hat[0] $hat[1] $hat[2]
+    # hat (wider brim to match the bigger head; sits a bit higher so the brim doesn't crowd the eyes)
+    FillOvalShaded $gfx ($ox+4) ($oy-3) 24 10 $hat[0] $hat[1] $hat[2]
     FillOvalShaded $gfx ($ox+12) ($oy-4) 8 8 $hat[0] $hat[1] $hat[2]
     # rosy cheeks for a cuter look
     if ($facing -ne "up") {
