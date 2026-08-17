@@ -29,6 +29,7 @@ const ICON_BY_ITEM: Record<ItemId, string> = {
 export class CraftMenu {
   private panel: HTMLDivElement;
   private isOpen = false;
+  private expandedIds = new Set<string>();
   private inventory: Inventory;
   private getOwnedWeapons: () => ReadonlySet<WeaponId>;
   private getOwnedTools: () => ReadonlySet<ToolId>;
@@ -126,7 +127,25 @@ export class CraftMenu {
         recipe.effect.type === "upgrade"
           ? `${recipe.name}(現在Lv.${this.getUpgradeLevel(recipe.effect.weaponId)})`
           : recipe.name;
+      if (recipe.description) label.title = recipe.description;
       card.appendChild(label);
+
+      if (recipe.description) {
+        const infoButton = document.createElement("button");
+        infoButton.type = "button";
+        infoButton.className = "recipe-info-button";
+        infoButton.textContent = "ⓘ";
+        infoButton.setAttribute("aria-label", "説明を表示");
+        infoButton.addEventListener("click", () => {
+          if (this.expandedIds.has(recipe.id)) {
+            this.expandedIds.delete(recipe.id);
+          } else {
+            this.expandedIds.add(recipe.id);
+          }
+          this.render();
+        });
+        card.appendChild(infoButton);
+      }
 
       const cost = document.createElement("div");
       cost.className = "recipe-cost";
@@ -150,6 +169,13 @@ export class CraftMenu {
       card.appendChild(button);
 
       this.panel.appendChild(card);
+
+      if (recipe.description && this.expandedIds.has(recipe.id)) {
+        const description = document.createElement("div");
+        description.className = "recipe-description";
+        description.textContent = recipe.description;
+        this.panel.appendChild(description);
+      }
     }
   }
 }
