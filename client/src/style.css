@@ -69,6 +69,7 @@ button:active {
 #health-hud,
 #experience-hud,
 #stamina-hud,
+#hunger-hud,
 #inventory-hud {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -95,7 +96,8 @@ button:active {
 @media (pointer: coarse) {
   #menu-toggle,
   .menu-hub-entry,
-  #heal-button {
+  #heal-button,
+  #eat-button {
     padding: 10px 16px;
     font-size: 14px;
   }
@@ -364,10 +366,43 @@ button:active {
   user-select: none;
 }
 
-#minimap {
+#hunger-hud {
   position: fixed;
   left: 12px;
   top: 144px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(26, 26, 26, 0.7);
+  font-size: 16px;
+  letter-spacing: 2px;
+  pointer-events: none;
+  user-select: none;
+}
+
+#eat-button {
+  pointer-events: auto;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: #b5772e;
+  color: #fff;
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+#eat-button:hover {
+  background: #d68f3d;
+}
+
+#minimap {
+  position: fixed;
+  left: 12px;
+  top: 188px;
   border-radius: 6px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
   pointer-events: none;
@@ -377,7 +412,7 @@ button:active {
 #world-map-toggle {
   position: fixed;
   left: 12px;
-  top: 272px;
+  top: 316px;
   padding: 6px 12px;
   border: none;
   border-radius: 6px;

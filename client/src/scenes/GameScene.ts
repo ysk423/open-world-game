@@ -23,6 +23,7 @@ import { Health } from "../systems/Health";
 import { Equipment, KNOCKBACK_DISTANCE, BOW_REACH_MULTIPLIER, THORNS_DAMAGE } from "../systems/Equipment";
 import { Experience } from "../systems/Experience";
 import { Stamina } from "../systems/Stamina";
+import { Hunger } from "../systems/Hunger";
 import { Storage } from "../systems/Storage";
 import { StoragePanel } from "../ui/StoragePanel";
 import { Tools } from "../systems/Tools";
@@ -53,6 +54,7 @@ import { TouchDPad } from "../ui/TouchDPad";
 import { ActionButton } from "../ui/ActionButton";
 import { SprintButton } from "../ui/SprintButton";
 import { StaminaHud } from "../ui/StaminaHud";
+import { HungerHud } from "../ui/HungerHud";
 import { Minimap, type MinimapPoint } from "../ui/Minimap";
 import { isTouchDevice } from "../utils/device";
 
@@ -122,6 +124,23 @@ const POISON_CHANCE = 0.4;
 const POISON_DURATION_MS = 8000;
 const POISON_TICK_MS = 1000;
 const POISON_DAMAGE_PER_TICK = 1;
+
+// マインクラフトの満腹度を参考にした空腹システム。0になると一定間隔でHPが削れていくため、
+// 定期的に食べ物を食べないと生き残れない(「もっと死にやすく」という要望への対応)
+const STARVATION_TICK_MS = 5000;
+const STARVATION_DAMAGE_PER_TICK = 1;
+// 満腹度を回復できる食べ物と回復量。数値が大きいほど優先して消費する(調理済み > 加工品 > 素材)
+const FOOD_HUNGER_RESTORE: Partial<Record<ItemId, number>> = {
+  cooked_meat: 4,
+  cooked_fish: 4,
+  milk: 3,
+  honey: 3,
+  wheat: 3,
+  crop: 2,
+  tomato: 2,
+  meat: 2,
+  fish: 2,
+};
 
 // ドラクエ風の経験値。モンスターの方が動物より手強い分、経験値も多めにする
 const MONSTER_EXP = 8;
@@ -337,6 +356,7 @@ export class GameScene extends Phaser.Scene {
   private craftMenu!: CraftMenu;
   private health!: Health;
   private stamina!: Stamina;
+  private hunger!: Hunger;
   private storage!: Storage;
   private storagePanel!: StoragePanel;
   private compassHud?: HTMLDivElement;
@@ -349,6 +369,7 @@ export class GameScene extends Phaser.Scene {
   private nextHealAllowedAt = 0;
   private poisonedUntil = 0;
   private nextPoisonTickAt = 0;
+  private nextStarvationDamageAt = 0;
   private pendingLoadSlot: number | null = null;
   private pendingExportSlot: number | null = null;
   private shippingBinPendingValue = 0;
@@ -475,6 +496,8 @@ export class GameScene extends Phaser.Scene {
     new HealthHud(this.health, () => this.handleHeal());
     this.stamina = new Stamina();
     new StaminaHud(this.stamina);
+    this.hunger = new Hunger();
+    new HungerHud(this.hunger, () => this.handleEat());
     const helpPanel = new HelpPanel();
     const saveLoadPanel = new SaveLoadPanel({
       onSave: (slot) => this.handleSave(slot),
@@ -646,6 +669,8 @@ export class GameScene extends Phaser.Scene {
         this.syncMaxHpFromLevel();
         this.health.reset();
         this.stamina.reset();
+        this.hunger.reset();
+        this.nextStarvationDamageAt = 0;
         this.equipment.reset();
         this.tools.reset();
         this.quests.reset();
@@ -752,6 +777,7 @@ export class GameScene extends Phaser.Scene {
       moveState.moving && this.inputManager.isSprintRequested() && (hasBicycle || this.stamina.canSprint());
     this.player.update(moveState, sprinting);
     this.stamina.tick(delta, sprinting && !hasBicycle);
+    this.hunger.tick(delta);
     this.boss?.updateNameLabel();
     this.pets.forEach((pet, index) => {
       if (this.petsWaiting) {
@@ -773,6 +799,7 @@ export class GameScene extends Phaser.Scene {
     this.updateWeather();
     this.updateMinimap();
     this.updatePoison();
+    this.updateStarvation();
     this.updateCompass();
     this.updateSurvivalTimer();
 
@@ -1621,6 +1648,37 @@ export class GameScene extends Phaser.Scene {
       this.poisonedUntil = 0;
       this.handlePlayerDefeated();
     }
+  }
+
+  // ---------- 満腹度(空腹) ----------
+
+  private updateStarvation(): void {
+    if (!this.hunger.isStarving()) return;
+    const now = this.time.now;
+    if (now < this.nextStarvationDamageAt) return;
+
+    this.nextStarvationDamageAt = now + STARVATION_TICK_MS;
+    const defeated = this.health.damage(STARVATION_DAMAGE_PER_TICK);
+    this.showFloatingMessage("🍗 お腹が空いてダメージを受けた");
+    if (defeated) {
+      this.handlePlayerDefeated();
+    }
+  }
+
+  private handleEat(): void {
+    const counts = this.inventory.getCounts();
+    for (const [itemId, restore] of Object.entries(FOOD_HUNGER_RESTORE) as [ItemId, number][]) {
+      if (counts[itemId] <= 0) continue;
+      if (this.hunger.getHunger() >= this.hunger.getMaxHunger()) {
+        this.showFloatingMessage("満腹度は満タンだ");
+        return;
+      }
+      this.inventory.spend({ [itemId]: 1 } as Partial<Record<ItemId, number>>);
+      this.hunger.eat(restore);
+      this.showFloatingMessage(`🍗 食べた(満腹度+${restore})`);
+      return;
+    }
+    this.showFloatingMessage("食べ物がありません");
   }
 
   /** モンスターが倒れた時の共通処理(報酬・分裂・経験値・リスポーン)。通常攻撃・とくぎ両方から呼ばれる */
