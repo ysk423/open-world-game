@@ -154,13 +154,6 @@ export class Monster {
     this.nameLabel?.setPosition(this.sprite.x, this.sprite.y - 24);
   }
 
-  /** マインクラフトのノックバックエンチャントを参考に、(dx, dy)方向へ弾き飛ばす(dx, dyは正規化済み想定) */
-  knockback(dx: number, dy: number, distance: number): void {
-    if (!this.sprite.active) return;
-    this.sprite.x += dx * distance;
-    this.sprite.y += dy * distance;
-  }
-
   destroy(): void {
     this.wanderTimer?.remove();
     this.nameLabel?.destroy();

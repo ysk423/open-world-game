@@ -22,12 +22,6 @@ export const BOW_REACH_MULTIPLIER = 2;
 
 const WEAPON_IDS: WeaponId[] = ["wooden_sword", "stone_sword", "bow", "iron_sword"];
 
-// DQ風の鍛冶屋を参考にした武器強化。強化1回につき攻撃力+1、最大まで強化できる
-export const MAX_WEAPON_UPGRADE_LEVEL = 3;
-
-// マインクラフト風の「ノックバック」エンチャント。付与した武器で攻撃すると相手を弾き飛ばす
-export const KNOCKBACK_DISTANCE = 48;
-
 // マインクラフト風の防具。攻撃を受けた時に一定確率でダメージを完全に防ぐ
 export type ArmorId = "leather_armor" | "iron_armor";
 
@@ -53,10 +47,8 @@ const ARMOR_IDS: ArmorId[] = ["leather_armor", "iron_armor"];
 export type EquipmentState = {
   owned: WeaponId[];
   equipped: WeaponId | null;
-  upgradeLevels: Partial<Record<WeaponId, number>>;
   ownedArmor: ArmorId[];
   equippedArmor: ArmorId | null;
-  knockbackEnchanted: WeaponId[];
 };
 
 type Listener = (state: Readonly<EquipmentState>) => void;
@@ -73,10 +65,8 @@ function isArmorId(value: unknown): value is ArmorId {
 export class Equipment {
   private owned = new Set<WeaponId>();
   private equipped: WeaponId | null = null;
-  private upgradeLevels: Partial<Record<WeaponId, number>> = {};
   private ownedArmor = new Set<ArmorId>();
   private equippedArmor: ArmorId | null = null;
-  private knockbackEnchanted = new Set<WeaponId>();
   private listeners: Listener[] = [];
 
   constructor() {
@@ -96,13 +86,6 @@ export class Equipment {
       if (isWeaponId(parsed.equipped)) {
         this.equipped = parsed.equipped;
       }
-      if (parsed.upgradeLevels && typeof parsed.upgradeLevels === "object") {
-        for (const [weaponId, level] of Object.entries(parsed.upgradeLevels)) {
-          if (isWeaponId(weaponId) && typeof level === "number" && Number.isFinite(level) && level >= 0) {
-            this.upgradeLevels[weaponId] = Math.min(level, MAX_WEAPON_UPGRADE_LEVEL);
-          }
-        }
-      }
       if (Array.isArray(parsed.ownedArmor)) {
         for (const armorId of parsed.ownedArmor) {
           if (isArmorId(armorId)) this.ownedArmor.add(armorId);
@@ -110,11 +93,6 @@ export class Equipment {
       }
       if (isArmorId(parsed.equippedArmor)) {
         this.equippedArmor = parsed.equippedArmor;
-      }
-      if (Array.isArray(parsed.knockbackEnchanted)) {
-        for (const weaponId of parsed.knockbackEnchanted) {
-          if (isWeaponId(weaponId)) this.knockbackEnchanted.add(weaponId);
-        }
       }
     } catch {
       // 壊れたデータは無視して初期値のまま使う
@@ -130,10 +108,8 @@ export class Equipment {
     return {
       owned: this.getOwned(),
       equipped: this.equipped,
-      upgradeLevels: { ...this.upgradeLevels },
       ownedArmor: this.getOwnedArmor(),
       equippedArmor: this.equippedArmor,
-      knockbackEnchanted: Array.from(this.knockbackEnchanted),
     };
   }
 
@@ -161,26 +137,9 @@ export class Equipment {
     return this.equipped;
   }
 
-  getUpgradeLevel(weaponId: WeaponId): number {
-    return this.upgradeLevels[weaponId] ?? 0;
-  }
-
-  canUpgrade(weaponId: WeaponId): boolean {
-    return this.owned.has(weaponId) && this.getUpgradeLevel(weaponId) < MAX_WEAPON_UPGRADE_LEVEL;
-  }
-
-  /** 鍛冶で武器を強化する。呼び出し側でcanUpgrade()を確認してから呼ぶ想定 */
-  upgrade(weaponId: WeaponId): void {
-    this.upgradeLevels[weaponId] = this.getUpgradeLevel(weaponId) + 1;
-    this.save();
-    this.notify();
-  }
-
-  /** 現在装備中の武器の攻撃力(未装備なら素手の攻撃力)。強化レベル分も加算する */
+  /** 現在装備中の武器の攻撃力(未装備なら素手の攻撃力) */
   getDamage(): number {
-    const base = WEAPON_DAMAGE[this.equipped ?? "fists"];
-    const upgradeBonus = this.equipped ? this.getUpgradeLevel(this.equipped) : 0;
-    return base + upgradeBonus;
+    return WEAPON_DAMAGE[this.equipped ?? "fists"];
   }
 
   /** 防具を入手する。初めて持つ防具は自動的に装備する */
@@ -217,24 +176,11 @@ export class Equipment {
     return this.equippedArmor ? ARMOR_THORNS_CHANCE[this.equippedArmor] : 0;
   }
 
-  hasKnockbackEnchant(weaponId: WeaponId | null): boolean {
-    return weaponId !== null && this.knockbackEnchanted.has(weaponId);
-  }
-
-  /** マインクラフト風のエンチャント。呼び出し側で武器の所持・未付与を確認してから呼ぶ想定 */
-  enchantKnockback(weaponId: WeaponId): void {
-    this.knockbackEnchanted.add(weaponId);
-    this.save();
-    this.notify();
-  }
-
   reset(): void {
     this.owned.clear();
     this.equipped = null;
-    this.upgradeLevels = {};
     this.ownedArmor.clear();
     this.equippedArmor = null;
-    this.knockbackEnchanted.clear();
     this.save();
     this.notify();
   }
