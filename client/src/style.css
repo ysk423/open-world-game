@@ -357,8 +357,10 @@ button:active {
   font-family: system-ui, sans-serif;
   font-size: 15px;
   font-variant-numeric: tabular-nums;
-  /* 経験値の桁数が変わるたびに幅が変わるのを防ぎ、#stamina-hudと同じ理由でjitterを避ける */
-  min-width: 15ch;
+  /* 経験値の桁数が変わるたびに幅が変わるのを防ぎ、#stamina-hudと同じ理由でjitterを避ける。
+     最大表示は"⭐ Lv.20 (3999/4000)"(MAX_LEVEL=20、expForLevel(20)=4000。Experience.ts参照)で
+     約20文字なので、絵文字の実測幅の余裕を見て22chを確保する */
+  min-width: 22ch;
   pointer-events: none;
   user-select: none;
 }
@@ -375,8 +377,9 @@ button:active {
   font-size: 15px;
   font-variant-numeric: tabular-nums;
   /* 数値の桁数(100→99など)が変わっても幅が変わらないようにし、
-     縦持ちレイアウトの#hud-rowでflex-wrapの折り返し位置がガタつかないようにする */
-  min-width: 9ch;
+     縦持ちレイアウトの#hud-rowでflex-wrapの折り返し位置がガタつかないようにする。
+     最大表示"🏃 100/100"(10文字)に絵文字の実測幅の余裕を見て11chを確保する */
+  min-width: 11ch;
   pointer-events: none;
   user-select: none;
 }

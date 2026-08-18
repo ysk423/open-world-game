@@ -79,6 +79,15 @@ export class Room extends Server {
     }
   }
 
+  /** 送信者以外の接続中の全員に配信する(送信者はローカルで既に反映済みのため) */
+  private broadcastExceptSender(connection: Connection, message: ServerMessage): void {
+    this.broadcast(JSON.stringify(message), [connection.id]);
+  }
+
+  private persistBuildings(): void {
+    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
+  }
+
   onClose(connection: Connection): void {
     if (!this.players.has(connection.id)) return;
     this.players.delete(connection.id);
@@ -138,15 +147,14 @@ export class Room extends Server {
     player.direction = message.direction;
     player.animState = message.animState;
 
-    const payload: ServerMessage = {
+    this.broadcastExceptSender(connection, {
       type: "player-moved",
       id: connection.id,
       x: player.x,
       y: player.y,
       direction: player.direction,
       animState: player.animState,
-    };
-    this.broadcast(JSON.stringify(payload), [connection.id]);
+    });
   }
 
   private handleCraftBuilding(
@@ -160,27 +168,21 @@ export class Room extends Server {
       y: message.y,
     };
     this.buildings.push(building);
-    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
+    this.persistBuildings();
     // 送信者はクラフト時に自分のクライアントで既に建物を配置済みなので、他プレイヤーにのみ知らせる
-    this.broadcast(
-      JSON.stringify({ type: "building-placed", building } satisfies ServerMessage),
-      [connection.id],
-    );
+    this.broadcastExceptSender(connection, { type: "building-placed", building });
   }
 
   private handleRemoveBuilding(
     connection: Connection,
     message: Extract<ClientMessage, { type: "remove-building" }>,
   ): void {
-    const exists = this.buildings.some((building) => building.id === message.id);
-    if (!exists) return;
-    this.buildings = this.buildings.filter((building) => building.id !== message.id);
-    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
+    const index = this.buildings.findIndex((building) => building.id === message.id);
+    if (index === -1) return;
+    this.buildings.splice(index, 1);
+    this.persistBuildings();
     // 送信者は回収時に自分のクライアントで既に建物を削除済みなので、他プレイヤーにのみ知らせる
-    this.broadcast(
-      JSON.stringify({ type: "building-removed", id: message.id } satisfies ServerMessage),
-      [connection.id],
-    );
+    this.broadcastExceptSender(connection, { type: "building-removed", id: message.id });
   }
 
   private handleReset(): void {

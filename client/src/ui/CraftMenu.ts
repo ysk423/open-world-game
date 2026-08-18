@@ -2,6 +2,7 @@ import type { Inventory, ItemId } from "../systems/Inventory";
 import type { WeaponId, ArmorId } from "../systems/Equipment";
 import type { ToolId } from "../systems/Tools";
 import { RECIPES, type Recipe } from "../systems/recipes";
+import { createPanelHeader } from "./panelHeader";
 
 const ICON_BY_ITEM: Record<ItemId, string> = {
   wood: "🪵",
@@ -87,18 +88,7 @@ export class CraftMenu {
     const ownedTools = this.getOwnedTools();
     const ownedArmor = this.getOwnedArmor();
     this.panel.innerHTML = "";
-
-    const header = document.createElement("div");
-    header.className = "shop-header";
-    const title = document.createElement("h2");
-    title.textContent = "クラフト";
-    header.appendChild(title);
-    const closeButton = document.createElement("button");
-    closeButton.id = "craft-close";
-    closeButton.textContent = "✕";
-    closeButton.addEventListener("click", () => this.close());
-    header.appendChild(closeButton);
-    this.panel.appendChild(header);
+    this.panel.appendChild(createPanelHeader("クラフト", "craft-close", () => this.close()));
 
     for (const recipe of RECIPES) {
       const alreadyOwned =

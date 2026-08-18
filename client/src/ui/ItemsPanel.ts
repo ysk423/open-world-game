@@ -2,6 +2,7 @@ import type { BuildingItems } from "../systems/BuildingItems";
 import { BUILDING_TYPE_NAME, BUILDING_TYPES, type BuildingType } from "../systems/recipes";
 import type { ArmorId, Equipment, EquipmentState, WeaponId } from "../systems/Equipment";
 import { ARMOR_BLOCK_CHANCE, ARMOR_NAME, WEAPON_DAMAGE, WEAPON_NAME } from "../systems/Equipment";
+import { createPanelHeader } from "./panelHeader";
 
 /**
  * メニューの「アイテム」から開くパネル。クラフトした建物の設置(旧「設置」パネル)と、
@@ -58,29 +59,53 @@ export class ItemsPanel {
     if (!this.isOpen || !this.latestEquipmentState) return;
     const state = this.latestEquipmentState;
     this.panel.innerHTML = "";
-
-    const header = document.createElement("div");
-    header.className = "shop-header";
-    const title = document.createElement("h2");
-    title.textContent = "アイテム";
-    header.appendChild(title);
-    const closeButton = document.createElement("button");
-    closeButton.id = "items-close";
-    closeButton.textContent = "✕";
-    closeButton.addEventListener("click", () => this.close());
-    header.appendChild(closeButton);
-    this.panel.appendChild(header);
+    this.panel.appendChild(createPanelHeader("アイテム", "items-close", () => this.close()));
 
     this.renderPlacementSection();
     this.renderEquipmentSection(state);
     this.renderArmorSection(state);
   }
 
-  private renderPlacementSection(): void {
+  private renderSectionHeading(text: string): void {
     const heading = document.createElement("div");
     heading.className = "shop-section-heading";
-    heading.textContent = "📥 設置";
+    heading.textContent = text;
     this.panel.appendChild(heading);
+  }
+
+  /** 武器・防具1件分の行(ラベル+「装備中」バッジ or 「装備する」ボタン)を描画する */
+  private renderEquipRow(label: string, isEquipped: boolean, onEquip: (() => void) | null): void {
+    const row = document.createElement("div");
+    row.className = "equipment-row";
+
+    const labelEl = document.createElement("span");
+    labelEl.textContent = label;
+    row.appendChild(labelEl);
+
+    if (isEquipped) {
+      const badge = document.createElement("span");
+      badge.className = "equipment-current-badge";
+      badge.textContent = "装備中";
+      row.appendChild(badge);
+    } else if (onEquip) {
+      const button = document.createElement("button");
+      button.textContent = "装備する";
+      button.addEventListener("click", onEquip);
+      row.appendChild(button);
+    }
+
+    this.panel.appendChild(row);
+  }
+
+  private renderEquipEmptyMessage(text: string): void {
+    const empty = document.createElement("p");
+    empty.className = "equipment-empty";
+    empty.textContent = text;
+    this.panel.appendChild(empty);
+  }
+
+  private renderPlacementSection(): void {
+    this.renderSectionHeading("📥 設置");
 
     const counts = this.buildingItems.getCounts();
     const heldTypes = BUILDING_TYPES.filter((type) => counts[type] > 0);
@@ -117,93 +142,38 @@ export class ItemsPanel {
   }
 
   private renderEquipmentSection(state: EquipmentState): void {
-    const heading = document.createElement("div");
-    heading.className = "shop-section-heading";
-    heading.textContent = "⚔️ 装備";
-    this.panel.appendChild(heading);
+    this.renderSectionHeading("⚔️ 装備");
 
-    const fistsRow = document.createElement("div");
-    fistsRow.className = "equipment-row";
-    const fistsLabel = document.createElement("span");
-    fistsLabel.textContent = `👊 素手(攻撃力${WEAPON_DAMAGE.fists})`;
-    fistsRow.appendChild(fistsLabel);
-    if (state.equipped === null) {
-      const badge = document.createElement("span");
-      badge.className = "equipment-current-badge";
-      badge.textContent = "装備中";
-      fistsRow.appendChild(badge);
-    }
-    this.panel.appendChild(fistsRow);
+    this.renderEquipRow(`👊 素手(攻撃力${WEAPON_DAMAGE.fists})`, state.equipped === null, null);
 
     if (state.owned.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "equipment-empty";
-      empty.textContent = "まだ武器を持っていません。クラフトで作ろう。";
-      this.panel.appendChild(empty);
+      this.renderEquipEmptyMessage("まだ武器を持っていません。クラフトで作ろう。");
     }
 
     for (const weaponId of state.owned) {
-      const row = document.createElement("div");
-      row.className = "equipment-row";
-
-      const label = document.createElement("span");
-      label.textContent = `⚔️ ${WEAPON_NAME[weaponId]}(攻撃力${WEAPON_DAMAGE[weaponId]})`;
-      row.appendChild(label);
-
-      const isEquipped = state.equipped === weaponId;
-      if (isEquipped) {
-        const badge = document.createElement("span");
-        badge.className = "equipment-current-badge";
-        badge.textContent = "装備中";
-        row.appendChild(badge);
-      } else {
-        const button = document.createElement("button");
-        button.textContent = "装備する";
-        button.addEventListener("click", () => this.onEquip(weaponId));
-        row.appendChild(button);
-      }
-
-      this.panel.appendChild(row);
+      this.renderEquipRow(
+        `⚔️ ${WEAPON_NAME[weaponId]}(攻撃力${WEAPON_DAMAGE[weaponId]})`,
+        state.equipped === weaponId,
+        () => this.onEquip(weaponId),
+      );
     }
   }
 
   private renderArmorSection(state: EquipmentState): void {
-    const heading = document.createElement("div");
-    heading.className = "shop-section-heading";
-    heading.textContent = "🛡️ 防具";
-    this.panel.appendChild(heading);
+    this.renderSectionHeading("🛡️ 防具");
 
     if (state.ownedArmor.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "equipment-empty";
-      empty.textContent = "まだ防具を持っていません。クラフトで作ろう。";
-      this.panel.appendChild(empty);
+      this.renderEquipEmptyMessage("まだ防具を持っていません。クラフトで作ろう。");
       return;
     }
 
     for (const armorId of state.ownedArmor) {
-      const row = document.createElement("div");
-      row.className = "equipment-row";
-
       const blockPercent = Math.round(ARMOR_BLOCK_CHANCE[armorId] * 100);
-      const label = document.createElement("span");
-      label.textContent = `🛡️ ${ARMOR_NAME[armorId]}(被弾${blockPercent}%防止)`;
-      row.appendChild(label);
-
-      const isEquipped = state.equippedArmor === armorId;
-      if (isEquipped) {
-        const badge = document.createElement("span");
-        badge.className = "equipment-current-badge";
-        badge.textContent = "装備中";
-        row.appendChild(badge);
-      } else {
-        const button = document.createElement("button");
-        button.textContent = "装備する";
-        button.addEventListener("click", () => this.onEquipArmor(armorId));
-        row.appendChild(button);
-      }
-
-      this.panel.appendChild(row);
+      this.renderEquipRow(
+        `🛡️ ${ARMOR_NAME[armorId]}(被弾${blockPercent}%防止)`,
+        state.equippedArmor === armorId,
+        () => this.onEquipArmor(armorId),
+      );
     }
   }
 }

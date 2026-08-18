@@ -26,6 +26,10 @@ const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
 // 通り抜けられずに衝突する建物の種類(石は障害物として機能してほしいため)
 const SOLID_TYPES: ReadonlySet<BuildingType> = new Set(["rock"]);
 
+// 近づいてクリックすると回収でき、持ち物の建物アイテムに戻して置き直せる種類
+// (倉庫・宿屋など機能を持つ建物は回収対象外。他の建物種にも回収要望が出た場合はここに追加する)
+export const PICKUPABLE_TYPES: ReadonlySet<BuildingType> = new Set(["rock"]);
+
 export class Building {
   readonly id: string;
   readonly sprite: Phaser.GameObjects.Sprite | Phaser.Types.Physics.Arcade.SpriteWithStaticBody;

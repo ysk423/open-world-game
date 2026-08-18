@@ -4,7 +4,7 @@ import type { ActionPoint, Direction } from "../input/InputManager";
 import { Player } from "../entities/Player";
 import { RemotePlayer } from "../entities/RemotePlayer";
 import { GatheringPoint } from "../entities/GatheringPoint";
-import { Building } from "../entities/Building";
+import { Building, PICKUPABLE_TYPES } from "../entities/Building";
 import { FarmPlot, CROP_PRIORITY, CROP_CONFIG } from "../entities/FarmPlot";
 import { Rock } from "../entities/Rock";
 import { Torch } from "../entities/Torch";
@@ -504,8 +504,7 @@ export class GameScene extends Phaser.Scene {
         this.rebuildWorld(worldSeed);
 
         // 生存時間はプレイヤー個別ではなく、ルームに最初に入った人の入室時刻を全員で共有する
-        // (サーバー側が未対応でroomStartedAtが届かない場合に備え、フォールバックしておく)
-        this.survivalStartedAt = Number.isFinite(roomStartedAt) && roomStartedAt > 0 ? roomStartedAt : Date.now();
+        this.survivalStartedAt = roomStartedAt;
 
         this.selfId = selfId;
         for (const player of players) {
@@ -866,7 +865,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 設置済みの建物をワールドと持ち物データ(this.buildings)の両方から取り除く */
+  /**
+   * 設置済みの建物をワールドと持ち物データ(this.buildings)の両方から取り除く。
+   * this.buildingSprites(Buildingインスタンス)にある種類のみが対象。farm_plot/torchは
+   * FarmPlot/Torchとして別配列で管理されており、this.buildingsからは消えても見た目は残るため注意
+   * (現状はPICKUPABLE_TYPESにfarm_plot/torchを含めていないため実際には起きない)。
+   */
   private removeBuildingSprite(id: string): void {
     this.buildings = this.buildings.filter((building) => building.id !== id);
     const index = this.buildingSprites.findIndex((sprite) => sprite.id === id);
@@ -2051,7 +2055,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryBeehive(point)) return;
     if (this.tryPetBox(point)) return;
     if (this.tryFarm(point)) return;
-    if (this.tryPickupRockBuilding(point)) return;
+    if (this.tryPickupBuilding(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryChest(point)) return;
     if (this.tryFish(point)) return;
@@ -2093,37 +2097,47 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  // ---------- 設置した「石」建物アイテムの回収(持ち物に戻し、置き直せるようにする) ----------
+  // ---------- 設置した建物アイテムの回収(持ち物に戻し、置き直せるようにする) ----------
 
-  private tryPickupRockBuilding(point: ActionPoint): boolean {
+  /** クリック位置の近くにあり、かつプレイヤーの手が届く範囲にある候補から最も近いものを返す */
+  private findClosestInReach<T>(
+    point: ActionPoint,
+    candidates: readonly T[],
+    getPos: (candidate: T) => { x: number; y: number },
+  ): T | null {
     const playerX = this.player.sprite.x;
     const playerY = this.player.sprite.y;
 
-    let closest: Building | null = null;
+    let closest: T | null = null;
     let closestDist = Number.POSITIVE_INFINITY;
 
-    for (const building of this.buildingSprites) {
-      if (building.buildingType !== "rock") continue;
-      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+    for (const candidate of candidates) {
+      const pos = getPos(candidate);
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, pos.x, pos.y);
       if (clickDist > CLICK_RADIUS) continue;
 
-      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, pos.x, pos.y);
       if (reachDist > REACH_RADIUS) continue;
 
       if (clickDist < closestDist) {
-        closest = building;
+        closest = candidate;
         closestDist = clickDist;
       }
     }
 
+    return closest;
+  }
+
+  private tryPickupBuilding(point: ActionPoint): boolean {
+    const candidates = this.buildingSprites.filter((building) => PICKUPABLE_TYPES.has(building.buildingType));
+    const closest = this.findClosestInReach(point, candidates, (building) => building.sprite);
     if (!closest) return false;
 
-    const { id } = closest;
-    this.removeBuildingSprite(id);
-    this.roomClient.sendRemoveBuilding(id);
+    this.removeBuildingSprite(closest.id);
+    this.roomClient.sendRemoveBuilding(closest.id);
     this.sound.play("sfx-gather", { volume: 0.5 });
-    this.buildingItems.add("rock");
-    this.showFloatingMessage("🪨 石を回収した(📥「設置」から置き直せる)");
+    this.buildingItems.add(closest.buildingType);
+    this.showFloatingMessage(`${BUILDING_TYPE_NAME[closest.buildingType]}を回収した(📥「設置」から置き直せる)`);
     return true;
   }
 
