@@ -140,6 +140,8 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
 
 TypeScriptコード側の変更ではなく、`client/scripts/generate-placeholder-art.ps1`が生成する`client/public/assets/player.png`(仮スプライト)側で帽子のつばの描画位置を上に2px移動し、目にかぶらないよう調整した(コミット `e34f936`)。
 
+その後、下向き(idle-down)フレームだけスプライトシート最上端(y=0)に余白が無く帽子のドームが切り取られる問題が見つかり、キャラクター全体を4px下にずらして向きによらず余白を確保する形で追加修正した(コミット `4a915aa`)。
+
 ---
 
 ## 7. システム設計
