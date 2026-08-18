@@ -504,7 +504,8 @@ export class GameScene extends Phaser.Scene {
         this.rebuildWorld(worldSeed);
 
         // 生存時間はプレイヤー個別ではなく、ルームに最初に入った人の入室時刻を全員で共有する
-        this.survivalStartedAt = roomStartedAt;
+        // (サーバー側が未対応でroomStartedAtが届かない場合に備え、フォールバックしておく)
+        this.survivalStartedAt = Number.isFinite(roomStartedAt) && roomStartedAt > 0 ? roomStartedAt : Date.now();
 
         this.selfId = selfId;
         for (const player of players) {
@@ -540,6 +541,9 @@ export class GameScene extends Phaser.Scene {
       onBuildingPlaced: (building) => {
         this.buildings.push(building);
         this.addBuildingSprite(building);
+      },
+      onBuildingRemoved: (id) => {
+        this.removeBuildingSprite(id);
       },
       onGameReset: () => {
         // リセット時にサーバーは全員の接続を切って入り直させるが、他プレイヤーの
@@ -849,7 +853,7 @@ export class GameScene extends Phaser.Scene {
       this.torches.push(new Torch(this, building.x, building.y));
       return;
     }
-    const sprite = new Building(this, building.x, building.y, building.buildingType as BuildingType);
+    const sprite = new Building(this, building.id, building.x, building.y, building.buildingType as BuildingType);
     this.buildingSprites.push(sprite);
     if (sprite.solid) {
       this.physics.add.collider(this.player.sprite, sprite.sprite);
@@ -860,6 +864,17 @@ export class GameScene extends Phaser.Scene {
     if (sprite.buildingType === "beehive") {
       this.beehiveHarvestedAt.set(sprite, Date.now());
     }
+  }
+
+  /** 設置済みの建物をワールドと持ち物データ(this.buildings)の両方から取り除く */
+  private removeBuildingSprite(id: string): void {
+    this.buildings = this.buildings.filter((building) => building.id !== id);
+    const index = this.buildingSprites.findIndex((sprite) => sprite.id === id);
+    if (index === -1) return;
+    const [sprite] = this.buildingSprites.splice(index, 1);
+    this.flowerBedPlantedAt.delete(sprite);
+    this.beehiveHarvestedAt.delete(sprite);
+    sprite.destroy();
   }
 
   // ---------- ルームごとのランダム配置(采集ポイント・モンスター・動物・岩) ----------
@@ -2036,6 +2051,7 @@ export class GameScene extends Phaser.Scene {
     if (this.tryBeehive(point)) return;
     if (this.tryPetBox(point)) return;
     if (this.tryFarm(point)) return;
+    if (this.tryPickupRockBuilding(point)) return;
     if (this.tryRock(point)) return;
     if (this.tryChest(point)) return;
     if (this.tryFish(point)) return;
@@ -2074,6 +2090,40 @@ export class GameScene extends Phaser.Scene {
     this.inventory.add("stone", 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
     closest.destroy();
+    return true;
+  }
+
+  // ---------- 設置した「石」建物アイテムの回収(持ち物に戻し、置き直せるようにする) ----------
+
+  private tryPickupRockBuilding(point: ActionPoint): boolean {
+    const playerX = this.player.sprite.x;
+    const playerY = this.player.sprite.y;
+
+    let closest: Building | null = null;
+    let closestDist = Number.POSITIVE_INFINITY;
+
+    for (const building of this.buildingSprites) {
+      if (building.buildingType !== "rock") continue;
+      const clickDist = Phaser.Math.Distance.Between(point.worldX, point.worldY, building.sprite.x, building.sprite.y);
+      if (clickDist > CLICK_RADIUS) continue;
+
+      const reachDist = Phaser.Math.Distance.Between(playerX, playerY, building.sprite.x, building.sprite.y);
+      if (reachDist > REACH_RADIUS) continue;
+
+      if (clickDist < closestDist) {
+        closest = building;
+        closestDist = clickDist;
+      }
+    }
+
+    if (!closest) return false;
+
+    const { id } = closest;
+    this.removeBuildingSprite(id);
+    this.roomClient.sendRemoveBuilding(id);
+    this.sound.play("sfx-gather", { volume: 0.5 });
+    this.buildingItems.add("rock");
+    this.showFloatingMessage("🪨 石を回収した(📥「設置」から置き直せる)");
     return true;
   }
 

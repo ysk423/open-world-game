@@ -26,7 +26,8 @@ export type ClientMessage =
       direction: Direction;
       animState: AnimState;
     }
-  | { type: "craft-building"; buildingType: string; x: number; y: number };
+  | { type: "craft-building"; buildingType: string; x: number; y: number }
+  | { type: "remove-building"; id: string };
 
 export type ServerMessage =
   | {
@@ -49,6 +50,7 @@ export type ServerMessage =
   | { type: "player-left"; id: string }
   | { type: "room-full" }
   | { type: "building-placed"; building: PlacedBuilding }
+  | { type: "building-removed"; id: string }
   | { type: "game-reset" };
 
 export const MAX_PLAYERS = 4;

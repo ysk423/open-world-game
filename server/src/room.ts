@@ -74,6 +74,8 @@ export class Room extends Server {
       this.handleMove(connection, message);
     } else if (message.type === "craft-building") {
       this.handleCraftBuilding(connection, message);
+    } else if (message.type === "remove-building") {
+      this.handleRemoveBuilding(connection, message);
     }
   }
 
@@ -162,6 +164,21 @@ export class Room extends Server {
     // 送信者はクラフト時に自分のクライアントで既に建物を配置済みなので、他プレイヤーにのみ知らせる
     this.broadcast(
       JSON.stringify({ type: "building-placed", building } satisfies ServerMessage),
+      [connection.id],
+    );
+  }
+
+  private handleRemoveBuilding(
+    connection: Connection,
+    message: Extract<ClientMessage, { type: "remove-building" }>,
+  ): void {
+    const exists = this.buildings.some((building) => building.id === message.id);
+    if (!exists) return;
+    this.buildings = this.buildings.filter((building) => building.id !== message.id);
+    void this.ctx.storage.put(BUILDINGS_KEY, this.buildings);
+    // 送信者は回収時に自分のクライアントで既に建物を削除済みなので、他プレイヤーにのみ知らせる
+    this.broadcast(
+      JSON.stringify({ type: "building-removed", id: message.id } satisfies ServerMessage),
       [connection.id],
     );
   }

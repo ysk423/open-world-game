@@ -356,6 +356,9 @@ button:active {
   color: #fff;
   font-family: system-ui, sans-serif;
   font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  /* 経験値の桁数が変わるたびに幅が変わるのを防ぎ、#stamina-hudと同じ理由でjitterを避ける */
+  min-width: 15ch;
   pointer-events: none;
   user-select: none;
 }
@@ -370,6 +373,10 @@ button:active {
   color: #fff;
   font-family: system-ui, sans-serif;
   font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  /* 数値の桁数(100→99など)が変わっても幅が変わらないようにし、
+     縦持ちレイアウトの#hud-rowでflex-wrapの折り返し位置がガタつかないようにする */
+  min-width: 9ch;
   pointer-events: none;
   user-select: none;
 }

@@ -27,11 +27,13 @@ const TINT_BY_TYPE: Partial<Record<BuildingType, number>> = {
 const SOLID_TYPES: ReadonlySet<BuildingType> = new Set(["rock"]);
 
 export class Building {
+  readonly id: string;
   readonly sprite: Phaser.GameObjects.Sprite | Phaser.Types.Physics.Arcade.SpriteWithStaticBody;
   readonly solid: boolean;
   readonly buildingType: BuildingType;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, buildingType: BuildingType) {
+  constructor(scene: Phaser.Scene, id: string, x: number, y: number, buildingType: BuildingType) {
+    this.id = id;
     this.buildingType = buildingType;
     this.solid = SOLID_TYPES.has(buildingType);
     this.sprite = this.solid

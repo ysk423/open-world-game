@@ -37,6 +37,7 @@ export type RoomClientEvents = {
   onPlayerLeft: (id: string) => void;
   onRoomFull: () => void;
   onBuildingPlaced: (building: PlacedBuilding) => void;
+  onBuildingRemoved: (id: string) => void;
   onGameReset: () => void;
 };
 
@@ -76,6 +77,9 @@ export class RoomClient {
         case "building-placed":
           events.onBuildingPlaced(message.building);
           break;
+        case "building-removed":
+          events.onBuildingRemoved(message.id);
+          break;
         case "game-reset":
           events.onGameReset();
           break;
@@ -89,6 +93,10 @@ export class RoomClient {
 
   sendCraftBuilding(buildingType: string, x: number, y: number): void {
     this.sendRaw({ type: "craft-building", buildingType, x, y });
+  }
+
+  sendRemoveBuilding(id: string): void {
+    this.sendRaw({ type: "remove-building", id });
   }
 
   private sendRaw(message: ClientMessage): void {
