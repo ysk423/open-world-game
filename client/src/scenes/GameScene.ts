@@ -38,10 +38,9 @@ import { isRaining } from "../systems/Weather";
 import { getSeason, SEASON_ICON, SEASON_NAME } from "../systems/Season";
 import { InventoryHud } from "../ui/InventoryHud";
 import { CraftMenu } from "../ui/CraftMenu";
-import { BuildingItemsPanel } from "../ui/BuildingItemsPanel";
 import { HealthHud } from "../ui/HealthHud";
 import { HelpPanel } from "../ui/HelpPanel";
-import { EquipmentPanel } from "../ui/EquipmentPanel";
+import { ItemsPanel } from "../ui/ItemsPanel";
 import { MenuHub } from "../ui/MenuHub";
 import { ExperienceHud } from "../ui/ExperienceHud";
 import { ShopPanel, SHOP_BUY_PRICES, SHOP_SELL_PRICES, getDailySpecialItem, getEffectiveSellPrice } from "../ui/ShopPanel";
@@ -316,6 +315,7 @@ export class GameScene extends Phaser.Scene {
   private buildingSprites: Building[] = [];
   private flowerBedPlantedAt = new Map<Building, number>();
   private beehiveHarvestedAt = new Map<Building, number>();
+  /** ルーム共有の生存タイマー起点。onInitでサーバーのroomStartedAtに置き換わるまでの仮値 */
   private survivalStartedAt = Date.now();
   private gameOverOverlay?: HTMLDivElement;
   private survivalTimerHud?: HTMLDivElement;
@@ -409,13 +409,12 @@ export class GameScene extends Phaser.Scene {
       () => new Set(this.equipment.getOwnedArmor()),
       (recipe) => this.handleCraft(recipe),
     );
-    const equipmentPanel = new EquipmentPanel(
+    const itemsPanel = new ItemsPanel(
+      this.buildingItems,
+      (buildingType) => this.handlePlaceBuilding(buildingType),
       this.equipment,
       (weaponId) => this.equipment.equip(weaponId),
       (armorId) => this.equipment.equipArmor(armorId),
-    );
-    const buildingItemsPanel = new BuildingItemsPanel(this.buildingItems, (buildingType) =>
-      this.handlePlaceBuilding(buildingType),
     );
     new ExperienceHud(this.experience);
     this.health = new Health(PLAYER_MAX_HP);
@@ -439,13 +438,7 @@ export class GameScene extends Phaser.Scene {
     // スマホで右側のトグルボタンが画面を占有してしまうため、単一の「☰ メニュー」からまとめて開けるようにする
     // クラフトはクラフト台をクリック/Xキーで開く専用の導線があるため、メニューには含めない
     new MenuHub([
-      {
-        icon: "📥",
-        label: "設置",
-        open: () => buildingItemsPanel.open(),
-        close: () => buildingItemsPanel.close(),
-      },
-      { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
+      { icon: "🎒", label: "アイテム", open: () => itemsPanel.open(), close: () => itemsPanel.close() },
       { icon: "❓", label: "操作方法", open: () => helpPanel.open(), close: () => helpPanel.close() },
     ]);
 
@@ -507,8 +500,11 @@ export class GameScene extends Phaser.Scene {
   private setupNetworking(): void {
     const { name } = getJoinInfo();
     this.roomClient = new RoomClient(SHARED_ROOM_ID, name, {
-      onInit: (selfId, players, buildings, worldSeed) => {
+      onInit: (selfId, players, buildings, worldSeed, roomStartedAt) => {
         this.rebuildWorld(worldSeed);
+
+        // 生存時間はプレイヤー個別ではなく、ルームに最初に入った人の入室時刻を全員で共有する
+        this.survivalStartedAt = roomStartedAt;
 
         this.selfId = selfId;
         for (const player of players) {
@@ -581,7 +577,7 @@ export class GameScene extends Phaser.Scene {
         this.affinity.reset();
         const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
         body.reset(SPAWN_X, SPAWN_Y);
-        this.survivalStartedAt = Date.now();
+        // survivalStartedAtは再接続後に届く新しいinitのroomStartedAtで設定される
         this.hideGameOverOverlay();
       },
     });
@@ -1093,7 +1089,7 @@ export class GameScene extends Phaser.Scene {
   private showFloatingMessage(message: string): void {
     const text = this.add
       .text(this.player.sprite.x, this.player.sprite.y - 20, message, {
-        fontSize: "12px",
+        fontSize: "14px",
         color: "#ffffff",
         backgroundColor: "#00000099",
         padding: { x: 4, y: 2 },
@@ -1637,7 +1633,7 @@ export class GameScene extends Phaser.Scene {
   private showDialogue(x: number, y: number, npcName: string, dialogue: string): void {
     const text = this.add
       .text(x, y - 22, `${npcName}: ${dialogue}`, {
-        fontSize: "11px",
+        fontSize: "13px",
         color: "#ffffff",
         backgroundColor: "#000000cc",
         padding: { x: 5, y: 4 },
@@ -2339,7 +2335,7 @@ export class GameScene extends Phaser.Scene {
 
   private showGatherFeedback(x: number, y: number, itemId: ItemId, amount = 1): void {
     const text = this.add
-      .text(x, y - 12, `+${amount} ${ITEM_ICON[itemId]}`, { fontSize: "12px", color: "#ffffff" })
+      .text(x, y - 12, `+${amount} ${ITEM_ICON[itemId]}`, { fontSize: "14px", color: "#ffffff" })
       .setOrigin(0.5, 1)
       .setDepth(20);
     this.tweens.add({

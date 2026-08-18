@@ -12,6 +12,7 @@ function send(connection: Connection, message: ServerMessage): void {
 
 const BUILDINGS_KEY = "buildings";
 const WORLD_SEED_KEY = "world-seed";
+const ROOM_STARTED_AT_KEY = "room-started-at";
 
 function createWorldSeed(): number {
   return Math.floor(Math.random() * 0xffffffff);
@@ -21,6 +22,8 @@ export class Room extends Server {
   players = new Map<string, PlayerState>();
   buildings: PlacedBuilding[] = [];
   worldSeed = 0;
+  /** 生存タイマーの起点(このルームに最初のプレイヤーが入室した時刻)。誰もいない間は0 */
+  roomStartedAt = 0;
 
   async onStart(): Promise<void> {
     const storedBuildings = await this.ctx.storage.get<PlacedBuilding[]>(BUILDINGS_KEY);
@@ -33,6 +36,9 @@ export class Room extends Server {
       this.worldSeed = createWorldSeed();
       void this.ctx.storage.put(WORLD_SEED_KEY, this.worldSeed);
     }
+
+    const storedRoomStartedAt = await this.ctx.storage.get<number>(ROOM_STARTED_AT_KEY);
+    if (storedRoomStartedAt !== undefined) this.roomStartedAt = storedRoomStartedAt;
   }
 
   onConnect(connection: Connection, _context: ConnectionContext): void {
@@ -87,6 +93,12 @@ export class Room extends Server {
       return;
     }
 
+    // 生存タイマーは「このルームに最初に入った人」の入室時刻を全員で共有する
+    if (this.players.size === 0) {
+      this.roomStartedAt = Date.now();
+      void this.ctx.storage.put(ROOM_STARTED_AT_KEY, this.roomStartedAt);
+    }
+
     const name = rawName.trim().slice(0, 16) || `プレイヤー${this.players.size + 1}`;
     const player: PlayerState = {
       id: connection.id,
@@ -104,6 +116,7 @@ export class Room extends Server {
       players: Array.from(this.players.values()),
       buildings: this.buildings,
       worldSeed: this.worldSeed,
+      roomStartedAt: this.roomStartedAt,
     });
 
     this.broadcast(
@@ -159,6 +172,9 @@ export class Room extends Server {
     // ルームごとの采集/モンスター/動物/岩の配置をやり直すため、シードも新しく発行する
     this.worldSeed = createWorldSeed();
     void this.ctx.storage.put(WORLD_SEED_KEY, this.worldSeed);
+    // 生存タイマーも仕切り直す。次に再接続してきた人が新しい「最初の人」になる
+    this.roomStartedAt = 0;
+    void this.ctx.storage.delete(ROOM_STARTED_AT_KEY);
     // 持ち物やHPなどのローカル状態はクライアント側でリセットするため、接続中の全員に通知する
     this.broadcast(JSON.stringify({ type: "game-reset" } satisfies ServerMessage));
 

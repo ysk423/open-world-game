@@ -88,9 +88,17 @@ export class CraftMenu {
     const ownedArmor = this.getOwnedArmor();
     this.panel.innerHTML = "";
 
+    const header = document.createElement("div");
+    header.className = "shop-header";
     const title = document.createElement("h2");
     title.textContent = "クラフト";
-    this.panel.appendChild(title);
+    header.appendChild(title);
+    const closeButton = document.createElement("button");
+    closeButton.id = "craft-close";
+    closeButton.textContent = "✕";
+    closeButton.addEventListener("click", () => this.close());
+    header.appendChild(closeButton);
+    this.panel.appendChild(header);
 
     for (const recipe of RECIPES) {
       const alreadyOwned =

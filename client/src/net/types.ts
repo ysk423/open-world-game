@@ -36,6 +36,7 @@ export type ServerMessage =
       players: PlayerState[];
       buildings: PlacedBuilding[];
       worldSeed: number;
+      roomStartedAt: number;
     }
   | { type: "player-joined"; player: PlayerState }
   | {

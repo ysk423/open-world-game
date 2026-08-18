@@ -56,9 +56,8 @@ button:active {
 
 #menu-hub-panel,
 #craft-menu,
-#building-items-panel,
+#items-panel,
 #help-panel,
-#equipment-panel,
 #shop-panel {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -81,9 +80,8 @@ button:active {
 
 #menu-hub-panel,
 #craft-menu,
-#building-items-panel,
+#items-panel,
 #help-panel,
-#equipment-panel,
 #shop-panel {
   z-index: 4;
 }
@@ -95,21 +93,21 @@ button:active {
   #heal-button,
   #eat-button {
     padding: 10px 16px;
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .recipe-card button:not(.recipe-info-button),
   .equipment-row button,
   .shop-row button {
     padding: 8px 12px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .recipe-info-button {
     width: 22px;
     height: 22px;
     line-height: 22px;
-    font-size: 14px;
+    font-size: 15px;
   }
 
   #game-reset-button {
@@ -146,20 +144,20 @@ button:active {
 
 #join-form h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
   text-align: center;
 }
 
 #join-subtitle {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: #9fc0f0;
   text-align: center;
 }
 
 #join-goal {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: #ddd;
   line-height: 1.5;
   text-align: center;
@@ -167,7 +165,7 @@ button:active {
 
 #join-hint {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: #999;
   text-align: center;
 }
@@ -176,7 +174,7 @@ button:active {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 #join-form input {
@@ -185,7 +183,7 @@ button:active {
   border-radius: 4px;
   background: #1a1a1a;
   color: #eee;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 #join-form button {
@@ -195,7 +193,7 @@ button:active {
   border-radius: 4px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 16px;
+  font-size: 17px;
   cursor: pointer;
 }
 
@@ -211,7 +209,7 @@ button:active {
   border-radius: 4px;
   background: transparent;
   color: #ccc;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -317,7 +315,7 @@ button:active {
   background: rgba(26, 26, 26, 0.7);
   color: #fff;
   font-family: system-ui, sans-serif;
-  font-size: 16px;
+  font-size: 17px;
   pointer-events: none;
   user-select: none;
 }
@@ -357,7 +355,7 @@ button:active {
   background: rgba(26, 26, 26, 0.7);
   color: #fff;
   font-family: system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   pointer-events: none;
   user-select: none;
 }
@@ -371,7 +369,7 @@ button:active {
   background: rgba(26, 26, 26, 0.7);
   color: #fff;
   font-family: system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   pointer-events: none;
   user-select: none;
 }
@@ -399,7 +397,7 @@ button:active {
   border-radius: 4px;
   background: #b5772e;
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   font-family: system-ui, sans-serif;
   letter-spacing: normal;
   cursor: pointer;
@@ -452,7 +450,7 @@ button:active {
   border-radius: 4px;
   background: #4a9d5f;
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   font-family: system-ui, sans-serif;
   letter-spacing: normal;
   cursor: pointer;
@@ -474,7 +472,7 @@ button:active {
   border-radius: 6px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-family: system-ui, sans-serif;
   cursor: pointer;
 }
@@ -501,7 +499,7 @@ button:active {
 
 #menu-hub-panel h2 {
   margin: 0 0 4px;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .menu-hub-entry {
@@ -510,7 +508,7 @@ button:active {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-family: system-ui, sans-serif;
   text-align: left;
   cursor: pointer;
@@ -536,18 +534,17 @@ button:active {
   font-family: system-ui, sans-serif;
 }
 
-#craft-menu h2,
-#building-items-panel h2 {
+#craft-menu h2 {
   margin: 0 0 4px;
-  font-size: 16px;
+  font-size: 17px;
 }
 
-#building-items-panel {
+#items-panel {
   position: fixed;
   right: 12px;
   top: 50px;
   width: 260px;
-  max-height: min(300px, 45vh);
+  max-height: min(420px, 70vh);
   overflow-y: auto;
   flex-direction: column;
   gap: 8px;
@@ -565,7 +562,7 @@ button:active {
   padding: 6px 8px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .recipe-name {
@@ -585,14 +582,14 @@ button:active {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   color: #cfe0ff;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 16px;
   cursor: pointer;
 }
 
 .recipe-cost {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #ccc;
   white-space: nowrap;
 }
@@ -604,7 +601,7 @@ button:active {
   border-radius: 4px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -620,7 +617,7 @@ button:active {
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.25);
   color: #cfd6e0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 #help-panel {
@@ -641,14 +638,14 @@ button:active {
 
 #help-panel h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .help-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
@@ -662,33 +659,12 @@ button:active {
 }
 
 
-#equipment-panel {
-  position: fixed;
-  right: 12px;
-  top: 50px;
-  width: 260px;
-  max-height: min(300px, 45vh);
-  overflow-y: auto;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 8px;
-  background: rgba(26, 26, 26, 0.92);
-  color: #fff;
-  font-family: system-ui, sans-serif;
-}
-
-#equipment-panel h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .equipment-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .equipment-row button {
@@ -697,7 +673,7 @@ button:active {
   border-radius: 4px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -706,13 +682,13 @@ button:active {
   padding: 3px 6px;
   border-radius: 4px;
   background: #4a9d5f;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .equipment-empty {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #aaa;
 }
 
@@ -763,30 +739,35 @@ button:active {
 }
 
 #shop-panel h2,
-#storage-panel h2 {
+#storage-panel h2,
+#items-panel h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 #shop-close,
-#storage-close {
+#storage-close,
+#items-close,
+#craft-close {
   padding: 2px 8px;
   border: none;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   cursor: pointer;
 }
 
 #shop-close:hover,
-#storage-close:hover {
+#storage-close:hover,
+#items-close:hover,
+#craft-close:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
 .shop-section-heading {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: bold;
   color: #9fc0f0;
 }
@@ -796,7 +777,7 @@ button:active {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .shop-item-label {
@@ -810,7 +791,7 @@ button:active {
   border-radius: 4px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -830,7 +811,7 @@ button:active {
   border-radius: 6px;
   background: rgba(26, 26, 26, 0.7);
   color: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-family: system-ui, sans-serif;
   pointer-events: none;
   z-index: 6;
@@ -862,12 +843,12 @@ button:active {
 
 #game-over-overlay p {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 #game-over-overlay .game-over-note {
   margin-top: 16px;
-  font-size: 15px;
+  font-size: 16px;
   color: #999;
 }
 
@@ -882,7 +863,7 @@ button:active {
   background: #1a1a1a;
   color: #fff;
   font-family: system-ui, sans-serif;
-  font-size: 17px;
+  font-size: 18px;
   z-index: 40;
 }
 
@@ -893,7 +874,7 @@ button:active {
   border-radius: 6px;
   background: linear-gradient(180deg, #6f9be8 0%, #4c76c4 100%);
   color: #fff;
-  font-size: 17px;
+  font-size: 18px;
   font-family: system-ui, sans-serif;
   cursor: pointer;
 }

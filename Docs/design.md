@@ -78,10 +78,9 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
                 Inventory.ts Quests.ts Season.ts Stamina.ts
                 Storage.ts SurvivalRecord.ts Tools.ts Weather.ts
                 WorldContentGenerator.ts WorldMapGenerator.ts recipes.ts
-    /ui         ActionButton.ts BuildingItemsPanel.ts CraftMenu.ts EquipmentPanel.ts
-                ExperienceHud.ts HealthHud.ts HelpPanel.ts HungerHud.ts InventoryHud.ts
-                MenuHub.ts Minimap.ts ShopPanel.ts SprintButton.ts
-                StaminaHud.ts StoragePanel.ts TouchDPad.ts
+    /ui         ActionButton.ts CraftMenu.ts ExperienceHud.ts HealthHud.ts HelpPanel.ts
+                HungerHud.ts InventoryHud.ts ItemsPanel.ts MenuHub.ts Minimap.ts
+                ShopPanel.ts SprintButton.ts StaminaHud.ts StoragePanel.ts TouchDPad.ts
     /utils      device.ts
     main.ts     style.css
   /public
@@ -148,8 +147,8 @@ TypeScriptコード側の変更ではなく、`client/scripts/generate-placehold
 
 - `Inventory`: アイテムID19種、個数のみを保持するシンプルな構造。`localStorage`キー`open-world-game:inventory`に永続化(プレイヤー単位・ブラウザ単位)。`add`/`spend`/`canAfford`/`reset`を提供。
 - `recipes.ts`: 24種類のレシピを`building`/`weapon`/`tool`/`item`/`armor`のいずれかの効果タイプで定義(詳細は spec.md)。`upgrade`/`enchant`タイプは2026-08-17に削除。
-- クラフトは`CraftTable`(拠点に最初から1台設置。座標はワールドシードごとにスポーン地点周辺でランダムに決まる。§8参照)に近づいた状態でのみ実行できる。マップ上のクラフト台をクリック/Xキーで`CraftMenu.toggle()`が呼ばれてメニューが開閉する(`GameScene.tryCraftTable`)。クラフトメニューを開く導線はこのクラフト台への近接操作のみで、「☰ メニュー」には含まれない(2026-08-17、メニュー内の🔨クラフト項目は「クラフト台に近づかないと結局開けない」ため冗長として削除)。
-- 建物(`effect.type === "building"`)のクラフトは、他のレシピ(道具・武器・防具・アイテム)と異なり**即座にワールドへは配置されない**。`handleCraft`はクラフトした建物を`BuildingItems`(建物種別ごとの所持数だけを`localStorage`に保持するクラスで、`Inventory`と同じCountsパターンだが別の名前空間)に加算するのみで止まる(`GameScene.handleCraft`)。実際にマップへ配置するには、「☰ メニュー」→「📥 設置」から開く`BuildingItemsPanel`で持っている建物アイテムを選び「設置」ボタンを押す(`GameScene.handlePlaceBuilding`)必要があり、その時点のプレイヤーの現在地に配置され、サーバーへ`craft-building`メッセージが送られる(「作る→アイテム化→設置」の2段階、コミット`ad127a0`)。
+- クラフトは`CraftTable`(拠点に最初から1台設置。座標はワールドシードごとにスポーン地点周辺でランダムに決まる。§8参照)に近づいた状態でのみ開始できる。マップ上のクラフト台をクリック/Xキーで`CraftMenu.toggle()`が呼ばれてメニューが開閉する(`GameScene.tryCraftTable`)。クラフトメニューを開く導線はこのクラフト台への近接操作のみで、「☰ メニュー」には含まれない(2026-08-17、メニュー内の🔨クラフト項目は「クラフト台に近づかないと結局開けない」ため冗長として削除)。**閉じる操作は近接に依存しない**: パネル自体に常時✕ボタンがあり、クラフト台から離れていてもいつでも閉じられる(2026-08-18、離れると閉じられなくなる不具合を修正)。
+- 建物(`effect.type === "building"`)のクラフトは、他のレシピ(道具・武器・防具・アイテム)と異なり**即座にワールドへは配置されない**。`handleCraft`はクラフトした建物を`BuildingItems`(建物種別ごとの所持数だけを`localStorage`に保持するクラスで、`Inventory`と同じCountsパターンだが別の名前空間)に加算するのみで止まる(`GameScene.handleCraft`)。実際にマップへ配置するには、「☰ メニュー」→「🎒 アイテム」から開く`ItemsPanel`の「設置」セクションで持っている建物アイテムを選び「設置」ボタンを押す(`GameScene.handlePlaceBuilding`)必要があり、その時点のプレイヤーの現在地に配置され、サーバーへ`craft-building`メッセージが送られる(「作る→アイテム化→設置」の2段階、コミット`ad127a0`)。`ItemsPanel`は旧`BuildingItemsPanel`(設置)と旧`EquipmentPanel`(装備・防具切替)を1つの「🎒 アイテム」メニューに統合したもの(2026-08-18)。
 - `Health`: HP管理のみを担当し、ゲームオーバー処理自体は持たない。`damage()`はHPが0になった瞬間のみ`true`を返し、以降の分岐(復活/ゲームオーバー)は呼び出し側(`GameScene`)に委ねる設計。
 - ゲームオーバー〜再開フロー(`GameScene.handlePlayerDefeated`等):
   1. HPが0になると、まず「トーテム」所持で1HP復活を試みる。
@@ -225,7 +224,7 @@ const MAX_PLAYERS = 4;
 
 セーブ/ロード・エクスポート/インポート関連のメッセージ型(`save-game`/`load-game`/`export-game`等)は2026-08-17の機能削除で撤去済み。
 
-**インベントリ・HP・満腹度・スタミナ・実績・装備・クエスト等はサーバーに存在しない**。すべてクライアントの`localStorage`に個人単位で保持され、ネットワーク同期されない(プレイヤーごとの見た目・所持品は他プレイヤーの画面には反映されない)。サーバーが同期・永続化するのは「プレイヤーのリアルタイム位置」と「拠点に設置された建物」のみ。
+**インベントリ・HP・満腹度・スタミナ・装備・クエスト等はサーバーに存在しない**。すべてクライアントの`localStorage`に個人単位で保持され、ネットワーク同期されない(プレイヤーごとの見た目・所持品は他プレイヤーの画面には反映されない)。サーバーが同期・永続化するのは「プレイヤーのリアルタイム位置」と「拠点に設置された建物」のみ。
 
 ---
 

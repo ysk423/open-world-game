@@ -25,7 +25,13 @@ export async function requestGameReset(roomId: string): Promise<void> {
 }
 
 export type RoomClientEvents = {
-  onInit: (selfId: string, players: PlayerState[], buildings: PlacedBuilding[], worldSeed: number) => void;
+  onInit: (
+    selfId: string,
+    players: PlayerState[],
+    buildings: PlacedBuilding[],
+    worldSeed: number,
+    roomStartedAt: number,
+  ) => void;
   onPlayerJoined: (player: PlayerState) => void;
   onPlayerMoved: (id: string, x: number, y: number, direction: Direction, animState: AnimState) => void;
   onPlayerLeft: (id: string) => void;
@@ -53,7 +59,7 @@ export class RoomClient {
       const message = JSON.parse(event.data as string) as ServerMessage;
       switch (message.type) {
         case "init":
-          events.onInit(message.selfId, message.players, message.buildings, message.worldSeed);
+          events.onInit(message.selfId, message.players, message.buildings, message.worldSeed, message.roomStartedAt);
           break;
         case "player-joined":
           events.onPlayerJoined(message.player);

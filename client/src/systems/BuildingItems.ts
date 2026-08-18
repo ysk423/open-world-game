@@ -14,7 +14,7 @@ function emptyCounts(): Counts {
 
 /**
  * クラフトした建物は即座にワールドへ配置されるのではなく、いったんこの「持ち物」に入る。
- * 実際の配置はBuildingItemsPanelの「設置」操作で行う(作る→アイテム化→使う、の2段階)。
+ * 実際の配置はItemsPanelの「設置」操作で行う(作る→アイテム化→使う、の2段階)。
  * Inventoryと同じCountsパターンだが、素材(ItemId)とは別の名前空間として扱う。
  */
 export class BuildingItems {

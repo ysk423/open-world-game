@@ -29,7 +29,7 @@ export type Recipe = {
   effect: RecipeEffect;
 };
 
-/** 建物の表示名。BuildingItems/BuildingItemsPanelでの表示にも使う */
+/** 建物の表示名。BuildingItems/ItemsPanelでの表示にも使う */
 export const BUILDING_TYPE_NAME: Record<BuildingType, string> = {
   flower_bed: "花壇",
   storage_shed: "倉庫",
