@@ -30,11 +30,7 @@ import { StoragePanel } from "../ui/StoragePanel";
 import { Tools } from "../systems/Tools";
 import { Quests, getQuestForNpc } from "../systems/Quests";
 import { Affinity, AFFINITY_MILESTONE_STEP } from "../systems/Affinity";
-import { Stats } from "../systems/Stats";
-import { StatsPanel } from "../ui/StatsPanel";
-import { ACHIEVEMENTS } from "../systems/Achievements";
 import { recordSurvivalMs, formatSurvivalTime, getBestSurvivalMs } from "../systems/SurvivalRecord";
-import { hasClaimedAchievementReward, markAchievementRewardClaimed } from "../systems/AchievementReward";
 import { generateWorldContent } from "../systems/WorldContentGenerator";
 import { generateWorldMap } from "../systems/WorldMapGenerator";
 import { getCycleProgress, getNightIntensity, isNight, CYCLE_DURATION_MS } from "../systems/DayNightCycle";
@@ -63,9 +59,6 @@ const ROCK_GID = 4;
 
 // タイル/スプライトは32px(素材を16pxから倍の解像度に描き直した際に合わせて倍増)。
 const TILE_SIZE = 32;
-
-// ドラクエ風の「世界地図」。ミニマップより大きく描画してワールド全体を見渡せるようにする
-const WORLD_MAP_SIZE = 360;
 
 // スポーン地点(縦の道の上、タイル座標。ワールド全体の座標系。
 // マップを2倍スケール(4倍面積)に拡張したのに合わせて元の(19,40)を2倍にしてある)
@@ -186,10 +179,6 @@ const BOSS_REWARD_MULTIPLIER = 10;
 const BOSS_TIER_REWARD_STEP = 0.5;
 const BOSS_RESPAWN_DELAY_MS = 90000;
 
-// ポケモンの図鑑コンプリート報酬を参考にした、実績を全て達成した時の一度きりのボーナス
-const ACHIEVEMENT_REWARD_COINS = 100;
-const ACHIEVEMENT_REWARD_EXP = 200;
-
 // DQ/牧場物語風の宿屋。コインを払うとHPが全回復する
 const INN_HEAL_COST = 5;
 
@@ -292,7 +281,6 @@ export class GameScene extends Phaser.Scene {
   private tools!: Tools;
   private quests!: Quests;
   private affinity!: Affinity;
-  private stats!: Stats;
   private experience!: Experience;
   private craftMenu!: CraftMenu;
   private buildingItems!: BuildingItems;
@@ -348,8 +336,6 @@ export class GameScene extends Phaser.Scene {
   private craftTable!: CraftTable;
   private shopPanel!: ShopPanel;
   private minimap!: Minimap;
-  private worldMap?: Minimap;
-  private worldMapToggle?: HTMLButtonElement;
   private nightOverlay!: Phaser.GameObjects.Rectangle;
   private rainOverlay!: Phaser.GameObjects.Rectangle;
   private rainEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -414,9 +400,7 @@ export class GameScene extends Phaser.Scene {
     this.tools = new Tools();
     this.quests = new Quests();
     this.affinity = new Affinity();
-    this.stats = new Stats();
     this.experience = new Experience();
-    const statsPanel = new StatsPanel(this.stats, this.experience);
     new InventoryHud(this.inventory);
     this.craftMenu = new CraftMenu(
       this.inventory,
@@ -462,7 +446,6 @@ export class GameScene extends Phaser.Scene {
         close: () => buildingItemsPanel.close(),
       },
       { icon: "⚔️", label: "装備", open: () => equipmentPanel.open(), close: () => equipmentPanel.close() },
-      { icon: "📖", label: "図鑑", open: () => statsPanel.open(), close: () => statsPanel.close() },
       { icon: "❓", label: "操作方法", open: () => helpPanel.open(), close: () => helpPanel.close() },
     ]);
 
@@ -519,8 +502,6 @@ export class GameScene extends Phaser.Scene {
 
     this.setupNetworking();
 
-    this.stats.onChange(() => this.checkAchievementCompletion());
-    this.experience.onChange(() => this.checkAchievementCompletion());
   }
 
   private setupNetworking(): void {
@@ -718,9 +699,6 @@ export class GameScene extends Phaser.Scene {
     const season = getSeason(Date.now());
     const seasonLabel = `${SEASON_ICON[season]} ${SEASON_NAME[season]}`;
     this.minimap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
-    if (this.worldMap && this.worldMap.element.style.display !== "none") {
-      this.worldMap.render(this.player.sprite.x, this.player.sprite.y, points, seasonLabel);
-    }
   }
 
   private updateSurvivalTimer(): void {
@@ -831,18 +809,6 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.setBounds(0, 0, mapWidthPx, mapHeightPx);
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
       this.minimap = new Minimap(mapWidthPx, mapHeightPx);
-
-      // ドラクエ風の「世界地図」。ミニマップと同じ内容を、トグルで開く大きな全体マップとして表示する
-      this.worldMap = new Minimap(mapWidthPx, mapHeightPx, "world-map", WORLD_MAP_SIZE);
-      this.worldMap.element.style.display = "none";
-      this.worldMapToggle = document.createElement("button");
-      this.worldMapToggle.id = "world-map-toggle";
-      this.worldMapToggle.textContent = "🗺️";
-      this.worldMapToggle.addEventListener("click", () => {
-        const isOpen = this.worldMap!.element.style.display !== "none";
-        this.worldMap!.element.style.display = isOpen ? "none" : "block";
-      });
-      getHudRoot().appendChild(this.worldMapToggle);
 
       // 昼夜サイクルの暗さを表現するオーバーレイ(カメラに固定し、UI用の文字表示より下に描画する)
       this.nightOverlay = this.add
@@ -1127,7 +1093,7 @@ export class GameScene extends Phaser.Scene {
   private showFloatingMessage(message: string): void {
     const text = this.add
       .text(this.player.sprite.x, this.player.sprite.y - 20, message, {
-        fontSize: "10px",
+        fontSize: "12px",
         color: "#ffffff",
         backgroundColor: "#00000099",
         padding: { x: 4, y: 2 },
@@ -1256,20 +1222,6 @@ export class GameScene extends Phaser.Scene {
     if (newLevel === null) return;
     this.syncMaxHpFromLevel();
     this.showFloatingMessage(`レベルアップ!Lv.${newLevel}`);
-  }
-
-  /** ポケモンの図鑑コンプリート報酬を参考に、全実績を達成したら一度だけボーナスを贈る */
-  private checkAchievementCompletion(): void {
-    if (hasClaimedAchievementReward()) return;
-    const snapshot = this.stats.getSnapshot();
-    const level = this.experience.getLevel();
-    const allUnlocked = ACHIEVEMENTS.every((achievement) => achievement.isUnlocked(snapshot, level));
-    if (!allUnlocked) return;
-
-    markAchievementRewardClaimed();
-    this.inventory.add("coin", ACHIEVEMENT_REWARD_COINS);
-    this.grantExp(ACHIEVEMENT_REWARD_EXP);
-    this.showFloatingMessage(`🏆 全実績達成!ボーナス(+${ACHIEVEMENT_REWARD_COINS}💰)を獲得!`);
   }
 
   // ---------- 戦闘 ----------
@@ -1469,9 +1421,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.grantExp(MONSTER_EXP * rewardMultiplier);
-    this.stats.recordMonsterDefeat(monster.isRare);
     if (monster.isBoss) {
-      this.stats.recordBossDefeated();
       this.showFloatingMessage("👑 ボスを倒した!");
     } else if (monster.isRare) {
       this.showFloatingMessage("★ レアモンスターを倒した!");
@@ -1502,7 +1452,6 @@ export class GameScene extends Phaser.Scene {
         const result = closestPet.collectProduce(this);
         if (result.collected) {
           this.inventory.add("milk", 1);
-          this.stats.recordGather("milk", 1);
           this.showGatherFeedback(closestPet.sprite.x, closestPet.sprite.y, "milk", 1);
           this.sound.play("sfx-gather", { volume: 0.5 });
           const petLabel = closestPet.petNickname ?? "相棒";
@@ -1597,7 +1546,6 @@ export class GameScene extends Phaser.Scene {
       this.sound.play("sfx-gather", { volume: 0.5 });
       this.scheduleAnimalRespawn();
       this.grantExp(ANIMAL_EXP * ANIMAL_FEED_EXP_MULTIPLIER * rewardMultiplier);
-      this.stats.recordAnimalBefriended();
       return true;
     }
 
@@ -1612,7 +1560,6 @@ export class GameScene extends Phaser.Scene {
       animal.destroy();
       this.scheduleAnimalRespawn();
       this.grantExp(ANIMAL_EXP);
-      this.stats.recordAnimalDefeat();
     }
     return true;
   }
@@ -1668,7 +1615,6 @@ export class GameScene extends Phaser.Scene {
     // 牧場物語風、クエスト達成後も同じ好物を渡すと少しずつなかよくなれる
     if (quest && this.inventory.spend({ [quest.requestItem]: 1 } as Partial<Record<ItemId, number>>)) {
       const reachedMilestone = this.affinity.add(closest.npcName);
-      this.stats.recordGiftGiven();
       this.inventory.add("coin", 1);
       this.showGatherFeedback(closest.worldX, closest.worldY, "coin", 1);
       if (reachedMilestone) {
@@ -1691,7 +1637,7 @@ export class GameScene extends Phaser.Scene {
   private showDialogue(x: number, y: number, npcName: string, dialogue: string): void {
     const text = this.add
       .text(x, y - 22, `${npcName}: ${dialogue}`, {
-        fontSize: "9px",
+        fontSize: "11px",
         color: "#ffffff",
         backgroundColor: "#000000cc",
         padding: { x: 5, y: 4 },
@@ -1736,7 +1682,6 @@ export class GameScene extends Phaser.Scene {
       const harvested = closest.harvest();
       if (harvested) {
         this.inventory.add(harvested.itemId, harvested.amount);
-        this.stats.recordGather(harvested.itemId, harvested.amount);
         this.sound.play("sfx-gather", { volume: 0.5 });
         this.showGatherFeedback(closest.worldX, closest.worldY, harvested.itemId, harvested.amount);
         if (harvested.highQuality) {
@@ -1982,7 +1927,6 @@ export class GameScene extends Phaser.Scene {
 
     this.flowerBedPlantedAt.set(closest, Date.now());
     this.inventory.add("herb", yieldAmount);
-    this.stats.recordGather("herb", yieldAmount);
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "herb", yieldAmount);
     return true;
@@ -2071,7 +2015,6 @@ export class GameScene extends Phaser.Scene {
 
     this.beehiveHarvestedAt.set(closest, Date.now());
     this.inventory.add("honey", yieldAmount);
-    this.stats.recordGather("honey", yieldAmount);
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.showGatherFeedback(closest.sprite.x, closest.sprite.y, "honey", yieldAmount);
 
@@ -2133,7 +2076,6 @@ export class GameScene extends Phaser.Scene {
     this.rocks = this.rocks.filter((r) => r !== closest);
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add("stone", 1);
-    this.stats.recordGather("stone", 1);
     this.showGatherFeedback(closest.worldX, closest.worldY, "stone", 1);
     closest.destroy();
     return true;
@@ -2171,7 +2113,6 @@ export class GameScene extends Phaser.Scene {
     this.chests = this.chests.filter((c) => c !== chest);
     const coinReward = Phaser.Math.Between(CHEST_MIN_COIN_REWARD, CHEST_MAX_COIN_REWARD);
     this.inventory.add("coin", coinReward);
-    this.stats.recordChestOpened();
     this.showGatherFeedback(chest.worldX, chest.worldY, "coin", coinReward);
     this.showFloatingMessage("🎁 宝箱を開けた!");
     this.sound.play("sfx-craft", { volume: 0.5 });
@@ -2204,7 +2145,6 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.random() < FISH_SUCCESS_CHANCE) {
       this.inventory.add("fish", 1);
-      this.stats.recordGather("fish", 1);
       this.grantExp(FISH_EXP);
       this.sound.play("sfx-gather", { volume: 0.5 });
       this.showGatherFeedback(point.worldX, point.worldY, "fish", 1);
@@ -2393,14 +2333,13 @@ export class GameScene extends Phaser.Scene {
 
     this.sound.play("sfx-gather", { volume: 0.5 });
     this.inventory.add(closest.itemId, amount);
-    this.stats.recordGather(closest.itemId, amount);
     this.showGatherFeedback(closest.worldX, closest.worldY, closest.itemId, amount);
     return true;
   }
 
   private showGatherFeedback(x: number, y: number, itemId: ItemId, amount = 1): void {
     const text = this.add
-      .text(x, y - 12, `+${amount} ${ITEM_ICON[itemId]}`, { fontSize: "10px", color: "#ffffff" })
+      .text(x, y - 12, `+${amount} ${ITEM_ICON[itemId]}`, { fontSize: "12px", color: "#ffffff" })
       .setOrigin(0.5, 1)
       .setDepth(20);
     this.tweens.add({

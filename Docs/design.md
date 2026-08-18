@@ -73,15 +73,15 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
     /input      InputManager.ts        # キーボード/マウス/タッチ入力の抽象化層
     /net        RoomClient.ts joinInfo.ts types.ts   # WebSocket通信・状態同期
     /scenes     GameScene.ts           # 唯一のPhaserシーン(約2400行)
-    /systems    AchievementReward.ts Achievements.ts Affinity.ts BuildingItems.ts
+    /systems    Affinity.ts BuildingItems.ts
                 DayNightCycle.ts Equipment.ts Experience.ts Health.ts Hunger.ts
-                Inventory.ts Quests.ts Season.ts Stamina.ts Stats.ts
+                Inventory.ts Quests.ts Season.ts Stamina.ts
                 Storage.ts SurvivalRecord.ts Tools.ts Weather.ts
                 WorldContentGenerator.ts WorldMapGenerator.ts recipes.ts
     /ui         ActionButton.ts BuildingItemsPanel.ts CraftMenu.ts EquipmentPanel.ts
                 ExperienceHud.ts HealthHud.ts HelpPanel.ts HungerHud.ts InventoryHud.ts
                 MenuHub.ts Minimap.ts ShopPanel.ts SprintButton.ts
-                StaminaHud.ts StatsPanel.ts StoragePanel.ts TouchDPad.ts
+                StaminaHud.ts StoragePanel.ts TouchDPad.ts
     /utils      device.ts
     main.ts     style.css
   /public
@@ -125,7 +125,7 @@ Node.js常駐サーバー前提のフレームワーク(Colyseus等)はCloudflar
 - その他のキー割り当て: Space=ダッシュ、T=拠点へのルーラ(ワープ)、F=とくぎ、H=ホイミ(回復呪文)、B=盾(押している間ブロック)、V=ペットの追従/待機切替、G=イオナズン(範囲攻撃)。
   - `InputManager.handlePointerDown`は右クリックを早期returnで無視する(エンダーパールのテレポート機能を2026-08-17に削除した名残)。
 - タッチUI: `TouchDPad`(移動)、`ActionButton`(Xキー相当のアクション)、`SprintButton`(ダッシュ)。
-- 画面レイアウト(2026-08-18〜): `index.html`に`#hud-row`(上段)/`#app`(中段=ゲーム画面)/`#controls-row`(下段)を用意し、HUD系(`HealthHud`/`ExperienceHud`/`StaminaHud`/`HungerHud`/`InventoryHud`/`Minimap`/`MenuHub`のトグルボタン/`world-map-toggle`/生存時間HUD)は`getHudRoot()`(`client/src/ui/layoutRoots.ts`)経由で`#hud-row`へ、タッチ操作系(`TouchDPad`/`ActionButton`/`SprintButton`)は`getControlsRoot()`経由で`#controls-row`へ追加する。横持ち/デスクトップではこれらの要素は従来どおり`position:fixed`で画面端に固定されるため、どのコンテナの子であるかは見た目に影響しない。縦持ち時のみ`style.css`の`@media (orientation: portrait)`が`body`を縦方向のflexカラムにし、該当要素を`position:static`へ戻して通常フローに乗せることで、上段=HUD・中段=ゲーム画面・下段=操作ボタンの3段構成にする(以前は全要素が画面全体基準の`position:fixed`だったため、横長固定の内部解像度がFITで縮小されるとHUDがゲーム画面に重なり、操作ボタンとの間に大きな空白ができていた)。
+- 画面レイアウト(2026-08-18〜): `index.html`に`#hud-row`(上段)/`#app`(中段=ゲーム画面)/`#controls-row`(下段)を用意し、HUD系(`HealthHud`/`ExperienceHud`/`StaminaHud`/`HungerHud`/`InventoryHud`/`Minimap`/`MenuHub`のトグルボタン/生存時間HUD)は`getHudRoot()`(`client/src/ui/layoutRoots.ts`)経由で`#hud-row`へ、タッチ操作系(`TouchDPad`/`ActionButton`/`SprintButton`)は`getControlsRoot()`経由で`#controls-row`へ追加する。横持ち/デスクトップではこれらの要素は従来どおり`position:fixed`で画面端に固定されるため、どのコンテナの子であるかは見た目に影響しない。縦持ち時のみ`style.css`の`@media (orientation: portrait)`が`body`を縦方向のflexカラムにし、該当要素を`position:static`へ戻して通常フローに乗せることで、上段=HUD・中段=ゲーム画面・下段=操作ボタンの3段構成にする(以前は全要素が画面全体基準の`position:fixed`だったため、横長固定の内部解像度がFITで縮小されるとHUDがゲーム画面に重なり、操作ボタンとの間に大きな空白ができていた)。
 
 ---
 
@@ -157,7 +157,7 @@ TypeScriptコード側の変更ではなく、`client/scripts/generate-placehold
   3. ボタン押下でサーバーへHTTPのリセットリクエストを送信し、サーバーが`game-reset`をブロードキャストするまでオーバーレイは消えない(=拠点/ワールド全体は自動リセットされない。プレイヤーの明示操作を待つ)。
   4. `game-reset`受信で建物・インベントリ・所持している未設置の建物アイテム(`BuildingItems`)・HP・ワールドコンテンツ・リスポーン地点をすべて初期化し、再接続する。
 - リスポーン地点(`respawnPoint`): 常にスポーン地点固定(ベッドで更新する仕組みは2026-08-17に削除)。ワープ(Tキー)はこの地点へ移動する。
-- そのほかのシステム: `Achievements`/`AchievementReward`(実績と報酬)、`Affinity`(NPC親密度・簡易版)、`DayNightCycle`(昼夜)、`Equipment`(武器/防具切替)、`Experience`/`Stats`(レベル・経験値)、`Hunger`/`Stamina`(満腹度・スタミナ)、`Quests`、`Season`/`Weather`(季節・天候)、`Storage`(倉庫(storage_shed)に話しかけて開く預け入れ用ストレージ。旧エンダーチェスト機能の削除後、`storage_shed`に統合)、`SurvivalRecord`(生存時間の記録)、`WorldContentGenerator`(後述)。セーブスロット機能(`SaveSlots`/`ExportImport`)は2026-08-17に削除。
+- そのほかのシステム: `Affinity`(NPC親密度・簡易版)、`DayNightCycle`(昼夜)、`Equipment`(武器/防具切替)、`Experience`(レベル・経験値)、`Hunger`/`Stamina`(満腹度・スタミナ)、`Quests`、`Season`/`Weather`(季節・天候)、`Storage`(倉庫(storage_shed)に話しかけて開く預け入れ用ストレージ。旧エンダーチェスト機能の削除後、`storage_shed`に統合)、`SurvivalRecord`(生存時間の記録)、`WorldContentGenerator`(後述)。セーブスロット機能(`SaveSlots`/`ExportImport`)は2026-08-17に削除。実績・生涯累計記録(`Stats`/`Achievements`/`AchievementReward`/`StatsPanel`、メニューの「図鑑」)とワールドマップ全体表示(`worldMap`/`world-map-toggle`、ミニマップのトグルで開く大きい版)は2026-08-18に削除。ミニマップ(常時表示)のみ残っている。
 
 ---
 

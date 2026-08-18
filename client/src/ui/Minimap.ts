@@ -7,8 +7,6 @@ const DEFAULT_SIZE = 120;
 /**
  * ドラクエ・ポケモン風の簡易ミニマップ。ワールド全体を小さな正方形に縮小して描画し、
  * プレイヤーとショップ・建物・NPCの現在位置を点で表示する。
- * サイズ・要素idを指定できるので、常時表示の小さいミニマップと、DQ風の全体マップ表示
- * (トグルで開く大きい版)の両方をこのクラスの別インスタンスとして使い回せる。
  */
 export class Minimap {
   private canvas: HTMLCanvasElement;
@@ -30,8 +28,6 @@ export class Minimap {
     this.canvas.id = elementId;
     this.canvas.width = size;
     this.canvas.height = size;
-    // world-map(全体マップ)側はposition:fixedのままなので、hud-rowの子になっても
-    // 通常フローに参加せず中央固定オーバーレイとして表示され続ける
     getHudRoot().appendChild(this.canvas);
 
     const ctx = this.canvas.getContext("2d");
